@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { AssistantMessage } from "@/app/_components/assistant-message";
 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 
@@ -225,7 +226,7 @@ function MemoryPanel({
                     type="button"
                     onClick={() => onDelete(m.id)}
                     aria-label="Eliminar nota"
-                    className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
+                    className="-mr-1 shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 md:text-slate-600 md:opacity-0 md:transition md:group-hover:opacity-100"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -270,6 +271,32 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [newMemory, setNewMemory] = useState("");
   const [isSavingMemory, setIsSavingMemory] = useState(false);
   const hasRestoredProject = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow the chat textarea as the user types (up to max-h-36).
+  function autoGrowTextarea() {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 144)}px`; // 144px = max-h-36
+  }
+
+  // Reset height when input is cleared (e.g., after sending).
+  useEffect(() => {
+    if (input === "" && textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  }, [input]);
+
+  // Close the mobile drawer on Escape.
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setSidebarOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   const displayName = profile.full_name?.trim() || "Profesional";
   const initials = initialsFromName(displayName);
@@ -536,6 +563,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     setShowMemory(false);
     setError(null);
     setInput("");
+    setSidebarOpen(false);
   }
 
   async function handleSignOut() {
@@ -545,7 +573,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   }
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#050b14] text-slate-200">
+    <div className="relative flex h-dvh overflow-hidden bg-[#050b14] text-slate-200">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
@@ -563,39 +591,46 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         <button
           type="button"
           aria-label="Cerrar menú"
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/[0.06] bg-[#080f1c]/95 shadow-2xl shadow-black/40 backdrop-blur-xl transition-all duration-300 lg:static ${
-          sidebarCollapsed ? "w-[72px]" : "w-[280px]"
-        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        className={`fixed inset-y-0 left-0 top-0 z-50 flex flex-col border-r border-white/[0.06] bg-[#080f1c]/95 pt-[env(safe-area-inset-top)] shadow-2xl shadow-black/40 backdrop-blur-xl transition-all duration-300 md:static md:w-[72px] md:translate-x-0 lg:w-[280px] ${
+          sidebarCollapsed ? "lg:w-[72px]" : "lg:w-[280px]"
+        } ${sidebarOpen ? "w-[280px] translate-x-0" : "w-[280px] -translate-x-full md:translate-x-0"}`}
       >
         <div
           className={`border-b border-white/[0.06] py-5 ${
-            sidebarCollapsed ? "flex justify-center px-2" : "px-5"
+            sidebarCollapsed ? "flex justify-center px-2" : "px-5 md:flex md:justify-center md:px-2 lg:px-5 lg:block"
           }`}
         >
-          {sidebarCollapsed ? (
+          {(sidebarCollapsed) ? (
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-xs font-bold text-white shadow-lg shadow-blue-900/50">
               OH
             </div>
           ) : (
-            <div className="pr-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-400/80">
-                ObraHub
-              </p>
-              <p className="mt-1 text-sm font-medium leading-snug text-slate-300">
-                Asistente Técnico para Construcción
-              </p>
+            <>
+            <div className="hidden lg:block">
+              <div className="pr-8">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-400/80">
+                  ObraHub
+                </p>
+                <p className="mt-1 text-sm font-medium leading-snug text-slate-300">
+                  Asistente Técnico para Construcción
+                </p>
+              </div>
             </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-xs font-bold text-white shadow-lg shadow-blue-900/50 lg:hidden">
+              OH
+            </div>
+            </>
           )}
           <button
             type="button"
             aria-label="Cerrar sidebar"
-            className="absolute right-3 top-5 rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white lg:hidden"
+            className="absolute right-3 top-[calc(env(safe-area-inset-top)+1.25rem)] rounded-lg p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white md:hidden"
             onClick={() => setSidebarOpen(false)}
           >
             <Icon className="h-5 w-5">
@@ -609,18 +644,18 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             type="button"
             title="Nueva consulta"
             onClick={startNewChat}
-            className={`flex w-full items-center gap-2.5 rounded-xl border border-blue-500/20 bg-blue-600/10 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition hover:border-blue-400/30 hover:bg-blue-600/20 ${
-              sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3.5 py-2.5"
+            className={`flex w-full items-center gap-2.5 rounded-xl border border-blue-500/20 bg-blue-600/10 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition hover:border-blue-400/30 hover:bg-blue-600/20 md:justify-center md:px-2 lg:justify-start ${
+              sidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-start px-3.5 py-2.5 lg:px-3.5"
             }`}
           >
             <Icon className="h-4 w-4 shrink-0 text-blue-400" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </Icon>
-            {!sidebarCollapsed && "Nueva consulta"}
+            {!sidebarCollapsed && <span className="md:hidden lg:inline">Nueva consulta</span>}
           </button>
 
           {!sidebarCollapsed && (
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 space-y-6 md:hidden lg:block">
               <section>
                 <div className="mb-2 flex items-center justify-between px-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -632,7 +667,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                       setShowCreateProject(true);
                       setProjectError(null);
                     }}
-                    className="text-xs font-medium text-blue-400 transition hover:text-blue-300"
+                    className="-mr-1 rounded-md px-1.5 py-1 text-xs font-medium text-blue-400 transition hover:bg-blue-500/10 hover:text-blue-300"
                   >
                     + Nuevo Proyecto
                   </button>
@@ -726,14 +761,14 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             <Link
               href="/profile"
               className={`flex items-center rounded-xl transition hover:bg-white/[0.03] ${
-                sidebarCollapsed ? "justify-center p-2" : "gap-3 px-2 py-2"
+                sidebarCollapsed ? "justify-center p-2" : "gap-3 px-2 py-2 md:justify-center md:p-2 lg:gap-3 lg:px-2 lg:py-2"
               }`}
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-xs font-semibold text-white shadow-md shadow-blue-900/40 ring-2 ring-blue-500/20">
                 {initials}
               </div>
               {!sidebarCollapsed && (
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 md:hidden lg:block">
                   <p className="truncate text-sm font-medium text-slate-200">{displayName}</p>
                   <p className="truncate text-xs text-slate-500">
                     {profile.profession_type || "Plan gratuito"}
@@ -745,7 +780,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-sm text-slate-500 transition hover:bg-white/[0.03] hover:text-red-400"
+                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-sm text-slate-500 transition hover:bg-white/[0.03] hover:text-red-400 md:hidden lg:flex"
               >
                 <Icon className="h-4 w-4 shrink-0">
                   <path
@@ -776,28 +811,29 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       </aside>
 
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#050b14]/80 px-4 py-3.5 backdrop-blur-xl sm:px-6">
-          <div className="flex items-center gap-3">
+        <header className="flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#050b14]/80 px-4 py-3.5 pt-[calc(env(safe-area-inset-top)+0.875rem)] backdrop-blur-xl sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               aria-label="Abrir menú"
-              className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-white lg:hidden"
+              aria-expanded={sidebarOpen}
+              className="shrink-0 rounded-lg p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white md:hidden"
               onClick={() => setSidebarOpen(true)}
             >
               <Icon className="h-5 w-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </Icon>
             </button>
-            <div>
+            <div className="min-w-0">
               <Logo size="large" />
               {activeProject && (
-                <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
+                <p className="mt-0.5 truncate text-xs text-slate-500 sm:text-sm">
                   Proyecto: <span className="text-slate-300">{activeProject.name}</span>
                 </p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {activeProjectSlug && (
               <button
                 type="button"
@@ -815,7 +851,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
               NSR-10 Colombia
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
+            <span className="hidden items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400 sm:inline-flex">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -1005,7 +1041,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                             OH
                           </div>
                           <div className="max-w-[88%] rounded-2xl rounded-tl-md border border-white/[0.08] bg-[#0a1120]/90 px-4 py-4 text-sm leading-relaxed text-slate-300 shadow-sm sm:max-w-[80%]">
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            <AssistantMessage content={msg.content} />
                           </div>
                         </div>
                       ),
@@ -1044,13 +1080,17 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-white/[0.04] bg-[#050b14]/60 px-4 pb-4 pt-3 backdrop-blur-xl sm:px-6 sm:pb-6">
+          <div className="shrink-0 border-t border-white/[0.04] bg-[#050b14]/60 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 backdrop-blur-xl sm:px-6 sm:pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
             <div className={`mx-auto w-full ${showHero ? "max-w-5xl" : "max-w-3xl"}`}>
               <div className="relative flex items-end rounded-2xl border border-white/[0.08] bg-[#0a1120]/90 shadow-2xl shadow-black/30 ring-1 ring-white/[0.04] backdrop-blur-sm transition focus-within:border-blue-500/40 focus-within:ring-blue-500/15">
                 <textarea
+                  ref={textareaRef}
                   rows={1}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    autoGrowTextarea();
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -1059,7 +1099,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   }}
                   placeholder="Pregunte sobre NSR-10, estructuras, concreto, mampostería, geotecnia, diseño sísmico y construcción..."
                   disabled={isLoading}
-                  className="max-h-36 min-h-[54px] flex-1 resize-none bg-transparent px-4 py-3.5 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none disabled:opacity-50 sm:px-5"
+                  className="max-h-36 min-h-[54px] flex-1 resize-none bg-transparent px-4 py-3.5 text-base text-slate-200 placeholder:text-slate-500 focus:outline-none disabled:opacity-50 sm:px-5 sm:text-sm"
                 />
                 <button
                   type="button"

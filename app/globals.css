@@ -17,3 +17,25 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/*
+ * Prevent iOS Safari from auto-zooming when an input is focused.
+ * Any input under 16px triggers the zoom; 16px is the universal fix.
+ * Desktop keeps the design intent via the sm: breakpoint overrides.
+ */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Safe-area helpers for notched/home-indicator devices (requires viewport-fit=cover). */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+

@@ -43,7 +43,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050b14] px-4 text-slate-200">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#050b14] px-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-slate-200">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
