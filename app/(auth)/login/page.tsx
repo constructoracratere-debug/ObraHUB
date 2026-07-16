@@ -1,20 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"email" | "code">("email");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const codeInputRef = useRef<HTMLInputElement>(null);
 
-  // If we arrived here from a failed code exchange, show a helpful message
-  // explaining the mobile in-app browser issue.
-  const authError =
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("error");
-
-  async function handleSubmit(e: React.FormEvent) {
+  // Step 1 — request the 6-digit code via email OTP (no redirect link).
+  async function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
     const value = email.trim();
     if (!value || isSubmitting) return;
@@ -27,7 +27,9 @@ export default function LoginPage() {
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: value,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // No emailRedirectTo — we use the 6-digit token instead of a link,
+          // so there is no redirect and no in-app-browser context problem.
+          shouldCreateUser: true,
         },
       });
 
@@ -35,16 +37,59 @@ export default function LoginPage() {
         throw otpError;
       }
 
-      setSent(true);
+      setStep("code");
+      // Focus the code input for quick entry.
+      setTimeout(() => codeInputRef.current?.focus(), 50);
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "No se pudo enviar el enlace. Intente de nuevo.",
+          : "No se pudo enviar el código. Intente de nuevo.",
       );
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  // Step 2 — verify the 6-digit code the user received by email.
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    const value = code.trim();
+    if (!value || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: value,
+        type: "email",
+      });
+
+      if (verifyError) {
+        throw verifyError;
+      }
+
+      // Session is now set in this browser context. Go to the app.
+      router.replace("/");
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Código inválido. Verifique e intente de nuevo.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function resetToEmailStep() {
+    setStep("email");
+    setCode("");
+    setError(null);
   }
 
   return (
@@ -72,48 +117,8 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {authError && (
-            <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3.5 text-sm leading-relaxed text-amber-300">
-              <p className="font-medium">No se pudo completar el inicio de sesión</p>
-              <p className="mt-1 text-xs text-amber-400/80">
-                Si abriste el enlace desde una app de correo (Gmail, Mail), el enlace
-                se abrió en un navegador interno que no comparte la sesión. Copia el
-                enlace, pégalo en Safari o Chrome directamente, o vuelve a intentarlo.
-              </p>
-            </div>
-          )}
-
-          {sent ? (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-5 text-center">
-                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-white">Revisa tu correo ✉️</p>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
-                  Hemos enviado un enlace de acceso a
-                </p>
-                <p className="mt-0.5 text-sm font-medium text-blue-300">{email}</p>
-                <p className="mt-3 text-xs leading-relaxed text-slate-500">
-                  El enlace expira en breve. Si no recibes el correo en unos minutos,
-                  revisa la carpeta de spam.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSent(false);
-                  setEmail("");
-                }}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-2.5 text-sm text-slate-400 transition hover:bg-white/[0.05] hover:text-white"
-              >
-                Usar otro correo
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+          {step === "email" ? (
+            <form onSubmit={handleSendCode} className="space-y-4">
               <div>
                 <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-300">
                   Correo electrónico
@@ -128,7 +133,7 @@ export default function LoginPage() {
                   placeholder="nombre@empresa.com"
                   disabled={isSubmitting}
                   autoFocus
-                  className="w-full rounded-xl border border-white/[0.08] bg-[#050b14] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/15 disabled:opacity-50"
+                  className="w-full rounded-xl border border-white/[0.08] bg-[#050b14] px-4 py-3 text-base text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/15 disabled:opacity-50 sm:text-sm"
                 />
               </div>
 
@@ -143,12 +148,69 @@ export default function LoginPage() {
                 disabled={!email.trim() || isSubmitting}
                 className="w-full rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blue-900/30 transition hover:from-blue-500 hover:to-blue-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
               >
-                {isSubmitting ? "Enviando…" : "Enviar enlace mágico"}
+                {isSubmitting ? "Enviando…" : "Enviar código"}
               </button>
 
               <p className="text-center text-xs leading-relaxed text-slate-500">
-                Te enviaremos un enlace para iniciar sesión sin contraseña.
+                Te enviaremos un código de 6 dígitos por correo para iniciar sesión.
                 Al continuar aceptas los términos del servicio.
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3.5 text-center">
+                <p className="text-sm text-slate-300">
+                  Enviamos un código a
+                </p>
+                <p className="mt-0.5 text-sm font-medium text-blue-300">{email}</p>
+              </div>
+
+              <div>
+                <label htmlFor="code" className="mb-1.5 block text-sm font-medium text-slate-300">
+                  Código de verificación
+                </label>
+                <input
+                  ref={codeInputRef}
+                  id="code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  required
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="123456"
+                  disabled={isSubmitting}
+                  className="w-full rounded-xl border border-white/[0.08] bg-[#050b14] px-4 py-3 text-center text-2xl font-semibold tracking-[0.5em] text-slate-100 placeholder:tracking-[0.5em] placeholder:text-slate-700 focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/15 disabled:opacity-50"
+                />
+              </div>
+
+              {error && (
+                <p className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={code.length !== 6 || isSubmitting}
+                className="w-full rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-blue-900/30 transition hover:from-blue-500 hover:to-blue-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+              >
+                {isSubmitting ? "Verificando…" : "Verificar código"}
+              </button>
+
+              <button
+                type="button"
+                onClick={resetToEmailStep}
+                disabled={isSubmitting}
+                className="w-full text-center text-sm text-slate-400 transition hover:text-white"
+              >
+                ← Usar otro correo
+              </button>
+
+              <p className="text-center text-xs leading-relaxed text-slate-500">
+                Revisa tu correo (incluida la carpeta de spam). El código expira en 10 minutos.
               </p>
             </form>
           )}
