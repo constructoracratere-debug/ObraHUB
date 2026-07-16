@@ -3,6 +3,7 @@ import {
   getConversations,
   isValidProjectSlug,
 } from "@/lib/projects";
+import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 type RouteContext = {
@@ -11,13 +12,22 @@ type RouteContext = {
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
     const { slug } = await context.params;
 
     if (!isValidProjectSlug(slug)) {
       return NextResponse.json({ error: "Invalid project slug" }, { status: 400 });
     }
 
-    const messages = await getConversations(slug);
+    const messages = await getConversations(supabase, slug);
     return NextResponse.json({ messages });
   } catch (error) {
     if (error instanceof Error && error.message === "Project not found") {
@@ -34,6 +44,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
     const { slug } = await context.params;
 
     if (!isValidProjectSlug(slug)) {
@@ -62,7 +81,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const message = await appendConversationMessage(slug, {
+    const message = await appendConversationMessage(supabase, slug, {
       role,
       content: content.trim(),
     });

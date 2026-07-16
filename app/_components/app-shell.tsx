@@ -125,6 +125,122 @@ type Message = {
   timestamp?: string;
 };
 
+type Memory = {
+  id: string;
+  content: string;
+  source: "manual" | "auto";
+  createdAt: string;
+};
+
+function MemoryPanel({
+  memories,
+  open,
+  onToggle,
+  newMemory,
+  setNewMemory,
+  onAdd,
+  onDelete,
+  isSaving,
+}: {
+  memories: Memory[];
+  open: boolean;
+  onToggle: () => void;
+  newMemory: string;
+  setNewMemory: (v: string) => void;
+  onAdd: () => void;
+  onDelete: (id: string) => void;
+  isSaving: boolean;
+}) {
+  return (
+    <div className="mt-8 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-white/[0.02]"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-slate-200">
+          <svg className="h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+          Memoria del proyecto
+          <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-300">
+            {memories.length}
+          </span>
+        </span>
+        <Icon
+          className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </Icon>
+      </button>
+
+      {open && (
+        <div className="border-t border-white/[0.06] px-4 py-4">
+          <p className="mb-3 text-xs leading-relaxed text-slate-500">
+            Notas que el asistente recordará al responder consultas de este proyecto.
+            Ej: &ldquo;edificio de 8 pisos, f&apos;c=28 MPa, suelo tipo D&rdquo;.
+          </p>
+
+          <div className="mb-3 flex gap-2">
+            <input
+              type="text"
+              value={newMemory}
+              onChange={(e) => setNewMemory(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onAdd();
+                }
+              }}
+              placeholder="Añadir una nota del proyecto…"
+              disabled={isSaving}
+              className="flex-1 rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={onAdd}
+              disabled={!newMemory.trim() || isSaving}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSaving ? "…" : "Añadir"}
+            </button>
+          </div>
+
+          {memories.length === 0 ? (
+            <p className="py-2 text-center text-xs text-slate-600">
+              Sin notas aún. El asistente usará estas notas para dar mejores respuestas.
+            </p>
+          ) : (
+            <ul className="space-y-1.5">
+              {memories.map((m) => (
+                <li
+                  key={m.id}
+                  className="group flex items-start gap-2 rounded-lg border border-white/[0.04] bg-white/[0.02] px-3 py-2"
+                >
+                  <span className="min-w-0 flex-1 text-sm leading-relaxed text-slate-300">
+                    {m.content}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(m.id)}
+                    aria-label="Eliminar nota"
+                    className="shrink-0 text-slate-600 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Derives up-to-two uppercase initials from a full name, e.g. "Diego Pineda" -> "DP". */
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -149,6 +265,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [showMemory, setShowMemory] = useState(false);
+  const [newMemory, setNewMemory] = useState("");
+  const [isSavingMemory, setIsSavingMemory] = useState(false);
   const hasRestoredProject = useRef(false);
 
   const displayName = profile.full_name?.trim() || "Profesional";
@@ -285,7 +405,57 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     localStorage.setItem(ACTIVE_PROJECT_KEY, slug);
     setError(null);
     setSidebarOpen(false);
+    setMemories([]);
+    setShowMemory(false);
     void loadProjectConversations(slug);
+    void loadProjectMemories(slug);
+  }
+
+  async function loadProjectMemories(slug: string) {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(slug)}/memories`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setMemories(data.memories ?? []);
+    } catch {
+      setMemories([]);
+    }
+  }
+
+  async function handleAddMemory() {
+    const content = newMemory.trim();
+    const slug = activeProjectSlug;
+    if (!content || !slug || isSavingMemory) return;
+
+    setIsSavingMemory(true);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(slug)}/memories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setMemories((prev) => [data.memory, ...prev]);
+      setNewMemory("");
+    } catch {
+      // ignore — keeps UI responsive
+    } finally {
+      setIsSavingMemory(false);
+    }
+  }
+
+  async function handleDeleteMemory(id: string) {
+    const slug = activeProjectSlug;
+    if (!slug) return;
+    setMemories((prev) => prev.filter((m) => m.id !== id));
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(slug)}/memories?id=${id}`, {
+        method: "DELETE",
+      });
+    } catch {
+      void loadProjectMemories(slug);
+    }
   }
 
   async function sendMessage(text: string) {
@@ -315,7 +485,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, projectSlug: projectSlug ?? undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -362,6 +532,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     setActiveProjectSlug(null);
     localStorage.removeItem(ACTIVE_PROJECT_KEY);
     setMessages([]);
+    setMemories([]);
+    setShowMemory(false);
     setError(null);
     setInput("");
   }
@@ -626,6 +798,19 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {activeProjectSlug && (
+              <button
+                type="button"
+                onClick={() => setShowMemory((v) => !v)}
+                title="Memoria del proyecto"
+                className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-blue-300 transition hover:bg-blue-500/20"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                </svg>
+                {memories.length}
+              </button>
+            )}
             <span className="hidden rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-300 sm:inline-flex sm:items-center sm:gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
               NSR-10 Colombia
@@ -780,10 +965,32 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                         {activeProject?.slug}
                       </span>
                     </div>
+                    <MemoryPanel
+                      memories={memories}
+                      open={showMemory}
+                      onToggle={() => setShowMemory((v) => !v)}
+                      newMemory={newMemory}
+                      setNewMemory={setNewMemory}
+                      onAdd={handleAddMemory}
+                      onDelete={handleDeleteMemory}
+                      isSaving={isSavingMemory}
+                    />
                   </div>
                 </div>
               ) : (
                 <div className="w-full space-y-6 pb-4">
+                  {activeProjectSlug && showMemory && (
+                    <MemoryPanel
+                      memories={memories}
+                      open={showMemory}
+                      onToggle={() => setShowMemory(false)}
+                      newMemory={newMemory}
+                      setNewMemory={setNewMemory}
+                      onAdd={handleAddMemory}
+                      onDelete={handleDeleteMemory}
+                      isSaving={isSavingMemory}
+                    />
+                  )}
                   {messages.length > 0 ? (
                     messages.map((msg, i) =>
                       msg.role === "user" ? (

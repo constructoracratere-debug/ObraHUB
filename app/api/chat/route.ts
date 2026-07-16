@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import OpenAI from "openai";
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 const NSR_PAGES_PATH = path.join(process.cwd(), "Documents", "NSR10_pages.json");
 const NO_ANSWER_MESSAGE = "No se encontró una respuesta clara en la NSR-10.";
@@ -228,7 +229,15 @@ ${question}`;
 
 export async function POST(request: NextRequest) {
   try {
-    let body: { message?: unknown };
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
+    let body: { message?: unknown; projectSlug?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -246,9 +255,9 @@ export async function POST(request: NextRequest) {
     const question = message.trim();
     const keywords = extractKeywords(question);
     const pages = await loadNsrPages();
-    
+
     const results = searchNsr(pages, keywords);
-    
+
     const contextPages = results.map((result) => result.page);
 
     if (results.length === 0) {
@@ -257,8 +266,21 @@ export async function POST(request: NextRequest) {
 
     const context = buildContext(results);
 
-console.log("CONTEXTO ENVIADO:");
-console.log(context.substring(0, 1000));
+    // Load project memory (if a project is active) and inject into the prompt.
+    let memoryPrompt = "";
+    if (typeof body.projectSlug === "string" && body.projectSlug.length > 0) {
+      const { data: projectRow } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("slug", body.projectSlug)
+        .maybeSingle();
+      if (projectRow) {
+        const { listMemories, buildMemoryPrompt } = await import("@/lib/memories");
+        const memories = await listMemories(supabase, projectRow.id);
+        memoryPrompt = buildMemoryPrompt(memories);
+      }
+    }
+
     const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
@@ -269,7 +291,8 @@ console.log(context.substring(0, 1000));
             "Eres ObraHub, un asistente técnico para la normativa colombiana NSR-10. " +
             "Responde ÚNICAMENTE usando el CONTEXT proporcionado. " +
             "Cita siempre los números de página (por ejemplo, 'Página 42'). " +
-            `Si el CONTEXT no contiene información suficiente para responder, responde exactamente: ${NO_ANSWER_MESSAGE}`,
+            `Si el CONTEXT no contiene información suficiente para responder, responde exactamente: ${NO_ANSWER_MESSAGE}` +
+            memoryPrompt,
         },
         {
           role: "user",

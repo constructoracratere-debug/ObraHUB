@@ -1,9 +1,19 @@
 import { createProject, listProjects } from "@/lib/projects";
+import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const projects = await listProjects();
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
+    const projects = await listProjects(supabase);
     return NextResponse.json({ projects });
   } catch (error) {
     console.error("GET /api/projects error:", error);
@@ -16,6 +26,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
     let body: { name?: unknown };
     try {
       body = await request.json();
@@ -31,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const project = await createProject(name);
+    const project = await createProject(supabase, name);
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "Project name is required") {
