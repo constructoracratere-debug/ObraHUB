@@ -9,6 +9,11 @@ export default function LoginPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // If we arrived here from a failed code exchange, show a helpful message
+  // explaining the mobile in-app browser issue.
+  const authError =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("error");
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const value = email.trim();
@@ -66,6 +71,17 @@ export default function LoginPage() {
               El asistente técnico para profesionales de la construcción en Colombia.
             </p>
           </div>
+
+          {authError && (
+            <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3.5 text-sm leading-relaxed text-amber-300">
+              <p className="font-medium">No se pudo completar el inicio de sesión</p>
+              <p className="mt-1 text-xs text-amber-400/80">
+                Si abriste el enlace desde una app de correo (Gmail, Mail), el enlace
+                se abrió en un navegador interno que no comparte la sesión. Copia el
+                enlace, pégalo en Safari o Chrome directamente, o vuelve a intentarlo.
+              </p>
+            </div>
+          )}
 
           {sent ? (
             <div className="space-y-4">
