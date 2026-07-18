@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,7 +12,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
 
-  // Step 1 — request the 6-digit code via email OTP (no redirect link).
+  // Step 1 — request the 6-digit code. Our own API route stores the code and
+  // emails it via Resend (bypassing Supabase's flaky SMTP delivery).
   async function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
     const value = email.trim();
@@ -23,22 +23,17 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: value,
-        options: {
-          // No emailRedirectTo — we use the 6-digit token instead of a link,
-          // so there is no redirect and no in-app-browser context problem.
-          shouldCreateUser: true,
-        },
+      const res = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: value }),
       });
-
-      if (otpError) {
-        throw otpError;
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "No se pudo enviar el código");
       }
 
       setStep("code");
-      // Focus the code input for quick entry.
       setTimeout(() => codeInputRef.current?.focus(), 50);
     } catch (err) {
       setError(
@@ -51,7 +46,8 @@ export default function LoginPage() {
     }
   }
 
-  // Step 2 — verify the 6-digit code the user received by email.
+  // Step 2 — verify the 6-digit code via our own API route, which establishes
+  // the session cookie server-side.
   async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault();
     const value = code.trim();
@@ -61,18 +57,16 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: email.trim(),
-        token: value,
-        type: "email",
+      const res = await fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), code: value }),
       });
-
-      if (verifyError) {
-        throw verifyError;
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Código inválido");
       }
 
-      // Session is now set in this browser context. Go to the app.
       router.replace("/");
       router.refresh();
     } catch (err) {
