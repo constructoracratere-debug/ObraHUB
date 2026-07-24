@@ -75,3 +75,53 @@ export function buildMemoryPrompt(memories: Memory[]): string {
   const lines = memories.map((m) => `- ${m.content}`).join("\n");
   return `\n\nNOTAS DEL PROYECTO (contexto aportado por el profesional):\n${lines}`;
 }
+
+// ----------------------------------------------------------------------
+// Folder-aware variants — memories scoped to a folder (by folder id).
+// ----------------------------------------------------------------------
+
+/** Lists memories for a folder (newest first). */
+export async function listMemoriesByFolderId(
+  supabase: SupabaseClient,
+  folderId: string,
+): Promise<Memory[]> {
+  const { data, error } = await supabase
+    .from("memories")
+    .select("id, content, source, created_at")
+    .eq("folder_id", folderId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    content: m.content,
+    source: m.source as "manual" | "auto",
+    createdAt: m.created_at,
+  }));
+}
+
+/** Adds a memory to a folder. */
+export async function addMemoryToFolder(
+  supabase: SupabaseClient,
+  folderId: string,
+  content: string,
+  source: "manual" | "auto" = "manual",
+): Promise<Memory> {
+  const { data, error } = await supabase
+    .from("memories")
+    .insert({ folder_id: folderId, content, source })
+    .select("id, content, source, created_at")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+  return {
+    id: data.id,
+    content: data.content,
+    source: data.source as "manual" | "auto",
+    createdAt: data.created_at,
+  };
+}

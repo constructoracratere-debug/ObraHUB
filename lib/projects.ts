@@ -90,6 +90,7 @@ async function findProjectBySlug(
 export async function createProject(
   supabase: SupabaseClient,
   name: string,
+  templateFolders?: string[],
 ): Promise<Project> {
   const trimmed = name.trim();
   if (!trimmed) {
@@ -122,7 +123,20 @@ export async function createProject(
   if (error) {
     throw error;
   }
-  return toProject(data);
+  const project = toProject(data);
+
+  // Optionally seed template folders (e.g. Cimentación, Legal, Costos).
+  if (templateFolders && templateFolders.length > 0) {
+    const { createFolder } = await import("@/lib/folders");
+    await Promise.all(
+      templateFolders
+        .map((n) => n.trim())
+        .filter((n) => n.length > 0)
+        .map((n) => createFolder(supabase, slug, n).catch(() => null)),
+    );
+  }
+
+  return project;
 }
 
 /** Loads the conversation history for a project (oldest first). */
@@ -177,6 +191,93 @@ export async function appendConversationMessage(
   }
 
   // updated_at is bumped automatically by the DB trigger (touch_project_updated_at).
+  return {
+    role: data.role as "user" | "assistant",
+    content: data.content,
+    timestamp: data.created_at,
+  };
+}
+
+// ----------------------------------------------------------------------
+// Folder-aware variants — conversations scoped to a folder within a project.
+// The folder belongs to the project (and thus the user, via RLS).
+// ----------------------------------------------------------------------
+
+/** Resolves a folder's id within a project by slugs. Returns null if missing. */
+export async function findFolderId(
+  supabase: SupabaseClient,
+  projectSlug: string,
+  folderSlug: string,
+): Promise<{ folderId: string; projectId: string } | null> {
+  const project = await findProjectBySlug(supabase, projectSlug);
+  if (!project) return null;
+
+  const { data: folder } = await supabase
+    .from("folders")
+    .select("id")
+    .eq("project_id", project.id)
+    .eq("slug", folderSlug)
+    .maybeSingle();
+
+  if (!folder) return null;
+  return { folderId: folder.id, projectId: project.id };
+}
+
+/** Loads the conversation history for a folder (oldest first). */
+export async function getConversationsInFolder(
+  supabase: SupabaseClient,
+  projectSlug: string,
+  folderSlug: string,
+): Promise<ConversationMessage[]> {
+  const ctx = await findFolderId(supabase, projectSlug, folderSlug);
+  if (!ctx) {
+    throw new Error("Folder not found");
+  }
+
+  const { data, error } = await supabase
+    .from("conversation_messages")
+    .select("role, content, created_at")
+    .eq("folder_id", ctx.folderId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+  return (data ?? []).map((m) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content,
+    timestamp: m.created_at,
+  }));
+}
+
+/** Appends a message to a folder's conversation and returns it. */
+export async function appendConversationMessageInFolder(
+  supabase: SupabaseClient,
+  projectSlug: string,
+  folderSlug: string,
+  message: { role: "user" | "assistant"; content: string },
+): Promise<ConversationMessage> {
+  const ctx = await findFolderId(supabase, projectSlug, folderSlug);
+  if (!ctx) {
+    throw new Error("Folder not found");
+  }
+
+  const { data, error } = await supabase
+    .from("conversation_messages")
+    .insert({
+      project_id: ctx.projectId,
+      folder_id: ctx.folderId,
+      role: message.role,
+      content: message.content,
+    })
+    .select("role, content, created_at")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  // folder.updated_at is bumped by the touch_folder_updated_at trigger.
   return {
     role: data.role as "user" | "assistant",
     content: data.content,

@@ -5,10 +5,20 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AssistantMessage } from "@/app/_components/assistant-message";
+import { FOLDER_TEMPLATE, folderIcon } from "@/lib/folders";
 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
+const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 
 type Project = {
+  name: string;
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type Folder = {
+  id: string;
   name: string;
   slug: string;
   createdAt: string;
@@ -260,6 +270,9 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [selectedTemplateFolders, setSelectedTemplateFolders] = useState<string[]>([
+    ...FOLDER_TEMPLATE,
+  ]);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -270,6 +283,13 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [showMemory, setShowMemory] = useState(false);
   const [newMemory, setNewMemory] = useState("");
   const [isSavingMemory, setIsSavingMemory] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [activeFolderSlug, setActiveFolderSlug] = useState<string | null>(null);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(false);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [folderError, setFolderError] = useState<string | null>(null);
   const hasRestoredProject = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -302,11 +322,14 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const initials = initialsFromName(displayName);
 
   const activeProject = projects.find((project) => project.slug === activeProjectSlug);
+  const activeFolder = folders.find((f) => f.slug === activeFolderSlug);
   const showHero = messages.length === 0 && !activeProjectSlug;
-  const showProjectView =
+  // Folder dashboard: project selected, no folder selected, not loading a folder chat.
+  const showFolderDashboard =
     !!activeProjectSlug &&
-    messages.length === 0 &&
+    !activeFolderSlug &&
     !isLoadingConversations;
+  // Legacy project landing view is replaced by the folder dashboard.
 
   useEffect(() => {
     async function loadProjects() {
@@ -348,7 +371,24 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
 
     hasRestoredProject.current = true;
     setActiveProjectSlug(savedSlug);
-    void loadProjectConversations(savedSlug);
+    // Load folders first, then restore the active folder (if any).
+    void (async () => {
+      await loadProjectFolders(savedSlug);
+      const savedFolder = localStorage.getItem(ACTIVE_FOLDER_KEY);
+      if (savedFolder) {
+        // Validate the folder still exists before opening it.
+        try {
+          const res = await fetch(`/api/projects/${encodeURIComponent(savedSlug)}/folders/${encodeURIComponent(savedFolder)}/conversations`);
+          if (res.ok) {
+            openFolder(savedSlug, savedFolder);
+            return;
+          }
+        } catch {
+          // fall through
+        }
+        localStorage.removeItem(ACTIVE_FOLDER_KEY);
+      }
+    })();
   }, [isLoadingProjects, projects]);
 
   async function loadProjectConversations(slug: string) {
@@ -404,7 +444,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({
+          name,
+          templateFolders: selectedTemplateFolders,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -416,6 +459,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       const project = data.project as Project;
       setProjects((prev) => [project, ...prev]);
       setNewProjectName("");
+      setSelectedTemplateFolders([...FOLDER_TEMPLATE]);
       setShowCreateProject(false);
       openProject(project.slug);
     } catch (err) {
@@ -430,12 +474,167 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   function openProject(slug: string) {
     setActiveProjectSlug(slug);
     localStorage.setItem(ACTIVE_PROJECT_KEY, slug);
+    localStorage.removeItem(ACTIVE_FOLDER_KEY);
+    setActiveFolderSlug(null);
+    setMessages([]);
     setError(null);
     setSidebarOpen(false);
     setMemories([]);
     setShowMemory(false);
-    void loadProjectConversations(slug);
-    void loadProjectMemories(slug);
+    void loadProjectFolders(slug);
+  }
+
+  async function loadProjectFolders(slug: string) {
+    setIsLoadingFolders(true);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(slug)}/folders`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setFolders(data.folders ?? []);
+    } catch {
+      setFolders([]);
+    } finally {
+      setIsLoadingFolders(false);
+    }
+  }
+
+  async function handleCreateFolder(name: string) {
+    const slug = activeProjectSlug;
+    if (!slug || isCreatingFolder) return;
+
+    setIsCreatingFolder(true);
+    setFolderError(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(slug)}/folders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setFolders((prev) => [data.folder, ...prev]);
+      setNewFolderName("");
+      setShowCreateFolder(false);
+    } catch (err) {
+      setFolderError(err instanceof Error ? err.message : "Error al crear la carpeta");
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  }
+
+  async function handleDeleteFolder(folderSlug: string) {
+    const slug = activeProjectSlug;
+    if (!slug) return;
+    setFolders((prev) => prev.filter((f) => f.slug !== folderSlug));
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(slug)}/folders?folder=${encodeURIComponent(folderSlug)}`, {
+        method: "DELETE",
+      });
+    } catch {
+      void loadProjectFolders(slug);
+    }
+  }
+
+  function openFolder(projectSlug: string, folderSlug: string) {
+    setActiveFolderSlug(folderSlug);
+    localStorage.setItem(ACTIVE_FOLDER_KEY, folderSlug);
+    setMessages([]);
+    setError(null);
+    setSidebarOpen(false);
+    setMemories([]);
+    setShowMemory(false);
+    void loadFolderConversations(projectSlug, folderSlug);
+    void loadFolderMemories(projectSlug, folderSlug);
+  }
+
+  function backToDashboard() {
+    setActiveFolderSlug(null);
+    localStorage.removeItem(ACTIVE_FOLDER_KEY);
+    setMessages([]);
+    setMemories([]);
+    setShowMemory(false);
+    if (activeProjectSlug) void loadProjectFolders(activeProjectSlug);
+  }
+
+  async function loadFolderConversations(projectSlug: string, folderSlug: string) {
+    setIsLoadingConversations(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/folders/${encodeURIComponent(folderSlug)}/conversations`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setMessages(data.messages ?? []);
+    } catch (err) {
+      setMessages([]);
+      setError(err instanceof Error ? err.message : "Error al cargar conversaciones");
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  }
+
+  async function loadFolderMemories(projectSlug: string, folderSlug: string) {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/folders/${encodeURIComponent(folderSlug)}/memories`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setMemories(data.memories ?? []);
+    } catch {
+      setMemories([]);
+    }
+  }
+
+  async function persistFolderMessage(
+    projectSlug: string,
+    folderSlug: string,
+    role: "user" | "assistant",
+    content: string,
+  ) {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/folders/${encodeURIComponent(folderSlug)}/conversations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, content }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error al guardar");
+    return data.message as Message;
+  }
+
+  async function handleAddFolderMemory() {
+    const content = newMemory.trim();
+    const pSlug = activeProjectSlug;
+    const fSlug = activeFolderSlug;
+    if (!content || !pSlug || !fSlug || isSavingMemory) return;
+
+    setIsSavingMemory(true);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(pSlug)}/folders/${encodeURIComponent(fSlug)}/memories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setMemories((prev) => [data.memory, ...prev]);
+      setNewMemory("");
+    } catch {
+      // keep UI responsive
+    } finally {
+      setIsSavingMemory(false);
+    }
+  }
+
+  async function handleDeleteFolderMemory(id: string) {
+    setMemories((prev) => prev.filter((m) => m.id !== id));
+    // Folder memories deletion is via the project-level memories DELETE route,
+    // which is keyed on memory id and RLS-scoped through folders → projects.
+    // Reuse the generic endpoint by id.
+    const pSlug = activeProjectSlug;
+    if (!pSlug) return;
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(pSlug)}/memories?id=${id}`, { method: "DELETE" });
+    } catch {
+      if (activeFolderSlug) void loadFolderMemories(pSlug, activeFolderSlug);
+    }
   }
 
   async function loadProjectMemories(slug: string) {
@@ -490,29 +689,45 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     if (!message || isLoading) return;
 
     const projectSlug = activeProjectSlug;
+    const folderSlug = activeFolderSlug;
 
     setError(null);
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: message }]);
     setIsLoading(true);
 
+    // Persistence helper that respects whether a folder is active.
+    const persist = async (role: "user" | "assistant", content: string) => {
+      if (!projectSlug) return null;
+      if (folderSlug) {
+        return persistFolderMessage(projectSlug, folderSlug, role, content);
+      }
+      return persistMessage(projectSlug, role, content);
+    };
+
     try {
       if (projectSlug) {
-        const savedUserMessage = await persistMessage(projectSlug, "user", message);
-        setMessages((prev) => {
-          const updated = [...prev];
-          const lastIndex = updated.length - 1;
-          if (lastIndex >= 0 && updated[lastIndex]?.role === "user") {
-            updated[lastIndex] = savedUserMessage;
-          }
-          return updated;
-        });
+        const savedUserMessage = await persist("user", message);
+        if (savedUserMessage) {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            if (lastIndex >= 0 && updated[lastIndex]?.role === "user") {
+              updated[lastIndex] = savedUserMessage;
+            }
+            return updated;
+          });
+        }
       }
 
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, projectSlug: projectSlug ?? undefined }),
+        body: JSON.stringify({
+          message,
+          projectSlug: projectSlug ?? undefined,
+          folderSlug: folderSlug ?? undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -523,12 +738,11 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
 
       if (projectSlug) {
         try {
-          const savedAssistantMessage = await persistMessage(
-            projectSlug,
-            "assistant",
-            assistantContent,
-          );
-          setMessages((prev) => [...prev, savedAssistantMessage]);
+          const savedAssistantMessage = await persist("assistant", assistantContent);
+          setMessages((prev) => [
+            ...prev,
+            savedAssistantMessage ?? { role: "assistant", content: assistantContent },
+          ]);
         } catch {
           setMessages((prev) => [
             ...prev,
@@ -557,7 +771,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
 
   function startNewChat() {
     setActiveProjectSlug(null);
+    setActiveFolderSlug(null);
     localStorage.removeItem(ACTIVE_PROJECT_KEY);
+    localStorage.removeItem(ACTIVE_FOLDER_KEY);
+    setFolders([]);
     setMessages([]);
     setMemories([]);
     setShowMemory(false);
@@ -827,8 +1044,25 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             <div className="min-w-0">
               <Logo size="large" />
               {activeProject && (
-                <p className="mt-0.5 truncate text-xs text-slate-500 sm:text-sm">
-                  Proyecto: <span className="text-slate-300">{activeProject.name}</span>
+                <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-slate-500 sm:text-sm">
+                  {activeFolderSlug ? (
+                    <button
+                      type="button"
+                      onClick={backToDashboard}
+                      className="inline-flex min-w-0 items-center gap-1 truncate transition hover:text-slate-300"
+                    >
+                      <span className="truncate">{activeProject.name}</span>
+                      <svg className="h-3 w-3 shrink-0 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                      <span className="truncate text-slate-300">{activeFolder?.name}</span>
+                    </button>
+                  ) : (
+                    <>
+                      <span className="text-slate-500">Proyecto:</span>
+                      <span className="truncate text-slate-300">{activeProject.name}</span>
+                    </>
+                  )}
                 </p>
               )}
             </div>
@@ -969,49 +1203,119 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                     </div>
                   </section>
                 </div>
+              ) : showFolderDashboard ? (
+                <div className="w-full py-2 sm:py-4">
+                  <div className="mb-6 flex items-end justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-400/80">
+                        Proyecto
+                      </p>
+                      <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                        {activeProject?.name}
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Seleccione una carpeta para consultar, o cree una nueva.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateFolder(true);
+                        setFolderError(null);
+                      }}
+                      className="shrink-0 rounded-xl border border-blue-500/20 bg-blue-600/10 px-3.5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-600/20"
+                    >
+                      + Carpeta
+                    </button>
+                  </div>
+
+                  {isLoadingFolders ? (
+                    <p className="py-12 text-center text-sm text-slate-500">Cargando carpetas…</p>
+                  ) : folders.length === 0 ? (
+                    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center sm:p-8">
+                      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20 text-2xl">
+                        📁
+                      </div>
+                      <h3 className="text-lg font-medium text-white">Sin carpetas aún</h3>
+                      <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+                        Crea carpetas para organizar las áreas del proyecto. Empieza con una sugerencia:
+                      </p>
+                      <div className="mt-5 flex flex-wrap justify-center gap-2">
+                        {FOLDER_TEMPLATE.map((suggestion) => (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => handleCreateFolder(suggestion)}
+                            disabled={isCreatingFolder}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-blue-500/25 hover:bg-blue-500/[0.06] hover:text-white disabled:opacity-50"
+                          >
+                            <span>{folderIcon(suggestion)}</span>
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCreateFolder(true);
+                          setFolderError(null);
+                        }}
+                        className="mt-5 text-sm font-medium text-blue-400 transition hover:text-blue-300"
+                      >
+                        Crear carpeta personalizada
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {folders.map((folder) => (
+                        <div
+                          key={folder.id}
+                          className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 transition hover:border-blue-500/25 hover:bg-blue-500/[0.03]"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => activeProjectSlug && openFolder(activeProjectSlug, folder.slug)}
+                            className="block w-full text-left"
+                          >
+                            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-xl ring-1 ring-blue-500/20 transition group-hover:bg-blue-500/15">
+                              {folderIcon(folder.name)}
+                            </div>
+                            <h3 className="truncate text-sm font-semibold text-white">{folder.name}</h3>
+                            <p className="mt-1 text-xs text-slate-600">
+                              {new Date(folder.updatedAt).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}
+                            </p>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFolder(folder.slug)}
+                            aria-label="Eliminar carpeta"
+                            className="absolute right-3 top-3 rounded-lg p-2 text-slate-600 transition hover:bg-red-500/10 hover:text-red-400 md:opacity-0 md:transition md:group-hover:opacity-100"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCreateFolder(true);
+                          setFolderError(null);
+                        }}
+                        className="flex min-h-[140px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.08] bg-transparent p-5 text-slate-500 transition hover:border-blue-500/30 hover:text-blue-400"
+                      >
+                        <svg className="mb-2 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span className="text-sm font-medium">Nueva carpeta</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               ) : isLoadingConversations && activeProjectSlug ? (
                 <div className="my-auto flex w-full justify-center py-12">
                   <p className="text-sm text-slate-500">Cargando conversaciones…</p>
-                </div>
-              ) : showProjectView ? (
-                <div className="my-auto w-full py-8">
-                  <div className="rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-6 shadow-sm sm:p-8">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
-                      <Icon className="h-6 w-6 text-blue-400">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008z"
-                        />
-                      </Icon>
-                    </div>
-                    <h2 className="text-2xl font-semibold tracking-tight text-white">
-                      {activeProject?.name}
-                    </h2>
-                    <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-400 sm:text-base">
-                      Proyecto activo. Realice consultas técnicas sobre la NSR-10, estructuras,
-                      concreto y normativa colombiana. Las conversaciones de este proyecto se
-                      guardarán en su cuenta.
-                    </p>
-                    <div className="mt-6 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs text-blue-300">
-                        NSR-10
-                      </span>
-                      <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs text-slate-400">
-                        {activeProject?.slug}
-                      </span>
-                    </div>
-                    <MemoryPanel
-                      memories={memories}
-                      open={showMemory}
-                      onToggle={() => setShowMemory((v) => !v)}
-                      newMemory={newMemory}
-                      setNewMemory={setNewMemory}
-                      onAdd={handleAddMemory}
-                      onDelete={handleDeleteMemory}
-                      isSaving={isSavingMemory}
-                    />
-                  </div>
                 </div>
               ) : (
                 <div className="w-full space-y-6 pb-4">
@@ -1022,8 +1326,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                       onToggle={() => setShowMemory(false)}
                       newMemory={newMemory}
                       setNewMemory={setNewMemory}
-                      onAdd={handleAddMemory}
-                      onDelete={handleDeleteMemory}
+                      onAdd={activeFolderSlug ? handleAddFolderMemory : handleAddMemory}
+                      onDelete={activeFolderSlug ? handleDeleteFolderMemory : handleDeleteMemory}
                       isSaving={isSavingMemory}
                     />
                   )}
@@ -1155,6 +1459,43 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               disabled={isCreatingProject}
               className="mt-4 w-full rounded-xl border border-white/[0.08] bg-[#050b14] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none disabled:opacity-50"
             />
+
+            <p className="mt-4 text-xs font-medium text-slate-400">
+              Carpetas iniciales (opcional):
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {FOLDER_TEMPLATE.map((suggestion) => {
+                const checked = selectedTemplateFolders.includes(suggestion);
+                return (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTemplateFolders((prev) =>
+                        prev.includes(suggestion)
+                          ? prev.filter((s) => s !== suggestion)
+                          : [...prev, suggestion],
+                      );
+                    }}
+                    disabled={isCreatingProject}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                      checked
+                        ? "border-blue-500/40 bg-blue-500/15 text-blue-200"
+                        : "border-white/[0.08] bg-white/[0.03] text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    <span>{folderIcon(suggestion)}</span>
+                    {suggestion}
+                    {checked && (
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
             {projectError && (
               <p className="mt-3 text-sm text-red-400">{projectError}</p>
             )}
@@ -1178,6 +1519,77 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isCreatingProject ? "Creando…" : "Crear proyecto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateFolder && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-folder-title"
+            className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0a1120] p-6 shadow-2xl"
+          >
+            <h3 id="new-folder-title" className="text-lg font-semibold text-white">
+              Nueva Carpeta
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Organiza un área del proyecto. Cada carpeta tiene su propio chat y memoria.
+            </p>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleCreateFolder(newFolderName);
+                }
+              }}
+              placeholder="Ej. Cimentación, Legal, Costos…"
+              autoFocus
+              disabled={isCreatingFolder}
+              className="mt-4 w-full rounded-xl border border-white/[0.08] bg-[#050b14] px-4 py-3 text-base text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none disabled:opacity-50 sm:text-sm"
+            />
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {FOLDER_TEMPLATE.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => setNewFolderName(suggestion)}
+                  disabled={isCreatingFolder}
+                  className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs text-slate-400 transition hover:border-blue-500/25 hover:text-white"
+                >
+                  {folderIcon(suggestion)} {suggestion}
+                </button>
+              ))}
+            </div>
+            {folderError && (
+              <p className="mt-3 text-sm text-red-400">{folderError}</p>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateFolder(false);
+                  setNewFolderName("");
+                  setFolderError(null);
+                }}
+                disabled={isCreatingFolder}
+                className="rounded-xl px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCreateFolder(newFolderName)}
+                disabled={!newFolderName.trim() || isCreatingFolder}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCreatingFolder ? "Creando…" : "Crear carpeta"}
               </button>
             </div>
           </div>

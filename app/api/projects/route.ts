@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    let body: { name?: unknown };
+    let body: { name?: unknown; templateFolders?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -50,7 +50,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const project = await createProject(supabase, name);
+    // Optional: a list of suggested folders to seed at creation time.
+    let templateFolders: string[] | undefined;
+    if (
+      Array.isArray(body.templateFolders) &&
+      body.templateFolders.every((f) => typeof f === "string")
+    ) {
+      templateFolders = body.templateFolders as string[];
+    }
+
+    const project = await createProject(supabase, name, templateFolders);
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "Project name is required") {

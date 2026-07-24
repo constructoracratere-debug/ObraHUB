@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    let body: { message?: unknown; projectSlug?: unknown };
+    let body: { message?: unknown; projectSlug?: unknown; folderSlug?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -266,18 +266,41 @@ export async function POST(request: NextRequest) {
 
     const context = buildContext(results);
 
-    // Load project memory (if a project is active) and inject into the prompt.
+    // Load memory for the active context and inject into the prompt.
+    // Prefer folder memory when a folder is active; fall back to project memory.
     let memoryPrompt = "";
-    if (typeof body.projectSlug === "string" && body.projectSlug.length > 0) {
+    const projectSlug = typeof body.projectSlug === "string" ? body.projectSlug : "";
+    const folderSlug = typeof body.folderSlug === "string" ? body.folderSlug : "";
+
+    if (projectSlug) {
       const { data: projectRow } = await supabase
         .from("projects")
         .select("id")
-        .eq("slug", body.projectSlug)
+        .eq("slug", projectSlug)
         .maybeSingle();
+
       if (projectRow) {
-        const { listMemories, buildMemoryPrompt } = await import("@/lib/memories");
-        const memories = await listMemories(supabase, projectRow.id);
-        memoryPrompt = buildMemoryPrompt(memories);
+        const { buildMemoryPrompt } = await import("@/lib/memories");
+
+        if (folderSlug) {
+          // Folder-scoped memory: resolve the folder within this project.
+          const { data: folderRow } = await supabase
+            .from("folders")
+            .select("id")
+            .eq("project_id", projectRow.id)
+            .eq("slug", folderSlug)
+            .maybeSingle();
+          if (folderRow) {
+            const { listMemoriesByFolderId } = await import("@/lib/memories");
+            const memories = await listMemoriesByFolderId(supabase, folderRow.id);
+            memoryPrompt = buildMemoryPrompt(memories);
+          }
+        } else {
+          // Project-level memory (no folder).
+          const { listMemories } = await import("@/lib/memories");
+          const memories = await listMemories(supabase, projectRow.id);
+          memoryPrompt = buildMemoryPrompt(memories);
+        }
       }
     }
 
