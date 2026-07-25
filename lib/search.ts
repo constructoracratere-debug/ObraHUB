@@ -29,12 +29,11 @@ async function embedQuery(text: string): Promise<number[]> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
   const openai = new OpenAI({ apiKey });
-  const { data, error } = await openai.embeddings.create({
+  const response = await openai.embeddings.create({
     model: EMBED_MODEL,
     input: text,
   });
-  if (error) throw error;
-  return data[0].embedding as unknown as number[];
+  return response.data[0].embedding as unknown as number[];
 }
 
 const STOP_WORDS = new Set([

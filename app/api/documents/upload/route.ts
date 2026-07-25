@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
     const form = await request.formData();
     const file = form.get("file");
     const scope = (form.get("scope") as string) ?? "project";
-    const projectSlug = (form.get("projectSlug") as string) | null;
-    const title = (form.get("title") as string) || (typeof file === "object" && "name" in file ? (file as File).name.replace(/\.pdf$/i, "") : "Documento");
+    const projectSlug = (form.get("projectSlug") as string) ?? null;
+    const title = (form.get("title") as string) || (file instanceof File ? file.name.replace(/\.pdf$/i, "") : "Documento");
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "file is required" }, { status: 400 });
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
           slug: retrySlug,
           source_filename: file.name,
           mime_type: file.type || "application/pdf",
-          page_count: parsed.numpages ?? 0,
+          page_count: parsedPages,
           status: "processing",
         })
         .select("id")

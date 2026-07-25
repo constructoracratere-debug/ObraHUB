@@ -62,13 +62,12 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
 
   for (let i = 0; i < texts.length; i += EMBED_BATCH) {
     const batch = texts.slice(i, i + EMBED_BATCH);
-    const { data, error } = await openai.embeddings.create({
+    const response = await openai.embeddings.create({
       model: EMBED_MODEL,
       input: batch,
     });
-    if (error) throw error;
-    // OpenAI returns embeddings in input order.
-    for (const item of data) {
+    // OpenAI returns embeddings in input order. Errors throw as exceptions.
+    for (const item of response.data) {
       results.push(item.embedding as unknown as number[]);
     }
   }
