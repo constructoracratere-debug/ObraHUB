@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AssistantMessage } from "@/app/_components/assistant-message";
 import { FOLDER_TEMPLATE, folderIcon } from "@/lib/folders";
+import type { KBDocument } from "@/lib/documents";
 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
@@ -290,6 +291,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<KBDocument[]>([]);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [showDocuments, setShowDocuments] = useState(false);
+  const docsRef = useRef<HTMLDivElement>(null);
   const hasRestoredProject = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -307,6 +312,32 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       textareaRef.current.style.height = "auto";
     }
   }, [input]);
+
+  // Load the global KB documents once on mount.
+  useEffect(() => {
+    async function loadDocuments() {
+      try {
+        const res = await fetch("/api/documents");
+        const data = await res.json();
+        if (res.ok) setDocuments(data.documents ?? []);
+      } catch {
+        // keep empty state
+      }
+    }
+    void loadDocuments();
+  }, []);
+
+  // Close the documents popover when clicking outside it.
+  useEffect(() => {
+    if (!showDocuments) return;
+    function onClick(e: MouseEvent) {
+      if (docsRef.current && !docsRef.current.contains(e.target as Node)) {
+        setShowDocuments(false);
+      }
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [showDocuments]);
 
   // Close the mobile drawer on Escape.
   useEffect(() => {
@@ -727,6 +758,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
           message,
           projectSlug: projectSlug ?? undefined,
           folderSlug: folderSlug ?? undefined,
+          documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
         }),
       });
       const data = await res.json();
@@ -1069,10 +1101,88 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 {memories.length}
               </button>
             )}
-            <span className="hidden rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-300 sm:inline-flex sm:items-center sm:gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-              NSR-10 Colombia
-            </span>
+            <div ref={docsRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setShowDocuments((v) => !v)}
+                title="Documentos a buscar"
+                className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-blue-300 transition hover:bg-blue-500/20"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m6-12.18A8.967 8.967 0 0118 3.75c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-12.18v12.18" />
+                </svg>
+                {documents.length === 0
+                  ? "Biblioteca"
+                  : selectedDocumentIds.length === 0
+                    ? "Todas"
+                    : `${selectedDocumentIds.length}/${documents.length}`}
+              </button>
+              {showDocuments && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-white/[0.08] bg-[#0a1120] p-2 shadow-2xl shadow-black/50">
+                  <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Documentos a buscar
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDocumentIds([])}
+                    className={`flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-sm transition hover:bg-white/[0.04] ${
+                      selectedDocumentIds.length === 0 ? "text-white" : "text-slate-400"
+                    }`}
+                  >
+                    <span>Todas las normativas</span>
+                    {selectedDocumentIds.length === 0 && (
+                      <svg className="h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="my-1 border-t border-white/[0.06]" />
+                  <div className="max-h-64 overflow-y-auto">
+                    {documents.length === 0 ? (
+                      <p className="px-2 py-3 text-center text-xs text-slate-600">Sin documentos</p>
+                    ) : (
+                      documents.map((doc) => {
+                        const checked = selectedDocumentIds.includes(doc.id);
+                        return (
+                          <button
+                            key={doc.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDocumentIds((prev) =>
+                                prev.includes(doc.id)
+                                  ? prev.filter((id) => id !== doc.id)
+                                  : [...prev, doc.id],
+                              );
+                            }}
+                            className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition hover:bg-white/[0.04] ${
+                              checked ? "text-white" : "text-slate-400"
+                            }`}
+                          >
+                            <span
+                              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                                checked
+                                  ? "border-blue-500 bg-blue-600 text-white"
+                                  : "border-white/[0.15] bg-transparent"
+                              }`}
+                            >
+                              {checked && (
+                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate">{doc.title}</span>
+                              <span className="block text-[11px] text-slate-600">{doc.pageCount} pág.</span>
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <span className="hidden items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400 sm:inline-flex">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
