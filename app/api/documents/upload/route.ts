@@ -94,12 +94,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Parse the PDF to per-page text. pdf-parse is CommonJS; dynamic import for safety.
+    // Parse the PDF to text (pdf-parse v2 API: PDFParse class with getText()).
     const buffer = Buffer.from(await file.arrayBuffer());
-    const pdfParse = (await import("pdf-parse")).default;
-    let parsed: { text: string; numpages: number };
+    let parsedText: string;
+    let parsedPages: number;
     try {
-      parsed = await pdfParse(buffer);
+      const { PDFParse } = await import("pdf-parse");
+      const parser = new PDFParse({ data: new Uint8Array(buffer) });
+      const parsed = await parser.getText();
+      parsedText = parsed.text;
+      parsedPages = parsed.total ?? parsed.pages?.length ?? 0;
     } catch (e) {
       console.error("PDF parse error:", e);
       return NextResponse.json({ error: "No se pudo leer el PDF (¿está dañado o escaneado?)" }, { status: 422 });
@@ -119,7 +123,7 @@ export async function POST(request: NextRequest) {
         slug: baseSlug,
         source_filename: file.name,
         mime_type: file.type || "application/pdf",
-        page_count: parsed.numpages ?? 0,
+        page_count: parsedPages,
         status: "processing",
       })
       .select("id")
@@ -147,11 +151,11 @@ export async function POST(request: NextRequest) {
         console.error("Document insert error:", retryError?.message);
         return NextResponse.json({ error: "No se pudo crear el documento" }, { status: 500 });
       }
-      await ingest(admin, retryDoc.id, parsed.text, parsed.numpages ?? 0);
+      await ingest(admin, retryDoc.id, parsedText, parsedPages);
       return NextResponse.json({ documentId: retryDoc.id, status: "ready" }, { status: 201 });
     }
 
-    await ingest(admin, doc.id, parsed.text, parsed.numpages ?? 0);
+    await ingest(admin, doc.id, parsedText, parsedPages);
     return NextResponse.json({ documentId: doc.id, status: "ready" }, { status: 201 });
   } catch (error) {
     console.error("Document upload error:", error);
