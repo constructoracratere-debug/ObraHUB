@@ -1,11 +1,8 @@
-import fs from "fs/promises";
-import path from "path";
 import OpenAI from "openai";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const NSR_PAGES_PATH = path.join(process.cwd(), "Documents", "NSR10_pages.json");
-const NO_ANSWER_MESSAGE = "No se encontró una respuesta clara en la NSR-10.";
+const NO_ANSWER_MESSAGE = "No se encontró una respuesta clara en los documentos consultados.";
 
 const STOP_WORDS = new Set([
   "a",
@@ -74,7 +71,6 @@ type SearchResult = {
 };
 
 let openaiClient: OpenAI | null = null;
-let pagesCache: NsrPage[] | null = null;
 
 function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
@@ -85,16 +81,6 @@ function getOpenAIClient(): OpenAI {
     openaiClient = new OpenAI({ apiKey });
   }
   return openaiClient;
-}
-
-async function loadNsrPages(): Promise<NsrPage[]> {
-  if (pagesCache) {
-    return pagesCache;
-  }
-
-  const raw = await fs.readFile(NSR_PAGES_PATH, "utf-8");
-  pagesCache = JSON.parse(raw) as NsrPage[];
-  return pagesCache;
 }
 
 function extractKeywords(message: string): string[] {
@@ -237,7 +223,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    let body: { message?: unknown; projectSlug?: unknown; folderSlug?: unknown };
+    let body: { message?: unknown; projectSlug?: unknown; folderSlug?: unknown; documentIds?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -253,18 +239,31 @@ export async function POST(request: NextRequest) {
     }
 
     const question = message.trim();
-    const keywords = extractKeywords(question);
-    const pages = await loadNsrPages();
 
-    const results = searchNsr(pages, keywords);
+    // Resolve the document scope to search. Defaults to all global documents.
+    const documentIds: string[] | null = Array.isArray(body.documentIds)
+      ? (body.documentIds as string[]).filter((d) => typeof d === "string" && d.length > 0)
+      : null;
+    const searchDocumentIds = documentIds && documentIds.length > 0 ? documentIds : null;
 
-    const contextPages = results.map((result) => result.page);
+    // Vector search across the selected documents (RLS-enforced).
+    const { searchKB, buildKBContext, buildKBPromptFragment } = await import("@/lib/search");
+    let results;
+    try {
+      results = await searchKB(supabase, question, searchDocumentIds);
+    } catch (searchErr) {
+      console.error("KB search error:", searchErr);
+      return NextResponse.json({ error: "Error en la búsqueda de documentos" }, { status: 500 });
+    }
+
+    const contextPages = results.map((r) => r.pageNumber);
 
     if (results.length === 0) {
       return NextResponse.json({ response: NO_ANSWER_MESSAGE, pages: [] });
     }
 
-    const context = buildContext(results);
+    const context = buildKBContext(results);
+    const kbFragment = buildKBPromptFragment(results);
 
     // Load memory for the active context and inject into the prompt.
     // Prefer folder memory when a folder is active; fall back to project memory.
@@ -311,10 +310,11 @@ export async function POST(request: NextRequest) {
         {
           role: "system",
           content:
-            "Eres ObraHub, un asistente técnico para la normativa colombiana NSR-10. " +
+            "Eres ObraHub, un asistente técnico para la construcción y normativa en Colombia. " +
             "Responde ÚNICAMENTE usando el CONTEXT proporcionado. " +
-            "Cita siempre los números de página (por ejemplo, 'Página 42'). " +
+            "Cita siempre los números de página (por ejemplo, 'Página 42') y, cuando haya varios documentos, nombra la fuente. " +
             `Si el CONTEXT no contiene información suficiente para responder, responde exactamente: ${NO_ANSWER_MESSAGE}` +
+            kbFragment +
             memoryPrompt,
         },
         {
