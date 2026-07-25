@@ -931,41 +931,29 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
 
               <div>
                 <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Normativa activa
+                  Conocimiento
                 </p>
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
-                      <Icon className="h-4 w-4 text-emerald-400">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-                        />
-                      </Icon>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">NSR-10</p>
-                      <p className="text-xs text-slate-500">Reglamento vigente</p>
-                    </div>
+                <Link
+                  href="/documents"
+                  className="group flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 transition hover:border-blue-500/25 hover:bg-blue-500/[0.04]"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+                    <Icon className="h-4 w-4 text-blue-400">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m6-12.18A8.967 8.967 0 0118 3.75c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-12.18v12.18"
+                      />
+                    </Icon>
                   </div>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  NSR-10
-                </p>
-                <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-sm text-slate-400">
-                  <Icon className="h-4 w-4 shrink-0 text-blue-400">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m6-12.18A8.967 8.967 0 0118 3.75c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-12.18v12.18"
-                    />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-200">Biblioteca</p>
+                    <p className="text-xs text-slate-500">Normativas y documentos</p>
+                  </div>
+                  <Icon className="h-4 w-4 shrink-0 text-slate-600 transition group-hover:text-blue-400">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </Icon>
-                  <span className="truncate">Construcción Sismo Resistente</span>
-                </div>
+                </Link>
               </div>
             </div>
           )}
