@@ -24,6 +24,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const scope = searchParams.get("scope") ?? "global";
     const projectSlug = searchParams.get("projectSlug");
+    const countryParam = searchParams.get("country");
+    const country =
+      countryParam === "colombia" || countryParam === "mexico" ? countryParam : undefined;
 
     if (scope === "project") {
       if (!projectSlug) {
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ documents });
     }
 
-    const documents = await listGlobalDocuments(supabase);
+    const documents = await listGlobalDocuments(supabase, country);
     return NextResponse.json({ documents });
   } catch (error) {
     console.error("GET documents error:", error);

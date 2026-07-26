@@ -50,6 +50,8 @@ export async function POST(request: NextRequest) {
     const file = form.get("file");
     const scope = (form.get("scope") as string) ?? "project";
     const projectSlug = (form.get("projectSlug") as string) ?? null;
+    const countryRaw = (form.get("country") as string) ?? "colombia";
+    const country = countryRaw === "mexico" ? "mexico" : "colombia";
     const title = (form.get("title") as string) || (file instanceof File ? file.name.replace(/\.pdf$/i, "") : "Documento");
 
     if (!(file instanceof File)) {
@@ -117,6 +119,7 @@ export async function POST(request: NextRequest) {
       .from("documents")
       .insert({
         scope,
+        country,
         project_id: projectId,
         owner_id: user.id,
         title,
@@ -136,6 +139,7 @@ export async function POST(request: NextRequest) {
         .from("documents")
         .insert({
           scope,
+          country,
           project_id: projectId,
           owner_id: user.id,
           title,

@@ -294,6 +294,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [documents, setDocuments] = useState<KBDocument[]>([]);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [selectorCountry, setSelectorCountry] = useState<"colombia" | "mexico">("colombia");
   const docsRef = useRef<HTMLDivElement>(null);
   const hasRestoredProject = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -355,6 +356,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const activeProject = projects.find((project) => project.slug === activeProjectSlug);
   const activeFolder = folders.find((f) => f.slug === activeFolderSlug);
   const showHero = messages.length === 0 && !activeProjectSlug;
+  const selectorDocs = documents.filter((d) => d.country === selectorCountry);
   // Folder dashboard: project selected, no folder selected, not loading a folder chat.
   const showFolderDashboard =
     !!activeProjectSlug &&
@@ -1122,6 +1124,25 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     Documentos a buscar
                   </p>
+
+                  {/* Country tabs */}
+                  <div className="mb-1 flex gap-1 px-1">
+                    {(["colombia", "mexico"] as const).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setSelectorCountry(c)}
+                        className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition ${
+                          selectorCountry === c
+                            ? "bg-blue-500/15 text-white"
+                            : "text-slate-500 hover:text-slate-300"
+                        }`}
+                      >
+                        {c === "colombia" ? "🇨🇴 Colombia" : "🇲🇽 México"}
+                      </button>
+                    ))}
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => setSelectedDocumentIds([])}
@@ -1138,10 +1159,14 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   </button>
                   <div className="my-1 border-t border-white/[0.06]" />
                   <div className="max-h-64 overflow-y-auto">
-                    {documents.length === 0 ? (
-                      <p className="px-2 py-3 text-center text-xs text-slate-600">Sin documentos</p>
+                    {selectorDocs.length === 0 ? (
+                      <p className="px-2 py-3 text-center text-xs text-slate-600">
+                        {selectorCountry === "mexico"
+                          ? "México aún no tiene documentos"
+                          : "Sin documentos"}
+                      </p>
                     ) : (
-                      documents.map((doc) => {
+                      selectorDocs.map((doc) => {
                         const checked = selectedDocumentIds.includes(doc.id);
                         return (
                           <button

@@ -12,11 +12,12 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { chunkPageText, storeChunks } from "../lib/ingest";
 
 async function main() {
-  const [pdfPath, title, slugArg] = process.argv.slice(2);
+  const [pdfPath, title, slugArg, countryArg] = process.argv.slice(2);
   if (!pdfPath || !title) {
-    console.error("Usage: npx tsx scripts/seed-pdf.ts <pdfPath> <title> [slug]");
+    console.error("Usage: npx tsx scripts/seed-pdf.ts <pdfPath> <title> [slug] [country]");
     process.exit(1);
   }
+  const country = countryArg === "mexico" ? "mexico" : "colombia";
 
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -64,19 +65,21 @@ async function main() {
     .from("documents")
     .select("id")
     .eq("scope", "global")
+    .eq("country", country)
     .eq("slug", slug)
     .maybeSingle();
 
   let documentId: string;
   if (existing) {
     documentId = existing.id;
-    console.log(`Existing document found (${slug}), replacing chunks...`);
+    console.log(`Existing document found (${slug} / ${country}), replacing chunks...`);
     await admin.from("document_chunks").delete().eq("document_id", documentId);
   } else {
     const { data: doc, error } = await admin
       .from("documents")
       .insert({
         scope: "global",
+        country,
         project_id: null,
         owner_id: owner.id,
         title,

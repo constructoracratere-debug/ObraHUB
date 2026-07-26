@@ -55,6 +55,7 @@ async function main() {
     .from("documents")
     .select("id")
     .eq("scope", "global")
+    .eq("country", "colombia")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -68,6 +69,7 @@ async function main() {
       .from("documents")
       .insert({
         scope: "global",
+        country: "colombia",
         project_id: null,
         owner_id: owner.id,
         title,

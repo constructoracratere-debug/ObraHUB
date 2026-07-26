@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import type { KBDocument } from "@/lib/documents";
+import type { Country, KBDocument } from "@/lib/documents";
 
 const MAX_FILE_MB = 25;
+
+type CountryTab = { id: Country; label: string; flag: string; placeholder: string };
+const COUNTRY_TABS: CountryTab[] = [
+  { id: "colombia", label: "Colombia", flag: "🇨🇴", placeholder: "Ej. NSR-10, RETIE, RAS…" },
+  { id: "mexico", label: "México", flag: "🇲🇽", placeholder: "Ej. NTC, RCDF, NOM…" },
+];
 
 const STATUS_LABELS: Record<string, { text: string; classes: string }> = {
   ready: { text: "Listo", classes: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" },
@@ -21,9 +27,13 @@ export function DocumentsManager({
   projectSlug: string | null;
 }) {
   const [docs, setDocs] = useState<KBDocument[]>(globalDocs);
+  const [country, setCountry] = useState<Country>("colombia");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
+
+  const visibleDocs = docs.filter((d) => d.country === country);
+  const activeTab = COUNTRY_TABS.find((t) => t.id === country)!;
 
   async function handleUpload(file: File) {
     if (uploading) return;
@@ -34,6 +44,7 @@ export function DocumentsManager({
       const form = new FormData();
       form.append("file", file);
       form.append("scope", "global");
+      form.append("country", country);
       if (title.trim()) form.append("title", title.trim());
 
       const res = await fetch("/api/documents/upload", {
@@ -66,6 +77,7 @@ export function DocumentsManager({
 
   async function refresh() {
     try {
+      // Load all global docs (both countries) so tab counts stay in sync.
       const res = await fetch("/api/documents?scope=global");
       const data = await res.json();
       if (res.ok) setDocs(data.documents ?? []);
@@ -76,6 +88,28 @@ export function DocumentsManager({
 
   return (
     <div className="space-y-8">
+      {/* Country tabs */}
+      <div className="flex gap-2">
+        {COUNTRY_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setCountry(tab.id)}
+            className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+              country === tab.id
+                ? "border-blue-500/40 bg-blue-500/15 text-white"
+                : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <span className="text-base">{tab.flag}</span>
+            {tab.label}
+            <span className="ml-1 rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-slate-500">
+              {docs.filter((d) => d.country === tab.id).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {isAdmin && (
         <div className="rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
           <h2 className="text-lg font-semibold text-white">Subir documento (global)</h2>
@@ -92,7 +126,7 @@ export function DocumentsManager({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ej. NSR-10, ACI 318, AISI…"
+              placeholder={activeTab.placeholder}
               disabled={uploading}
               className="w-full rounded-xl border border-white/[0.08] bg-[#050b14] px-4 py-2.5 text-base text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none disabled:opacity-50 sm:text-sm"
             />
@@ -133,24 +167,32 @@ export function DocumentsManager({
 
       <div>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Documentos globales ({docs.length})
+          Documentos · {activeTab.flag} {activeTab.label} ({visibleDocs.length})
         </h2>
 
-        {docs.length === 0 ? (
+        {visibleDocs.length === 0 ? (
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
             <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-xl ring-1 ring-blue-500/20">
-              📚
+              {activeTab.flag}
             </div>
-            <p className="text-sm font-medium text-white">Sin documentos aún</p>
+            <p className="text-sm font-medium text-white">
+              {country === "mexico"
+                ? "México aún no tiene documentos"
+                : "Sin documentos aún"}
+            </p>
             <p className="mt-1 text-sm text-slate-500">
-              {isAdmin
-                ? "Sube una normativa para que el asistente pueda consultarla."
-                : "Los administradores aún no han añadido documentos."}
+              {country === "mexico"
+                ? isAdmin
+                  ? "Sube una normativa mexicana para habilitar la búsqueda."
+                  : "Los administradores añadirán normativas mexicanas próximamente."
+                : isAdmin
+                  ? "Sube una normativa para que el asistente pueda consultarla."
+                  : "Los administradores aún no han añadido documentos."}
             </p>
           </div>
         ) : (
           <ul className="space-y-2">
-            {docs.map((doc) => {
+            {visibleDocs.map((doc) => {
               const status = STATUS_LABELS[doc.status] ?? STATUS_LABELS.processing;
               const canDelete = isAdmin;
               return (

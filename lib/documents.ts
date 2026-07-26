@@ -5,9 +5,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Global documents are shared; project documents belong to a project.
  */
 
+export type Country = "colombia" | "mexico";
+
 export type KBDocument = {
   id: string;
   scope: "global" | "project";
+  country: Country;
   projectId: string | null;
   ownerId: string;
   title: string;
@@ -21,6 +24,7 @@ export type KBDocument = {
 function toDocument(row: {
   id: string;
   scope: "global" | "project";
+  country: Country;
   project_id: string | null;
   owner_id: string;
   title: string;
@@ -33,6 +37,7 @@ function toDocument(row: {
   return {
     id: row.id,
     scope: row.scope,
+    country: row.country,
     projectId: row.project_id,
     ownerId: row.owner_id,
     title: row.title,
@@ -44,15 +49,20 @@ function toDocument(row: {
   };
 }
 
-/** Lists all global documents (shared library). */
+const DOCUMENT_COLUMNS =
+  "id, scope, country, project_id, owner_id, title, slug, source_filename, page_count, status, created_at";
+
+/** Lists global documents (shared library). Pass `country` to filter to one country. */
 export async function listGlobalDocuments(
   supabase: SupabaseClient,
+  country?: Country,
 ): Promise<KBDocument[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from("documents")
-    .select("id, scope, project_id, owner_id, title, slug, source_filename, page_count, status, created_at")
-    .eq("scope", "global")
-    .order("created_at", { ascending: false });
+    .select(DOCUMENT_COLUMNS)
+    .eq("scope", "global");
+  if (country) query = query.eq("country", country);
+  const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error) throw error;
   return (data ?? []).map(toDocument);
@@ -72,7 +82,7 @@ export async function listProjectDocuments(
 
   const { data, error } = await supabase
     .from("documents")
-    .select("id, scope, project_id, owner_id, title, slug, source_filename, page_count, status, created_at")
+    .select(DOCUMENT_COLUMNS)
     .eq("scope", "project")
     .eq("project_id", project.id)
     .order("created_at", { ascending: false });
