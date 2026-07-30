@@ -187,9 +187,21 @@ export async function deleteFolder(
   projectSlug: string,
   folderSlug: string,
 ): Promise<void> {
+  // Resolve the project so we scope the folder lookup correctly (a folder
+  // slug is only unique within a project, not globally).
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("slug", projectSlug)
+    .maybeSingle();
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
   const { data: folder, error } = await supabase
     .from("folders")
     .select("id")
+    .eq("project_id", project.id)
     .eq("slug", folderSlug)
     .maybeSingle();
 

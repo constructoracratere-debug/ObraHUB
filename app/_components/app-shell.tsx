@@ -7,6 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import { AssistantMessage } from "@/app/_components/assistant-message";
 import { FOLDER_TEMPLATE, folderIcon } from "@/lib/folders";
 import type { KBDocument } from "@/lib/documents";
+import {
+  ACCEPTED_EXTENSIONS,
+  MAX_FILE_BYTES,
+  fileIcon,
+  formatFileSize,
+  type ProjectFile,
+} from "@/lib/files";
 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
@@ -321,6 +328,9 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [selectedTemplateFolders, setSelectedTemplateFolders] = useState<string[]>([
     ...FOLDER_TEMPLATE,
   ]);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -335,6 +345,11 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [activeFolderSlug, setActiveFolderSlug] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<ToolId | null>(null);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
+  const [files, setFiles] = useState<ProjectFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -421,7 +436,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const showComposer =
     showHero ||
     activeTool === "normativa" ||
-    (!!activeProjectSlug && !!activeFolderSlug);
+    (!!activeProjectSlug && !!activeFolderSlug && activeTool !== "storage");
   // Legacy project landing view is replaced by the folder dashboard.
 
   useEffect(() => {
@@ -572,6 +587,33 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     }
   }
 
+  async function handleDeleteProject() {
+    const project = projectToDelete;
+    if (!project || isDeletingProject) return;
+
+    setIsDeletingProject(true);
+    try {
+      const res = await fetch(`/api/projects?slug=${encodeURIComponent(project.slug)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(typeof data.error === "string" ? data.error : "Error al eliminar");
+      }
+      setProjects((prev) => prev.filter((p) => p.slug !== project.slug));
+      // If the deleted project was active, go back to the hero view.
+      if (activeProjectSlug === project.slug) {
+        startNewChat();
+      }
+      setProjectToDelete(null);
+      setDeleteConfirmText("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al eliminar el proyecto");
+    } finally {
+      setIsDeletingProject(false);
+    }
+  }
+
   function openProject(slug: string) {
     setActiveProjectSlug(slug);
     localStorage.setItem(ACTIVE_PROJECT_KEY, slug);
@@ -669,6 +711,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   }
 
   function openFolder(projectSlug: string, folderSlug: string) {
+    // Storage tool: opening a folder shows its FILES, not a chat.
     setActiveFolderSlug(folderSlug);
     localStorage.setItem(ACTIVE_FOLDER_KEY, folderSlug);
     setMessages([]);
@@ -676,8 +719,83 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     setSidebarOpen(false);
     setMemories([]);
     setShowMemory(false);
-    void loadFolderConversations(projectSlug, folderSlug);
-    void loadFolderMemories(projectSlug, folderSlug);
+    setFiles([]);
+    setUploadError(null);
+    void loadFolderFiles(projectSlug, folderSlug);
+  }
+
+  async function loadFolderFiles(projectSlug: string, folderSlug: string) {
+    try {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(projectSlug)}/folders/${encodeURIComponent(folderSlug)}/files`,
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setFiles(data.files ?? []);
+    } catch {
+      setFiles([]);
+    }
+  }
+
+  async function handleUploadFiles(selectedFiles: FileList | File[]) {
+    const pSlug = activeProjectSlug;
+    const fSlug = activeFolderSlug;
+    if (!pSlug || !fSlug || isUploading) return;
+
+    const list = Array.from(selectedFiles);
+    if (list.length === 0) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const form = new FormData();
+      for (const f of list) form.append("files", f);
+
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(pSlug)}/folders/${encodeURIComponent(fSlug)}/files`,
+        { method: "POST", body: form },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Error al subir");
+      }
+      // Reload the file list to pick up the new files.
+      await loadFolderFiles(pSlug, fSlug);
+      // Reset the file input so the same file can be re-selected.
+      setFileInputKey((k) => k + 1);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Error al subir archivos");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handleDeleteFile(fileId: string) {
+    const pSlug = activeProjectSlug;
+    const fSlug = activeFolderSlug;
+    if (!pSlug || !fSlug) return;
+
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    try {
+      await fetch(
+        `/api/projects/${encodeURIComponent(pSlug)}/folders/${encodeURIComponent(fSlug)}/files?id=${fileId}`,
+        { method: "DELETE" },
+      );
+    } catch {
+      void loadFolderFiles(pSlug, fSlug);
+    }
+  }
+
+  function handleDownloadFile(fileId: string) {
+    const pSlug = activeProjectSlug;
+    const fSlug = activeFolderSlug;
+    if (!pSlug || !fSlug) return;
+    // The download route redirects to a signed URL.
+    window.open(
+      `/api/projects/${encodeURIComponent(pSlug)}/folders/${encodeURIComponent(fSlug)}/files/download?id=${fileId}`,
+      "_blank",
+    );
   }
 
   function backToDashboard() {
@@ -686,6 +804,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     setMessages([]);
     setMemories([]);
     setShowMemory(false);
+    setFiles([]);
+    setUploadError(null);
     if (activeProjectSlug) void loadProjectFolders(activeProjectSlug);
   }
 
@@ -1032,11 +1152,11 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 ) : (
                   <ul className="space-y-0.5">
                     {projects.map((project) => (
-                      <li key={project.slug}>
+                      <li key={project.slug} className="group relative">
                         <button
                           type="button"
                           onClick={() => openProject(project.slug)}
-                          className={`group flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                          className={`flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
                             activeProjectSlug === project.slug
                               ? "bg-blue-500/10 text-white ring-1 ring-blue-500/25"
                               : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
@@ -1049,7 +1169,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                               d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008z"
                             />
                           </Icon>
-                          <span className="min-w-0 flex-1">
+                          <span className="min-w-0 flex-1 pr-6">
                             <span className="block truncate">{project.name}</span>
                             <span className="mt-0.5 block text-xs text-slate-600">
                               {new Date(project.updatedAt).toLocaleDateString("es-CO", {
@@ -1058,6 +1178,20 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                               })}
                             </span>
                           </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectToDelete(project);
+                            setDeleteConfirmText("");
+                          }}
+                          aria-label="Eliminar proyecto"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-600 opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                          </svg>
                         </button>
                       </li>
                     ))}
@@ -1608,6 +1742,114 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                     </div>
                   )}
                 </div>
+              ) : activeTool === "storage" && activeFolderSlug ? (
+                /* Storage tool — folder view: upload zone + file list */
+                <div className="w-full py-2 sm:py-4">
+                  <div className="mb-5 flex items-center justify-between gap-4">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="text-xl">{activeFolder ? folderIcon(activeFolder.name) : "📁"}</span>
+                      <h2 className="truncate text-lg font-semibold text-white sm:text-xl">
+                        {activeFolder?.name ?? "Carpeta"}
+                      </h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={backToDashboard}
+                      className="shrink-0 rounded-lg px-3 py-1.5 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
+                    >
+                      ← Carpetas
+                    </button>
+                  </div>
+
+                  {/* Upload zone */}
+                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-4 py-8 text-center transition hover:border-blue-500/40 hover:bg-blue-500/[0.04]">
+                    <input
+                      key={fileInputKey}
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept={ACCEPTED_EXTENSIONS.join(",")}
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          void handleUploadFiles(e.target.files);
+                        }
+                      }}
+                    />
+                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
+                      <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium text-slate-200">
+                      {isUploading ? "Subiendo archivos…" : "Arrastra archivos o haz clic para subir"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      PDF, DWG, DXF, DOCX, XLSX, PPTX, imágenes · hasta {Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB
+                    </p>
+                  </label>
+
+                  {uploadError && (
+                    <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+                      {uploadError}
+                    </p>
+                  )}
+
+                  {/* File list */}
+                  {files.length === 0 ? (
+                    !isUploading && (
+                      <div className="mt-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
+                        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] text-xl">
+                          📂
+                        </div>
+                        <p className="text-sm font-medium text-white">Sin archivos</p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Sube planos, contratos o documentos para esta carpeta.
+                        </p>
+                      </div>
+                    )
+                  ) : (
+                    <ul className="mt-6 space-y-1.5">
+                      {files.map((file) => (
+                        <li
+                          key={file.id}
+                          className="group flex items-center gap-3 rounded-xl border border-white/[0.04] bg-white/[0.02] px-4 py-3"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-base">
+                            {fileIcon(file.name)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-slate-200">{file.name}</p>
+                            <p className="mt-0.5 text-xs text-slate-600">
+                              {formatFileSize(file.sizeBytes)} ·{" "}
+                              {new Date(file.createdAt).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadFile(file.id)}
+                            aria-label="Descargar"
+                            className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-blue-400"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteFile(file.id)}
+                            aria-label="Eliminar archivo"
+                            className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 md:opacity-0 md:transition md:group-hover:opacity-100"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               ) : isLoadingConversations && activeProjectSlug ? (
                 <div className="my-auto flex w-full justify-center py-12">
                   <p className="text-sm text-slate-500">Cargando conversaciones…</p>
@@ -1838,6 +2080,61 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isCreatingProject ? "Creando…" : "Crear proyecto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {projectToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0a1120] p-6 shadow-2xl"
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 ring-1 ring-red-500/20">
+              <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white">Eliminar proyecto</h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-400">
+              Esta acción eliminará permanentemente el proyecto{" "}
+              <span className="font-medium text-slate-200">"{projectToDelete.name}"</span>{" "}
+              y todos sus carpetas, archivos y conversaciones. No se puede deshacer.
+            </p>
+            <p className="mt-4 text-xs font-medium text-slate-400">
+              Para confirmar, escribe el nombre del proyecto:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={projectToDelete.name}
+              autoFocus
+              disabled={isDeletingProject}
+              className="mt-2 w-full rounded-xl border border-white/[0.08] bg-[#050b14] px-4 py-2.5 text-base text-slate-200 placeholder:text-slate-600 focus:border-red-500/40 focus:outline-none disabled:opacity-50 sm:text-sm"
+            />
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setProjectToDelete(null);
+                  setDeleteConfirmText("");
+                }}
+                disabled={isDeletingProject}
+                className="rounded-xl px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteProject}
+                disabled={deleteConfirmText !== projectToDelete.name || isDeletingProject}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isDeletingProject ? "Eliminando…" : "Eliminar proyecto"}
               </button>
             </div>
           </div>

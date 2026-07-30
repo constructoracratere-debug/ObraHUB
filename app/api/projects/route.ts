@@ -1,4 +1,4 @@
-import { createProject, listProjects } from "@/lib/projects";
+import { createProject, deleteProject, listProjects } from "@/lib/projects";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -71,5 +71,29 @@ export async function POST(request: NextRequest) {
       { error: "Failed to create project" },
       { status: 500 },
     );
+  }
+}
+
+/** DELETE /api/projects?slug=... — deletes a project (cascades to all its data). */
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
+    const slug = new URL(request.url).searchParams.get("slug");
+    if (!slug) {
+      return NextResponse.json({ error: "slug is required" }, { status: 400 });
+    }
+
+    await deleteProject(supabase, slug);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("DELETE /api/projects error:", error);
+    return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
   }
 }

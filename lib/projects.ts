@@ -69,8 +69,22 @@ export async function listProjects(supabase: SupabaseClient): Promise<Project[]>
   return (data ?? []).map(toProject);
 }
 
+/**
+ * Deletes a project. The DB cascades to folders, conversations, memories,
+ * and files automatically. RLS policy `projects_delete_own` enforces ownership.
+ */
+export async function deleteProject(
+  supabase: SupabaseClient,
+  slug: string,
+): Promise<void> {
+  const { error } = await supabase.from("projects").delete().eq("slug", slug);
+  if (error) {
+    throw error;
+  }
+}
+
 /** Finds a project by slug for the current user. Returns null if not found. */
-async function findProjectBySlug(
+export async function findProjectBySlug(
   supabase: SupabaseClient,
   slug: string,
 ): Promise<{ id: string } | null> {
