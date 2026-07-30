@@ -10,6 +10,53 @@ import type { KBDocument } from "@/lib/documents";
 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
+const ACTIVE_TOOL_KEY = "obrahub-active-tool";
+
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento";
+
+type ToolDef = {
+  id: ToolId;
+  title: string;
+  description: string;
+  icon: string;
+  available: boolean;
+  gradient: string;
+};
+
+const TOOLS: ToolDef[] = [
+  {
+    id: "storage",
+    title: "Documentos",
+    description: "Organiza planos, contratos y archivos del proyecto en carpetas.",
+    icon: "📁",
+    available: true,
+    gradient: "from-blue-500/15 to-blue-600/5",
+  },
+  {
+    id: "normativa",
+    title: "Consultor Normativo",
+    description: "Consulta la NSR-10, RETIE y normativas con respuestas citadas.",
+    icon: "⚖️",
+    available: true,
+    gradient: "from-emerald-500/15 to-emerald-600/5",
+  },
+  {
+    id: "costos",
+    title: "Costos y Presupuestos",
+    description: "Genera presupuestos de obra con IA y expórtalos a hoja de cálculo.",
+    icon: "💰",
+    available: false,
+    gradient: "from-amber-500/15 to-amber-600/5",
+  },
+  {
+    id: "seguimiento",
+    title: "Seguimiento de Obra",
+    description: "Cronograma dinámico (Gantt) con tareas, dependencias y avance.",
+    icon: "📊",
+    available: false,
+    gradient: "from-purple-500/15 to-purple-600/5",
+  },
+];
 
 type Project = {
   name: string;
@@ -286,6 +333,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [isSavingMemory, setIsSavingMemory] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [activeFolderSlug, setActiveFolderSlug] = useState<string | null>(null);
+  const [activeTool, setActiveTool] = useState<ToolId | null>(null);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -357,11 +405,23 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const activeFolder = folders.find((f) => f.slug === activeFolderSlug);
   const showHero = messages.length === 0 && !activeProjectSlug;
   const selectorDocs = documents.filter((d) => d.country === selectorCountry);
-  // Folder dashboard: project selected, no folder selected, not loading a folder chat.
+
+  // Tool Launcher: a project is selected but no tool is active yet.
+  const showToolLauncher =
+    !!activeProjectSlug && !activeTool && !activeFolderSlug && !isLoadingConversations;
+
+  // Storage tool (folder grid): the old folder dashboard, now nested under the tool.
   const showFolderDashboard =
     !!activeProjectSlug &&
+    activeTool === "storage" &&
     !activeFolderSlug &&
     !isLoadingConversations;
+
+  // The chat composer only shows on chat surfaces (hero, normativa tool, folder chat).
+  const showComposer =
+    showHero ||
+    activeTool === "normativa" ||
+    (!!activeProjectSlug && !!activeFolderSlug);
   // Legacy project landing view is replaced by the folder dashboard.
 
   useEffect(() => {
@@ -409,7 +469,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       await loadProjectFolders(savedSlug);
       const savedFolder = localStorage.getItem(ACTIVE_FOLDER_KEY);
       if (savedFolder) {
-        // Validate the folder still exists before opening it.
+        // A folder chat was open — restore the storage tool + folder.
+        setActiveTool("storage");
         try {
           const res = await fetch(`/api/projects/${encodeURIComponent(savedSlug)}/folders/${encodeURIComponent(savedFolder)}/conversations`);
           if (res.ok) {
@@ -420,6 +481,13 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
           // fall through
         }
         localStorage.removeItem(ACTIVE_FOLDER_KEY);
+      } else {
+        // No folder — maybe a tool was open.
+        const savedTool = localStorage.getItem(ACTIVE_TOOL_KEY);
+        if (savedTool === "storage" || savedTool === "normativa" || savedTool === "costos" || savedTool === "seguimiento") {
+          setActiveTool(savedTool as ToolId);
+          if (savedTool === "normativa") void loadProjectMemories(savedSlug);
+        }
       }
     })();
   }, [isLoadingProjects, projects]);
@@ -508,13 +576,45 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     setActiveProjectSlug(slug);
     localStorage.setItem(ACTIVE_PROJECT_KEY, slug);
     localStorage.removeItem(ACTIVE_FOLDER_KEY);
+    localStorage.removeItem(ACTIVE_TOOL_KEY);
     setActiveFolderSlug(null);
+    setActiveTool(null);
     setMessages([]);
     setError(null);
     setSidebarOpen(false);
     setMemories([]);
     setShowMemory(false);
     void loadProjectFolders(slug);
+  }
+
+  // Open a tool within the active project.
+  function openTool(tool: ToolId) {
+    setActiveTool(tool);
+    localStorage.setItem(ACTIVE_TOOL_KEY, tool);
+    setActiveFolderSlug(null);
+    localStorage.removeItem(ACTIVE_FOLDER_KEY);
+    setMessages([]);
+    setError(null);
+    setMemories([]);
+    setShowMemory(false);
+    setSidebarOpen(false);
+
+    // Normativa tool: load project-level memory (no folder).
+    if (tool === "normativa" && activeProjectSlug) {
+      void loadProjectMemories(activeProjectSlug);
+    }
+  }
+
+  // Return from a tool view to the launcher.
+  function backToLauncher() {
+    setActiveTool(null);
+    localStorage.removeItem(ACTIVE_TOOL_KEY);
+    setActiveFolderSlug(null);
+    localStorage.removeItem(ACTIVE_FOLDER_KEY);
+    setMessages([]);
+    setMemories([]);
+    setShowMemory(false);
+    setError(null);
   }
 
   async function loadProjectFolders(slug: string) {
@@ -806,8 +906,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   function startNewChat() {
     setActiveProjectSlug(null);
     setActiveFolderSlug(null);
+    setActiveTool(null);
     localStorage.removeItem(ACTIVE_PROJECT_KEY);
     localStorage.removeItem(ACTIVE_FOLDER_KEY);
+    localStorage.removeItem(ACTIVE_TOOL_KEY);
     setFolders([]);
     setMessages([]);
     setMemories([]);
@@ -1068,6 +1170,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               {activeProject && (
                 <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-slate-500 sm:text-sm">
                   {activeFolderSlug ? (
+                    // Inside a folder chat: Project › Folder (click project → storage tool)
                     <button
                       type="button"
                       onClick={backToDashboard}
@@ -1079,7 +1182,23 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                       </svg>
                       <span className="truncate text-slate-300">{activeFolder?.name}</span>
                     </button>
+                  ) : activeTool ? (
+                    // Inside a tool (no folder): Project › Tool (click project → launcher)
+                    <button
+                      type="button"
+                      onClick={backToLauncher}
+                      className="inline-flex min-w-0 items-center gap-1 truncate transition hover:text-slate-300"
+                    >
+                      <span className="truncate">{activeProject.name}</span>
+                      <svg className="h-3 w-3 shrink-0 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                      <span className="truncate text-slate-300">
+                        {TOOLS.find((t) => t.id === activeTool)?.title}
+                      </span>
+                    </button>
                   ) : (
+                    // At the launcher
                     <>
                       <span className="text-slate-500">Proyecto:</span>
                       <span className="truncate text-slate-300">{activeProject.name}</span>
@@ -1326,6 +1445,59 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                     </div>
                   </section>
                 </div>
+              ) : showToolLauncher ? (
+                <div className="w-full py-4 sm:py-8">
+                  <div className="mb-8">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-400/80">
+                      Herramientas
+                    </p>
+                    <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                      {activeProject?.name}
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Selecciona una herramienta para empezar a trabajar en el proyecto.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {TOOLS.map((tool) => (
+                      <button
+                        key={tool.id}
+                        type="button"
+                        onClick={() => (tool.available ? openTool(tool.id) : null)}
+                        disabled={!tool.available}
+                        className={`group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br ${tool.gradient} p-6 text-left shadow-sm transition ${
+                          tool.available
+                            ? "hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-900/10"
+                            : "cursor-not-allowed opacity-60"
+                        }`}
+                      >
+                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.06] text-2xl ring-1 ring-white/[0.08]">
+                          {tool.icon}
+                        </div>
+                        <h3 className="flex items-center gap-2 text-base font-semibold text-white">
+                          {tool.title}
+                          {!tool.available && (
+                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-400">
+                              Próximamente
+                            </span>
+                          )}
+                        </h3>
+                        <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
+                          {tool.description}
+                        </p>
+                        {tool.available && (
+                          <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-blue-400 transition group-hover:gap-2">
+                            Abrir
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ) : showFolderDashboard ? (
                 <div className="w-full py-2 sm:py-4">
                   <div className="mb-6 flex items-end justify-between gap-4">
@@ -1440,6 +1612,28 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 <div className="my-auto flex w-full justify-center py-12">
                   <p className="text-sm text-slate-500">Cargando conversaciones…</p>
                 </div>
+              ) : activeTool === "costos" || activeTool === "seguimiento" ? (
+                <div className="my-auto w-full py-8">
+                  <div className="mx-auto max-w-md rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-8 text-center shadow-sm">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl ring-1 ring-blue-500/20">
+                      {TOOLS.find((t) => t.id === activeTool)?.icon ?? "🚧"}
+                    </div>
+                    <h2 className="text-xl font-semibold text-white">
+                      {TOOLS.find((t) => t.id === activeTool)?.title}
+                    </h2>
+                    <p className="mt-3 text-sm leading-relaxed text-slate-400">
+                      Esta herramienta estará disponible próximamente. Estamos trabajando
+                      para llevarla a ObraHub.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={backToLauncher}
+                      className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
+                    >
+                      ← Volver a herramientas
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="w-full space-y-6 pb-4">
                   {activeProjectSlug && showMemory && (
@@ -1507,6 +1701,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             </div>
           </div>
 
+          {showComposer && (
           <div className="shrink-0 border-t border-white/[0.04] bg-[#050b14]/60 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 backdrop-blur-xl sm:px-6 sm:pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
             <div className={`mx-auto w-full ${showHero ? "max-w-5xl" : "max-w-3xl"}`}>
               <div className="relative flex items-end rounded-2xl border border-white/[0.08] bg-[#0a1120]/90 shadow-2xl shadow-black/30 ring-1 ring-white/[0.04] backdrop-blur-sm transition focus-within:border-blue-500/40 focus-within:ring-blue-500/15">
@@ -1550,6 +1745,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               </p>
             </div>
           </div>
+          )}
         </main>
       </div>
 
