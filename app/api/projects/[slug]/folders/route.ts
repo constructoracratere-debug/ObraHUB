@@ -1,4 +1,4 @@
-import { createFolder, deleteFolder, listFolders } from "@/lib/folders";
+import { createFolder, deleteFolderById, listFolders } from "@/lib/folders";
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -6,8 +6,11 @@ type RouteContext = {
   params: Promise<{ slug: string }>;
 };
 
-/** GET /api/projects/[slug]/folders — list folders in a project. */
-export async function GET(_request: NextRequest, context: RouteContext) {
+/**
+ * GET /api/projects/[slug]/folders?parentId=<uuid|null>
+ * Lists folders. Without parentId → root-level folders. With parentId → children.
+ */
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const supabase = await createClient();
     const {
@@ -18,7 +21,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
 
     const { slug } = await context.params;
-    const folders = await listFolders(supabase, slug);
+    const parentId = new URL(request.url).searchParams.get("parentId");
+
+    const folders = await listFolders(supabase, slug, parentId);
     return NextResponse.json({ folders });
   } catch (error) {
     if (error instanceof Error && error.message === "Project not found") {
@@ -29,7 +34,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   }
 }
 
-/** POST /api/projects/[slug]/folders — create a folder in a project. */
+/** POST /api/projects/[slug]/folders — create a folder (optionally nested). */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const supabase = await createClient();
@@ -42,7 +47,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { slug } = await context.params;
 
-    let body: { name?: unknown };
+    let body: { name?: unknown; parentId?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -56,10 +61,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const folder = await createFolder(supabase, slug, body.name);
+    const parentId =
+      typeof body.parentId === "string" && body.parentId.length > 0
+        ? body.parentId
+        : null;
+
+    const folder = await createFolder(supabase, slug, body.name, parentId);
     return NextResponse.json({ folder }, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && (error.message === "Project not found" || error.message === "Folder name is required")) {
+    if (
+      error instanceof Error &&
+      (error.message === "Project not found" || error.message === "Folder name is required")
+    ) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("POST folders error:", error);
@@ -67,7 +80,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 }
 
-/** DELETE /api/projects/[slug]/folders?folder=... — delete a folder (cascades to messages + memories). */
+/** DELETE /api/projects/[slug]/folders?id=<folderId> — delete a folder by ID. */
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     const supabase = await createClient();
@@ -79,17 +92,15 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     const { slug } = await context.params;
-    const folderSlug = new URL(request.url).searchParams.get("folder");
-    if (!folderSlug) {
-      return NextResponse.json({ error: "folder slug is required" }, { status: 400 });
+    const folderId = new URL(request.url).searchParams.get("id");
+    if (!folderId) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    await deleteFolder(supabase, slug, folderSlug);
+    // Verify the folder belongs to this project (ownership via RLS).
+    await deleteFolderById(supabase, folderId);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof Error && error.message === "Folder not found") {
-      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
-    }
     console.error("DELETE folders error:", error);
     return NextResponse.json({ error: "Failed to delete folder" }, { status: 500 });
   }

@@ -47,6 +47,19 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Preview category for rendering decisions in the UI. */
+export type PreviewKind = "pdf" | "image" | "office" | "none";
+
+/** Determines how a file should be previewed based on its name/MIME. */
+export function previewKind(name: string, mimeType?: string | null): PreviewKind {
+  const ext = name.toLowerCase().split(".").pop() ?? "";
+  const mt = (mimeType ?? "").toLowerCase();
+  if (ext === "pdf" || mt === "application/pdf") return "pdf";
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext) || mt.startsWith("image/")) return "image";
+  if (["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) return "office";
+  return "none";
+}
+
 function toFile(row: {
   id: string;
   folder_id: string;

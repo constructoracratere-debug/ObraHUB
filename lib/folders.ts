@@ -9,6 +9,7 @@ export type Folder = {
   id: string;
   name: string;
   slug: string;
+  parentFolderId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -93,6 +94,7 @@ function toFolder(row: {
   id: string;
   name: string;
   slug: string;
+  parent_folder_id: string | null;
   created_at: string;
   updated_at: string;
 }): Folder {
@@ -100,15 +102,23 @@ function toFolder(row: {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    parentFolderId: row.parent_folder_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-/** Lists folders for a project (newest-updated first). */
+const FOLDER_COLUMNS =
+  "id, name, slug, parent_folder_id, created_at, updated_at";
+
+/**
+ * Lists folders for a project. Pass `parentFolderId` to list only children of
+ * a specific folder; omit (or null) to list root-level folders.
+ */
 export async function listFolders(
   supabase: SupabaseClient,
   projectSlug: string,
+  parentFolderId?: string | null,
 ): Promise<Folder[]> {
   const { data, error } = await supabase
     .from("projects")
@@ -120,11 +130,21 @@ export async function listFolders(
     throw new Error("Project not found");
   }
 
-  const { data: folders, error: foldersError } = await supabase
+  let query = supabase
     .from("folders")
-    .select("id, name, slug, created_at, updated_at")
-    .eq("project_id", data.id)
-    .order("updated_at", { ascending: false });
+    .select(FOLDER_COLUMNS)
+    .eq("project_id", data.id);
+
+  if (parentFolderId) {
+    query = query.eq("parent_folder_id", parentFolderId);
+  } else {
+    query = query.is("parent_folder_id", null);
+  }
+
+  const { data: folders, error: foldersError } = await query.order(
+    "updated_at",
+    { ascending: false },
+  );
 
   if (foldersError) {
     throw foldersError;
@@ -132,11 +152,12 @@ export async function listFolders(
   return (folders ?? []).map(toFolder);
 }
 
-/** Creates a folder within a project. Slug is unique per project. */
+/** Creates a folder within a project. Pass parentFolderId to nest it. */
 export async function createFolder(
   supabase: SupabaseClient,
   projectSlug: string,
   name: string,
+  parentFolderId?: string | null,
 ): Promise<Folder> {
   const trimmed = name.trim();
   if (!trimmed) {
@@ -153,17 +174,22 @@ export async function createFolder(
     throw new Error("Project not found");
   }
 
-  // Resolve a unique slug within this project.
+  // Resolve a unique slug within the same parent group (not the whole project).
   const baseSlug = slugify(trimmed);
   let slug = baseSlug;
   let suffix = 2;
   for (;;) {
-    const { data: existing } = await supabase
+    let q = supabase
       .from("folders")
       .select("id")
       .eq("project_id", project.id)
-      .eq("slug", slug)
-      .maybeSingle();
+      .eq("slug", slug);
+    if (parentFolderId) {
+      q = q.eq("parent_folder_id", parentFolderId);
+    } else {
+      q = q.is("parent_folder_id", null);
+    }
+    const { data: existing } = await q.maybeSingle();
     if (!existing) break;
     slug = `${baseSlug}-${suffix}`;
     suffix += 1;
@@ -171,8 +197,13 @@ export async function createFolder(
 
   const { data, error } = await supabase
     .from("folders")
-    .insert({ project_id: project.id, name: trimmed, slug })
-    .select("id, name, slug, created_at, updated_at")
+    .insert({
+      project_id: project.id,
+      parent_folder_id: parentFolderId ?? null,
+      name: trimmed,
+      slug,
+    })
+    .select(FOLDER_COLUMNS)
     .single();
 
   if (error) {
@@ -181,14 +212,61 @@ export async function createFolder(
   return toFolder(data);
 }
 
+/** Fetches a single folder by its ID. Returns null if not found / not owned. */
+export async function getFolderById(
+  supabase: SupabaseClient,
+  folderId: string,
+): Promise<Folder | null> {
+  const { data, error } = await supabase
+    .from("folders")
+    .select(FOLDER_COLUMNS)
+    .eq("id", folderId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return toFolder(data);
+}
+
+/**
+ * Walks the parent chain from a folder up to the project root, returning the
+ * path from root → ... → the folder (for breadcrumb rendering).
+ */
+export async function getFolderPath(
+  supabase: SupabaseClient,
+  folderId: string,
+): Promise<Folder[]> {
+  const path: Folder[] = [];
+  let currentId: string | null = folderId;
+  // Safety cap to avoid infinite loops if data is somehow cyclic.
+  for (let i = 0; i < 20 && currentId; i++) {
+    const folder = await getFolderById(supabase, currentId);
+    if (!folder) break;
+    path.unshift(folder);
+    currentId = folder.parentFolderId;
+  }
+  return path;
+}
+
 /** Deletes a folder. Cascades to its messages + memories via DB FKs. */
+/** Deletes a folder by ID. Cascades to subfolders, files, and Storage objects. */
+export async function deleteFolderById(
+  supabase: SupabaseClient,
+  folderId: string,
+): Promise<void> {
+  const { error } = await supabase.from("folders").delete().eq("id", folderId);
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * Legacy: deletes a root-level folder by project + slug. Kept for backward
+ * compatibility with older callers. Prefer deleteFolderById.
+ */
 export async function deleteFolder(
   supabase: SupabaseClient,
   projectSlug: string,
   folderSlug: string,
 ): Promise<void> {
-  // Resolve the project so we scope the folder lookup correctly (a folder
-  // slug is only unique within a project, not globally).
   const { data: project } = await supabase
     .from("projects")
     .select("id")
@@ -202,6 +280,7 @@ export async function deleteFolder(
     .from("folders")
     .select("id")
     .eq("project_id", project.id)
+    .is("parent_folder_id", null)
     .eq("slug", folderSlug)
     .maybeSingle();
 

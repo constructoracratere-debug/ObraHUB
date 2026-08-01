@@ -12,6 +12,7 @@ import {
   MAX_FILE_BYTES,
   fileIcon,
   formatFileSize,
+  previewKind,
   type ProjectFile,
 } from "@/lib/files";
 
@@ -341,13 +342,19 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [showMemory, setShowMemory] = useState(false);
   const [newMemory, setNewMemory] = useState("");
   const [isSavingMemory, setIsSavingMemory] = useState(false);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]); // root folders (for sidebar/launcher)
+  const [subfolders, setSubfolders] = useState<Folder[]>([]); // children of active folder
+  const [folderPath, setFolderPath] = useState<Folder[]>([]); // breadcrumb chain
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [activeFolderSlug, setActiveFolderSlug] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<ToolId | null>(null);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -484,18 +491,9 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       await loadProjectFolders(savedSlug);
       const savedFolder = localStorage.getItem(ACTIVE_FOLDER_KEY);
       if (savedFolder) {
-        // A folder chat was open — restore the storage tool + folder.
+        // A folder was open — restore the storage tool + folder (by ID).
         setActiveTool("storage");
-        try {
-          const res = await fetch(`/api/projects/${encodeURIComponent(savedSlug)}/folders/${encodeURIComponent(savedFolder)}/conversations`);
-          if (res.ok) {
-            openFolder(savedSlug, savedFolder);
-            return;
-          }
-        } catch {
-          // fall through
-        }
-        localStorage.removeItem(ACTIVE_FOLDER_KEY);
+        openFolderById(savedFolder);
       } else {
         // No folder — maybe a tool was open.
         const savedTool = localStorage.getItem(ACTIVE_TOOL_KEY);
@@ -673,9 +671,12 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     }
   }
 
+  // Create a folder — inside the active folder (if any), or at project root.
   async function handleCreateFolder(name: string) {
     const slug = activeProjectSlug;
     if (!slug || isCreatingFolder) return;
+
+    const parentId = activeFolderId; // null = root, id = nested
 
     setIsCreatingFolder(true);
     setFolderError(null);
@@ -683,11 +684,16 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       const res = await fetch(`/api/projects/${encodeURIComponent(slug)}/folders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, parentId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
-      setFolders((prev) => [data.folder, ...prev]);
+      // Add to whichever list is currently displayed.
+      if (activeFolderId) {
+        setSubfolders((prev) => [data.folder, ...prev]);
+      } else {
+        setFolders((prev) => [data.folder, ...prev]);
+      }
       setNewFolderName("");
       setShowCreateFolder(false);
     } catch (err) {
@@ -697,50 +703,80 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     }
   }
 
-  async function handleDeleteFolder(folderSlug: string) {
+  // Delete a folder by ID — works at any nesting level.
+  async function handleDeleteFolderById(folderId: string) {
     const slug = activeProjectSlug;
     if (!slug) return;
-    setFolders((prev) => prev.filter((f) => f.slug !== folderSlug));
+    // Optimistically remove from whichever list it's in.
+    setSubfolders((prev) => prev.filter((f) => f.id !== folderId));
+    setFolders((prev) => prev.filter((f) => f.id !== folderId));
     try {
-      await fetch(`/api/projects/${encodeURIComponent(slug)}/folders?folder=${encodeURIComponent(folderSlug)}`, {
+      await fetch(`/api/projects/${encodeURIComponent(slug)}/folders?id=${folderId}`, {
         method: "DELETE",
       });
     } catch {
-      void loadProjectFolders(slug);
+      if (activeFolderId) void loadSubfolders(activeFolderId);
+      else if (slug) void loadProjectFolders(slug);
     }
   }
 
-  function openFolder(projectSlug: string, folderSlug: string) {
-    // Storage tool: opening a folder shows its FILES, not a chat.
-    setActiveFolderSlug(folderSlug);
-    localStorage.setItem(ACTIVE_FOLDER_KEY, folderSlug);
+  // Open a folder by ID — loads its subfolders + files + breadcrumb path.
+  function openFolderById(folderId: string) {
+    setActiveFolderId(folderId);
+    localStorage.setItem(ACTIVE_FOLDER_KEY, folderId);
+    setActiveFolderSlug(null); // slug no longer used for storage nav
     setMessages([]);
     setError(null);
     setSidebarOpen(false);
     setMemories([]);
     setShowMemory(false);
     setFiles([]);
+    setSubfolders([]);
     setUploadError(null);
-    void loadFolderFiles(projectSlug, folderSlug);
+    void loadFolderContents(folderId);
   }
 
-  async function loadFolderFiles(projectSlug: string, folderSlug: string) {
+  // Load subfolders + files + path for a folder.
+  async function loadFolderContents(folderId: string) {
+    if (!activeProjectSlug) return;
+    const slug = activeProjectSlug;
+    setIsLoadingFolders(true);
     try {
-      const res = await fetch(
-        `/api/projects/${encodeURIComponent(projectSlug)}/folders/${encodeURIComponent(folderSlug)}/files`,
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
-      setFiles(data.files ?? []);
+      const [subsRes, filesRes, pathRes] = await Promise.all([
+        fetch(`/api/projects/${encodeURIComponent(slug)}/folders?parentId=${folderId}`),
+        fetch(`/api/folders/${folderId}/files`),
+        fetch(`/api/projects/${encodeURIComponent(slug)}/folders/${folderId}/path`),
+      ]);
+      const subsData = await subsRes.json();
+      const filesData = await filesRes.json();
+      const pathData = await pathRes.json();
+      setSubfolders(subsRes.ok ? (subsData.folders ?? []) : []);
+      setFiles(filesRes.ok ? (filesData.files ?? []) : []);
+      setFolderPath(pathRes.ok ? (pathData.path ?? []) : []);
     } catch {
+      setSubfolders([]);
       setFiles([]);
+      setFolderPath([]);
+    } finally {
+      setIsLoadingFolders(false);
     }
   }
 
+  async function loadSubfolders(folderId: string) {
+    if (!activeProjectSlug) return;
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(activeProjectSlug)}/folders?parentId=${folderId}`);
+      const data = await res.json();
+      setSubfolders(res.ok ? (data.folders ?? []) : []);
+    } catch {
+      setSubfolders([]);
+    }
+  }
+
+  // Upload files to the active folder (by folderId).
   async function handleUploadFiles(selectedFiles: FileList | File[]) {
-    const pSlug = activeProjectSlug;
-    const fSlug = activeFolderSlug;
-    if (!pSlug || !fSlug || isUploading) return;
+    const fid = activeFolderId;
+    if (!fid || isUploading) return;
 
     const list = Array.from(selectedFiles);
     if (list.length === 0) return;
@@ -752,17 +788,12 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       const form = new FormData();
       for (const f of list) form.append("files", f);
 
-      const res = await fetch(
-        `/api/projects/${encodeURIComponent(pSlug)}/folders/${encodeURIComponent(fSlug)}/files`,
-        { method: "POST", body: form },
-      );
+      const res = await fetch(`/api/folders/${fid}/files`, { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Error al subir");
       }
-      // Reload the file list to pick up the new files.
-      await loadFolderFiles(pSlug, fSlug);
-      // Reset the file input so the same file can be re-selected.
+      await loadFolderContents(fid);
       setFileInputKey((k) => k + 1);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Error al subir archivos");
@@ -772,40 +803,57 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   }
 
   async function handleDeleteFile(fileId: string) {
-    const pSlug = activeProjectSlug;
-    const fSlug = activeFolderSlug;
-    if (!pSlug || !fSlug) return;
-
+    const fid = activeFolderId;
+    if (!fid) return;
     setFiles((prev) => prev.filter((f) => f.id !== fileId));
     try {
-      await fetch(
-        `/api/projects/${encodeURIComponent(pSlug)}/folders/${encodeURIComponent(fSlug)}/files?id=${fileId}`,
-        { method: "DELETE" },
-      );
+      await fetch(`/api/folders/${fid}/files?id=${fileId}`, { method: "DELETE" });
     } catch {
-      void loadFolderFiles(pSlug, fSlug);
+      void loadFolderContents(fid);
     }
   }
 
   function handleDownloadFile(fileId: string) {
-    const pSlug = activeProjectSlug;
-    const fSlug = activeFolderSlug;
-    if (!pSlug || !fSlug) return;
-    // The download route redirects to a signed URL.
-    window.open(
-      `/api/projects/${encodeURIComponent(pSlug)}/folders/${encodeURIComponent(fSlug)}/files/download?id=${fileId}`,
-      "_blank",
-    );
+    const fid = activeFolderId;
+    if (!fid) return;
+    window.open(`/api/folders/${fid}/files/download?id=${fileId}`, "_blank");
+  }
+
+  // Open the preview modal for a file.
+  async function handlePreviewFile(file: ProjectFile) {
+    const fid = activeFolderId;
+    if (!fid) return;
+    const kind = previewKind(file.name, file.mimeType);
+    if (kind === "none") {
+      handleDownloadFile(file.id);
+      return;
+    }
+    setPreviewFile(file);
+    setPreviewUrl(null);
+    setIsLoadingPreview(true);
+    try {
+      const res = await fetch(`/api/folders/${fid}/files/preview?id=${file.id}`);
+      const data = await res.json();
+      if (res.ok) setPreviewUrl(data.url);
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingPreview(false);
+    }
   }
 
   function backToDashboard() {
+    setActiveFolderId(null);
     setActiveFolderSlug(null);
     localStorage.removeItem(ACTIVE_FOLDER_KEY);
     setMessages([]);
     setMemories([]);
     setShowMemory(false);
     setFiles([]);
+    setSubfolders([]);
+    setFolderPath([]);
     setUploadError(null);
+    setPreviewFile(null);
     if (activeProjectSlug) void loadProjectFolders(activeProjectSlug);
   }
 
@@ -1703,7 +1751,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                         >
                           <button
                             type="button"
-                            onClick={() => activeProjectSlug && openFolder(activeProjectSlug, folder.slug)}
+                            onClick={() => openFolderById(folder.id)}
                             className="block w-full text-left"
                           >
                             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-xl ring-1 ring-blue-500/20 transition group-hover:bg-blue-500/15">
@@ -1716,7 +1764,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteFolder(folder.slug)}
+                            onClick={() => handleDeleteFolderById(folder.id)}
                             aria-label="Eliminar carpeta"
                             className="absolute right-3 top-3 rounded-lg p-2 text-slate-600 transition hover:bg-red-500/10 hover:text-red-400 md:opacity-0 md:transition md:group-hover:opacity-100"
                           >
@@ -1742,112 +1790,204 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                     </div>
                   )}
                 </div>
-              ) : activeTool === "storage" && activeFolderSlug ? (
-                /* Storage tool — folder view: upload zone + file list */
+              ) : activeTool === "storage" && activeFolderId ? (
+                /* Storage tool — folder explorer: subfolders grid + files + breadcrumb */
                 <div className="w-full py-2 sm:py-4">
-                  <div className="mb-5 flex items-center justify-between gap-4">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="text-xl">{activeFolder ? folderIcon(activeFolder.name) : "📁"}</span>
-                      <h2 className="truncate text-lg font-semibold text-white sm:text-xl">
-                        {activeFolder?.name ?? "Carpeta"}
-                      </h2>
-                    </div>
+                  {/* Dynamic breadcrumb */}
+                  <div className="mb-5 flex flex-wrap items-center gap-1.5 text-sm">
                     <button
                       type="button"
                       onClick={backToDashboard}
-                      className="shrink-0 rounded-lg px-3 py-1.5 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white"
+                      className="rounded-lg px-2 py-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
                     >
-                      ← Carpetas
+                      ← Raíz
                     </button>
+                    {folderPath.map((f, i) => (
+                      <span key={f.id} className="flex items-center gap-1.5">
+                        <svg className="h-3 w-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                        {i === folderPath.length - 1 ? (
+                          <span className="rounded-lg px-2 py-1 font-medium text-white">
+                            {folderIcon(f.name)} {f.name}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openFolderById(f.id)}
+                            className="rounded-lg px-2 py-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                          >
+                            {f.name}
+                          </button>
+                        )}
+                      </span>
+                    ))}
                   </div>
 
-                  {/* Upload zone */}
-                  <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-4 py-8 text-center transition hover:border-blue-500/40 hover:bg-blue-500/[0.04]">
-                    <input
-                      key={fileInputKey}
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept={ACCEPTED_EXTENSIONS.join(",")}
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          void handleUploadFiles(e.target.files);
-                        }
-                      }}
-                    />
-                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
-                      <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                      </svg>
-                    </div>
-                    <p className="text-sm font-medium text-slate-200">
-                      {isUploading ? "Subiendo archivos…" : "Arrastra archivos o haz clic para subir"}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      PDF, DWG, DXF, DOCX, XLSX, PPTX, imágenes · hasta {Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB
-                    </p>
-                  </label>
-
-                  {uploadError && (
-                    <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
-                      {uploadError}
-                    </p>
-                  )}
-
-                  {/* File list */}
-                  {files.length === 0 ? (
-                    !isUploading && (
-                      <div className="mt-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
-                        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] text-xl">
-                          📂
-                        </div>
-                        <p className="text-sm font-medium text-white">Sin archivos</p>
-                        <p className="mt-1 text-sm text-slate-500">
-                          Sube planos, contratos o documentos para esta carpeta.
-                        </p>
+                  {/* Subfolders grid (children of current folder) */}
+                  {isLoadingFolders ? (
+                    <p className="py-8 text-center text-sm text-slate-500">Cargando…</p>
+                  ) : subfolders.length === 0 && files.length === 0 && !isUploading ? (
+                    /* Combined empty state */
+                    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
+                      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] text-xl">
+                        📂
                       </div>
-                    )
+                      <p className="text-sm font-medium text-white">Carpeta vacía</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Sube archivos o crea subcarpetas para organizar el contenido.
+                      </p>
+                    </div>
                   ) : (
-                    <ul className="mt-6 space-y-1.5">
-                      {files.map((file) => (
-                        <li
-                          key={file.id}
-                          className="group flex items-center gap-3 rounded-xl border border-white/[0.04] bg-white/[0.02] px-4 py-3"
-                        >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-base">
-                            {fileIcon(file.name)}
+                    <>
+                      {subfolders.length > 0 && (
+                        <div className="mb-6">
+                          <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Subcarpetas ({subfolders.length})
+                          </p>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {subfolders.map((folder) => (
+                              <div
+                                key={folder.id}
+                                className="group relative flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 transition hover:border-blue-500/25"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => openFolderById(folder.id)}
+                                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                >
+                                  <span className="text-lg">{folderIcon(folder.name)}</span>
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-medium text-slate-200">{folder.name}</span>
+                                    <span className="block text-xs text-slate-600">
+                                      {new Date(folder.updatedAt).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}
+                                    </span>
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFolderById(folder.id)}
+                                  aria-label="Eliminar carpeta"
+                                  className="shrink-0 rounded-lg p-1.5 text-slate-600 transition hover:bg-red-500/10 hover:text-red-400 md:opacity-0 md:group-hover:opacity-100"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                            {/* Add subfolder card */}
+                            <button
+                              type="button"
+                              onClick={() => { setShowCreateFolder(true); setFolderError(null); }}
+                              className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] px-4 py-3 text-sm text-slate-500 transition hover:border-blue-500/30 hover:text-blue-400"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                              </svg>
+                              Nueva subcarpeta
+                            </button>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-slate-200">{file.name}</p>
-                            <p className="mt-0.5 text-xs text-slate-600">
-                              {formatFileSize(file.sizeBytes)} ·{" "}
-                              {new Date(file.createdAt).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadFile(file.id)}
-                            aria-label="Descargar"
-                            className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-blue-400"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteFile(file.id)}
-                            aria-label="Eliminar archivo"
-                            className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 md:opacity-0 md:transition md:group-hover:opacity-100"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                            </svg>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                        </div>
+                      )}
+
+                      {/* Upload zone */}
+                      <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-4 py-8 text-center transition hover:border-blue-500/40 hover:bg-blue-500/[0.04]">
+                        <input
+                          key={fileInputKey}
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          accept={ACCEPTED_EXTENSIONS.join(",")}
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              void handleUploadFiles(e.target.files);
+                            }
+                          }}
+                        />
+                        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
+                          <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium text-slate-200">
+                          {isUploading ? "Subiendo archivos…" : "Arrastra archivos o haz clic para subir"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          PDF, DWG, DXF, DOCX, XLSX, PPTX, imágenes · hasta {Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB
+                        </p>
+                      </label>
+
+                      {uploadError && (
+                        <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+                          {uploadError}
+                        </p>
+                      )}
+
+                      {/* File list */}
+                      {files.length > 0 && (
+                        <div className="mt-6">
+                          <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Archivos ({files.length})
+                          </p>
+                          <ul className="space-y-1.5">
+                            {files.map((file) => (
+                              <li
+                                key={file.id}
+                                className="group flex items-center gap-3 rounded-xl border border-white/[0.04] bg-white/[0.02] px-4 py-3"
+                              >
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-base">
+                                  {fileIcon(file.name)}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePreviewFile(file)}
+                                  className="min-w-0 flex-1 text-left"
+                                >
+                                  <p className="truncate text-sm font-medium text-slate-200 hover:text-blue-300">{file.name}</p>
+                                  <p className="mt-0.5 text-xs text-slate-600">
+                                    {formatFileSize(file.sizeBytes)} ·{" "}
+                                    {new Date(file.createdAt).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}
+                                  </p>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePreviewFile(file)}
+                                  aria-label="Vista previa"
+                                  className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-blue-400"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadFile(file.id)}
+                                  aria-label="Descargar"
+                                  className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-blue-400"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFile(file.id)}
+                                  aria-label="Eliminar archivo"
+                                  className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 md:opacity-0 md:transition md:group-hover:opacity-100"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                  </svg>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ) : isLoadingConversations && activeProjectSlug ? (
@@ -2208,6 +2348,76 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 {isCreatingFolder ? "Creando…" : "Crear carpeta"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document preview modal */}
+      {previewFile && (
+        <div className="fixed inset-0 z-[70] flex flex-col bg-black/80 backdrop-blur-sm">
+          <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="text-lg">{fileIcon(previewFile.name)}</span>
+              <p className="truncate text-sm font-medium text-white">{previewFile.name}</p>
+              <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">
+                {formatFileSize(previewFile.sizeBytes)}
+              </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => previewFile && handleDownloadFile(previewFile.id)}
+                className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                Descargar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setPreviewFile(null); setPreviewUrl(null); }}
+                aria-label="Cerrar"
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden bg-[#050b14]">
+            {isLoadingPreview ? (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-sm text-slate-500">Cargando vista previa…</p>
+              </div>
+            ) : !previewUrl ? (
+              <div className="flex h-full items-center justify-center px-4 text-center">
+                <div>
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04] text-2xl">
+                    {fileIcon(previewFile.name)}
+                  </div>
+                  <p className="text-sm font-medium text-white">Vista previa no disponible</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Descarga el archivo para verlo.
+                  </p>
+                </div>
+              </div>
+            ) : previewKind(previewFile.name, previewFile.mimeType) === "pdf" ? (
+              <iframe src={previewUrl} className="h-full w-full" title={previewFile.name} />
+            ) : previewKind(previewFile.name, previewFile.mimeType) === "image" ? (
+              <div className="flex h-full items-center justify-center overflow-auto p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewUrl} alt={previewFile.name} className="max-h-full max-w-full rounded-lg" />
+              </div>
+            ) : previewKind(previewFile.name, previewFile.mimeType) === "office" ? (
+              <iframe
+                src={`https://view.officeapps.office.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`}
+                className="h-full w-full"
+                title={previewFile.name}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center px-4 text-center">
+                <p className="text-sm text-slate-500">Vista previa no disponible. Descarga el archivo.</p>
+              </div>
+            )}
           </div>
         </div>
       )}
