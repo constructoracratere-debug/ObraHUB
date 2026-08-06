@@ -424,7 +424,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const initials = initialsFromName(displayName);
 
   const activeProject = projects.find((project) => project.slug === activeProjectSlug);
-  const activeFolder = folders.find((f) => f.slug === activeFolderSlug);
+  const activeFolder = folderPath.length > 0 ? folderPath[folderPath.length - 1] : null;
   const showHero = messages.length === 0 && !activeProjectSlug;
   const selectorDocs = documents.filter((d) => d.country === selectorCountry);
 
@@ -436,14 +436,11 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const showFolderDashboard =
     !!activeProjectSlug &&
     activeTool === "storage" &&
-    !activeFolderSlug &&
+    !activeFolderId &&
     !isLoadingConversations;
 
-  // The chat composer only shows on chat surfaces (hero, normativa tool, folder chat).
-  const showComposer =
-    showHero ||
-    activeTool === "normativa" ||
-    (!!activeProjectSlug && !!activeFolderSlug && activeTool !== "storage");
+  // The chat composer only shows on chat surfaces (hero, normativa tool).
+  const showComposer = showHero || activeTool === "normativa";
   // Legacy project landing view is replaced by the folder dashboard.
 
   useEffect(() => {
@@ -1028,7 +1025,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
           message,
           projectSlug: projectSlug ?? undefined,
           folderSlug: folderSlug ?? undefined,
-          documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+          documentIds:
+            (activeTool === "normativa" || !activeProjectSlug) && selectedDocumentIds.length > 0
+              ? selectedDocumentIds
+              : undefined,
         }),
       });
       const data = await res.json();
@@ -1247,6 +1247,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 )}
               </section>
 
+              {(showHero || activeTool === "normativa") && (
               <div>
                 <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Conocimiento
@@ -1273,6 +1274,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   </Icon>
                 </Link>
               </div>
+              )}
             </div>
           )}
         </div>
@@ -1351,8 +1353,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               <Logo size="large" />
               {activeProject && (
                 <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-slate-500 sm:text-sm">
-                  {activeFolderSlug ? (
-                    // Inside a folder chat: Project › Folder (click project → storage tool)
+                  {activeFolderId ? (
+                    // Inside a storage folder: Project › Tool › Folder
                     <button
                       type="button"
                       onClick={backToDashboard}
@@ -1360,6 +1362,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                     >
                       <span className="truncate">{activeProject.name}</span>
                       <svg className="h-3 w-3 shrink-0 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                      <span className="hidden truncate text-slate-500 sm:inline">{TOOLS.find((t) => t.id === activeTool)?.title}</span>
+                      <svg className="hidden h-3 w-3 shrink-0 text-slate-600 sm:inline" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
                       <span className="truncate text-slate-300">{activeFolder?.name}</span>
@@ -1404,6 +1410,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 {memories.length}
               </button>
             )}
+            {(showHero || activeTool === "normativa") && (
             <div ref={docsRef} className="relative">
               <button
                 type="button"
@@ -1509,6 +1516,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 </div>
               )}
             </div>
+            )}
             <span className="hidden items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400 sm:inline-flex">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
