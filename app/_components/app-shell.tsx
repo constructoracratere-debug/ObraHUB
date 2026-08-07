@@ -1832,22 +1832,12 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                     ))}
                   </div>
 
-                  {/* Subfolders grid (children of current folder) */}
+                  {/* Folder contents: subfolders + upload + files (always visible) */}
                   {isLoadingFolders ? (
                     <p className="py-8 text-center text-sm text-slate-500">Cargando…</p>
-                  ) : subfolders.length === 0 && files.length === 0 && !isUploading ? (
-                    /* Combined empty state */
-                    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
-                      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] text-xl">
-                        📂
-                      </div>
-                      <p className="text-sm font-medium text-white">Carpeta vacía</p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Sube archivos o crea subcarpetas para organizar el contenido.
-                      </p>
-                    </div>
                   ) : (
                     <>
+                      {/* Subfolders grid */}
                       {subfolders.length > 0 && (
                         <div className="mb-6">
                           <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -1884,22 +1874,25 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                                 </button>
                               </div>
                             ))}
-                            {/* Add subfolder card */}
-                            <button
-                              type="button"
-                              onClick={() => { setShowCreateFolder(true); setFolderError(null); }}
-                              className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] px-4 py-3 text-sm text-slate-500 transition hover:border-blue-500/30 hover:text-blue-400"
-                            >
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                              </svg>
-                              Nueva subcarpeta
-                            </button>
                           </div>
                         </div>
                       )}
 
-                      {/* Upload zone */}
+                      {/* Action bar: create subfolder */}
+                      <div className="mb-4 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setShowCreateFolder(true); setFolderError(null); }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-slate-400 transition hover:border-blue-500/30 hover:text-blue-400"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                          Nueva subcarpeta
+                        </button>
+                      </div>
+
+                      {/* Upload zone — ALWAYS visible */}
                       <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-4 py-8 text-center transition hover:border-blue-500/40 hover:bg-blue-500/[0.04]">
                         <input
                           key={fileInputKey}
