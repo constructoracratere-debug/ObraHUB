@@ -335,7 +335,7 @@ function APUCategory({
       <p className={`mb-2 text-[10px] font-semibold uppercase tracking-wider ${colorMap[color]}`}>
         {label}
       </p>
-      <ul className="space-y-1">
+      <ul className="space-y-1.5">
         {lines.map((line, i) => (
           <li key={i} className="text-xs">
             <div className="flex items-baseline justify-between gap-2">
@@ -346,12 +346,15 @@ function APUCategory({
               <p className="text-[10px] text-slate-600">
                 {line.qty} {line.unit} × {formatCOP(line.unitPrice)}
               </p>
-              {line.source && (
-                <span className="rounded bg-white/[0.04] px-1 py-0.5 text-[9px] text-slate-600">
-                  {line.source}
-                </span>
-              )}
             </div>
+            {line.source && (
+              <p className="mt-0.5 flex items-center gap-1 text-[9px] text-blue-500/70">
+                <svg className="h-2.5 w-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="truncate">{line.source}</span>
+              </p>
+            )}
           </li>
         ))}
       </ul>

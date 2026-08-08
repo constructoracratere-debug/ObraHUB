@@ -82,7 +82,7 @@ function buildPresupuestoSheet(wb: ExcelJS.Workbook, budget: APUBudget) {
 
   // Source note
   ws.mergeCells("A4:H4");
-  ws.getCell("A4").value = "Fuente de precios: Base de datos ObraHub (precios de referencia Colombia). Los valores son editables — modifique cantidades o precios y los totales se recalculan automáticamente.";
+  ws.getCell("A4").value = "Fuente de precios: Base de datos ObraHub — precios de referencia Colombia (DANE/IPC 2025). Cada ítem incluye su código de origen. Los valores son editables — modifique cantidades o precios y los totales se recalculan automáticamente vía fórmulas.";
   ws.getCell("A4").font = { size: 9, color: { argb: "FF888888" } };
   ws.getCell("A4").alignment = { horizontal: "center" };
 
@@ -204,6 +204,10 @@ function addAPUDetail(
     const r = rowIdx;
     ws.getCell(`B${r}`).value = `  └ ${label}: ${line.name}`;
     ws.getCell(`B${r}`).font = { size: 9, color: { argb: "FF666666" } };
+    // Source citation on the description (if present)
+    if (line.source) {
+      ws.getCell(`B${r}`).note = line.source;
+    }
     ws.getCell(`C${r}`).value = line.unit;
     ws.getCell(`D${r}`).value = line.qty;
     ws.getCell(`D${r}`).numFmt = "0.000";

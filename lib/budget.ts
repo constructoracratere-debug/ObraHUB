@@ -68,6 +68,7 @@ REGLAS ESTRICTAS:
 5. Aplica IVA del 19% sobre (costo directo + AIU).
 6. Organiza los ítems en CAPÍTULOS (Preliminares, Cimentación, Estructura, Mampostería, Acabados, Instalaciones, etc.).
 7. El subtotal de cada línea (qty × unitPrice) debe ser matemáticamente correcto.
+8. TRACEABILIDAD DE FUENTES: Cada línea de material, mano de obra y equipo debe incluir en "source" el nombre EXACTO del ítem de la base de datos usado y su código entre paréntesis. Ejemplo: "source": "Base ObraHub: Cemento gris structural (MAT-001) — ref. 2025". Esto es CRÍTICO para auditoría gubernamental.
 8. El costoDirecto de cada ítem = suma de subtotales de materiales + mano de obra + equipos.
 9. precioUnitarioTotal = costoDirecto × (1 + AIU/100).
 10. subtotal = precioUnitarioTotal × cantidad.
@@ -88,9 +89,9 @@ DEVUELVE EXCLUSIVAMENTE JSON válido (sin markdown, sin texto adicional) con est
       "descripcion": "descripción del ítem",
       "unidad": "m² | m³ | ml | unidad | global",
       "cantidad": 200,
-      "materiales": [{"name":"...","unit":"...","qty":0.12,"unitPrice":45000,"subtotal":5400,"source":"curated"}],
-      "manoObra": [{"name":"...","unit":"día","qty":0.05,"unitPrice":80000,"subtotal":4000,"source":"curated"}],
-      "equipos": [{"name":"...","unit":"hora","qty":0.02,"unitPrice":28000,"subtotal":560,"source":"curated"}],
+      "materiales": [{"name":"...","unit":"...","qty":0.12,"unitPrice":45000,"subtotal":5400,"source":"Base ObraHub: Pintura vinílica interior blanco (MAT-015) — ref. 2025"}],
+      "manoObra": [{"name":"...","unit":"día","qty":0.05,"unitPrice":80000,"subtotal":4000,"source":"Base ObraHub: Pintor profesional (LAB-004) — ref. 2025"}],
+      "equipos": [{"name":"...","unit":"hora","qty":0.02,"unitPrice":28000,"subtotal":560,"source":"Base ObraHub: Andamio tubular (EQ-002) — ref. 2025"}],
       "costoDirecto": 9960,
       "aiu": {"administracion":13,"imprevistos":3,"utilidad":6},
       "precioUnitarioTotal": 12151,
