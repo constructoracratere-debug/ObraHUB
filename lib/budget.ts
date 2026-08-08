@@ -62,19 +62,24 @@ Tu tarea es generar un ANÁLISIS DE PRECIOS UNITARIOS (APU) profesional, detalla
 
 REGLAS ESTRICTAS:
 1. USA ÚNICAMENTE los precios de la BASE DE DATOS DE PRECIOS proporcionada. No inventes precios.
-2. Cada ítem debe desglosarse en: MATERIALES, MANO DE OBRA y EQUIPOS con cantidades y subtotales.
-3. Las cantidades de materiales/mano de obra deben ser realistas por unidad de trabajo (rendimientos estándar colombianos).
-4. Aplica AIU estándar: Administración (13%), Imprevistos (3%), Utilidad (6%) = 22% total sobre el costo directo.
-5. Aplica IVA del 19% sobre (costo directo + AIU).
-6. Organiza los ítems en CAPÍTULOS (Preliminares, Cimentación, Estructura, Mampostería, Acabados, Instalaciones, etc.).
-7. El subtotal de cada línea (qty × unitPrice) debe ser matemáticamente correcto.
-8. TRACEABILIDAD DE FUENTES: Cada línea de material, mano de obra y equipo debe incluir en "source" el nombre EXACTO del ítem de la base de datos usado y su código entre paréntesis. Ejemplo: "source": "Base ObraHub: Cemento gris structural (MAT-001) — ref. 2025". Esto es CRÍTICO para auditoría gubernamental.
-8. El costoDirecto de cada ítem = suma de subtotales de materiales + mano de obra + equipos.
-9. precioUnitarioTotal = costoDirecto × (1 + AIU/100).
-10. subtotal = precioUnitarioTotal × cantidad.
-11. Cada línea (material/mano de obra/equipo) debe incluir "source" con la fuente del precio de la base de datos.
-12. Para cada ítem, genera 2-3 ESCENARIOS de precio alternativos en el campo "escenarios". Ejemplos:
-    - "Estándar" (el cálculo principal),
+2. DESGLOSE GRANULAR POR OFICIO: Cada ítem debe desglosarse en TODOS los materiales, mano de obra y equipos necesarios. Piensa como un maestro de obra:
+   - INSTALACIONES ELÉCTRICAS: No solo "cable + electricista". Incluye: cable THW por calibre, conduit/tubo PVC, cajas de paso, cajas de conexión, tomacorrientes, interruptores, breakers, panel, neutro, tierra, tornillos, pegante para conduit, cinta aislante, etc.
+   - CARPINTERÍA: No solo "madera + carpintero". Incluye: tabla principal, plywood, tornillos para madera, pegante, bisagras, cerraduras, lija, masilla, acabado/laca, cepillado, etc.
+   - MAMPOSTERÍA: Ladrillo/bloque, mortero/cemento, arena, impermeabilizante, refuerzo (si aplica), alambre, etc.
+   - PINTURA: Imprimación/sellador, masilla, cinta, lija, pintura (manos), rodillos/brochas (consumibles), andamios, etc.
+   - ESTRUCTURA/CONCRETO: Cemento, arena, gravilla, acero de refuerzo por diámetro, alambre, formaleta, desmoldante, aditivos, vibrador, mezcladora, curado, etc.
+   - HIDROSANITARIO: Tubo PVC por diámetro, codos, tees, reducciones, pegante PVC, llaves, accesorios, sellos, etc.
+3. NUNCA agrupes materiales en una sola línea genérica. Si el trabajo requiere 8 materiales distintos, lista los 8.
+4. Las cantidades de materiales/mano de obra deben ser realistas por unidad de trabajo (rendimientos estándar colombianos).
+5. Aplica AIU estándar: Administración (13%), Imprevistos (3%), Utilidad (6%) = 22% total sobre el costo directo.
+6. Aplica IVA del 19% sobre (costo directo + AIU).
+7. Organiza los ítems en CAPÍTULOS (Preliminares, Cimentación, Estructura, Mampostería, Acabados, Instalaciones, etc.).
+8. El subtotal de cada línea (qty × unitPrice) debe ser matemáticamente correcto.
+9. TRACEABILIDAD DE FUENTES: Cada línea debe incluir en "source" el nombre EXACTO del ítem de la base de datos y su código. Ejemplo: "source": "Base ObraHub: Cemento gris structural (MAT-001) — ref. 2025".
+10. El costoDirecto de cada ítem = suma de subtotales de materiales + mano de obra + equipos.
+11. precioUnitarioTotal = costoDirecto × (1 + AIU/100).
+12. subtotal = precioUnitarioTotal × cantidad.
+13. Para cada ítem, genera 2-3 ESCENARIOS de precio alternativos en el campo "escenarios". Ejemplos:
     - "Económico" (usando ayudantes en lugar de oficiales, o materiales de menor costo),
     - "Premium" (materiales de primera calidad, mano de obra certificada).
     Cada escenario debe tener: nombre, descripción, costoDirecto, precioUnitarioTotal y subtotal.
