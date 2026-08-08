@@ -15,6 +15,7 @@ import {
   previewKind,
   type ProjectFile,
 } from "@/lib/files";
+import { CostosTool } from "@/app/_components/costos-tool";
 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
@@ -53,7 +54,7 @@ const TOOLS: ToolDef[] = [
     title: "Costos y Presupuestos",
     description: "Genera presupuestos de obra con IA y expórtalos a hoja de cálculo.",
     icon: "💰",
-    available: false,
+    available: true,
     gradient: "from-amber-500/15 to-amber-600/5",
   },
   {
@@ -1995,15 +1996,15 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 <div className="my-auto flex w-full justify-center py-12">
                   <p className="text-sm text-slate-500">Cargando conversaciones…</p>
                 </div>
-              ) : activeTool === "costos" || activeTool === "seguimiento" ? (
+              ) : activeTool === "costos" ? (
+                <CostosTool />
+              ) : activeTool === "seguimiento" ? (
                 <div className="my-auto w-full py-8">
                   <div className="mx-auto max-w-md rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-8 text-center shadow-sm">
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl ring-1 ring-blue-500/20">
-                      {TOOLS.find((t) => t.id === activeTool)?.icon ?? "🚧"}
+                      📊
                     </div>
-                    <h2 className="text-xl font-semibold text-white">
-                      {TOOLS.find((t) => t.id === activeTool)?.title}
-                    </h2>
+                    <h2 className="text-xl font-semibold text-white">Seguimiento de Obra</h2>
                     <p className="mt-3 text-sm leading-relaxed text-slate-400">
                       Esta herramienta estará disponible próximamente. Estamos trabajando
                       para llevarla a ObraHub.

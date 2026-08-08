@@ -1,0 +1,305 @@
+"use client";
+
+import { useState } from "react";
+import type { APUBudget, APUItem } from "@/lib/budget";
+import { formatCOP } from "@/lib/prices";
+
+export function CostosTool() {
+  const [prompt, setPrompt] = useState("");
+  const [budget, setBudget] = useState<APUBudget | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  async function handleGenerate() {
+    const value = prompt.trim();
+    if (!value || isGenerating) return;
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/budgets/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Error al generar");
+      }
+      setBudget(data.budget);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al generar el presupuesto");
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleExportExcel() {
+    if (!budget || isExporting) return;
+    setIsExporting(true);
+    try {
+      const res = await fetch("/api/budgets/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ budget }),
+      });
+      if (!res.ok) throw new Error("Error al exportar");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = window.document.createElement("a");
+      a.href = url;
+      a.download = `Presupuesto_ObraHub_${Date.now()}.xlsx`;
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Error al exportar a Excel");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  function toggleItem(key: string) {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  return (
+    <div className="w-full py-2 sm:py-4">
+      {/* Prompt input */}
+      <div className="mb-6">
+        <label htmlFor="budget-prompt" className="mb-1.5 block text-sm font-medium text-slate-300">
+          Describe el trabajo a presupuestar
+        </label>
+        <textarea
+          id="budget-prompt"
+          rows={3}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleGenerate();
+            }
+          }}
+          placeholder="Ej. Pintar 200m² de muro exterior con pintura vinílica blanca, incluyendo masilla y dos manos de pintura"
+          disabled={isGenerating}
+          className="w-full resize-none rounded-xl border border-white/[0.08] bg-[#050b14] px-4 py-3 text-base text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none disabled:opacity-50 sm:text-sm"
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={!prompt.trim() || isGenerating}
+            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isGenerating ? "Generando APU…" : "Generar presupuesto"}
+          </button>
+          {budget && (
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              {isExporting ? "Exportando…" : "Exportar Excel"}
+            </button>
+          )}
+        </div>
+        {error && (
+          <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+            {error}
+          </p>
+        )}
+      </div>
+
+      {/* Budget result */}
+      {isGenerating && !budget && (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex gap-1">
+              <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:0ms]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:150ms]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-blue-400 [animation-delay:300ms]" />
+            </div>
+            <p className="text-sm text-slate-500">Generando análisis de precios unitarios…</p>
+          </div>
+        </div>
+      )}
+
+      {budget && (
+        <div className="space-y-4">
+          {/* Summary bar */}
+          <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-5 sm:grid-cols-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Costos Directos</p>
+              <p className="mt-1 text-sm font-bold text-slate-200">{formatCOP(budget.resumen.costosDirectos)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">AIU ({budget.resumen.aiuTotal}%)</p>
+              <p className="mt-1 text-sm font-bold text-amber-400">{formatCOP(budget.resumen.valorAIU)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">IVA ({budget.resumen.iva}%)</p>
+              <p className="mt-1 text-sm font-bold text-orange-400">{formatCOP(budget.resumen.valorIVA)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Total</p>
+              <p className="mt-1 text-base font-bold text-emerald-400">{formatCOP(budget.resumen.total)}</p>
+            </div>
+          </div>
+
+          {/* Chapters and items */}
+          {budget.capitulos.map((cap, ci) => (
+            <div key={ci} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+              {/* Chapter header */}
+              <div className="border-b border-white/[0.06] bg-white/[0.03] px-4 py-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-blue-300">
+                  {cap.nombre}
+                </h3>
+              </div>
+              {/* Items */}
+              <div className="divide-y divide-white/[0.04]">
+                {cap.items.map((item, ii) => {
+                  const key = `${ci}-${ii}`;
+                  const expanded = expandedItems.has(key);
+                  return (
+                    <APUItemRow
+                      key={key}
+                      item={item}
+                      expanded={expanded}
+                      onToggle={() => toggleItem(key)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!budget && !isGenerating && !error && (
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-2xl ring-1 ring-amber-500/20">
+            💰
+          </div>
+          <p className="text-sm font-medium text-white">Generador de Presupuestos APU</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+            Describe un trabajo de construcción y la IA generará un análisis de precios
+            unitarios completo con materiales, mano de obra, equipos, AIU e IVA — listo
+            para exportar a Excel y presentar a clientes o entidades gubernamentales.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function APUItemRow({
+  item,
+  expanded,
+  onToggle,
+}: {
+  item: APUItem;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const aiuPct = item.aiu.administracion + item.aiu.imprevistos + item.aiu.utilidad;
+  return (
+    <div>
+      {/* Item header (clickable) */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.02]"
+      >
+        <svg
+          className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="shrink-0 rounded-md bg-white/[0.04] px-2 py-0.5 text-xs font-mono text-slate-400">
+          {item.codigo}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-slate-200">{item.descripcion}</p>
+          <p className="text-xs text-slate-600">
+            {item.cantidad} {item.unidad} · {formatCOP(item.precioUnitarioTotal)}/{item.unidad}
+          </p>
+        </div>
+        <p className="shrink-0 text-sm font-bold text-slate-200">{formatCOP(item.subtotal)}</p>
+      </button>
+
+      {/* APU breakdown */}
+      {expanded && (
+        <div className="border-t border-white/[0.04] bg-[#050b14]/40 px-4 py-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <APUCategory label="Materiales" lines={item.materiales} color="blue" />
+            <APUCategory label="Mano de Obra" lines={item.manoObra} color="emerald" />
+            <APUCategory label="Equipos" lines={item.equipos} color="amber" />
+          </div>
+
+          {/* AIU breakdown */}
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-white/[0.04] pt-3 text-xs text-slate-500">
+            <span>Costo Directo: <strong className="text-slate-300">{formatCOP(item.costoDirecto)}</strong></span>
+            <span>Adm. ({item.aiu.administracion}%): <strong className="text-slate-300">{formatCOP(item.costoDirecto * item.aiu.administracion / 100)}</strong></span>
+            <span>Impr. ({item.aiu.imprevistos}%): <strong className="text-slate-300">{formatCOP(item.costoDirecto * item.aiu.imprevistos / 100)}</strong></span>
+            <span>Util. ({item.aiu.utilidad}%): <strong className="text-slate-300">{formatCOP(item.costoDirecto * item.aiu.utilidad / 100)}</strong></span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function APUCategory({
+  label,
+  lines,
+  color,
+}: {
+  label: string;
+  lines: Array<{ name: string; unit: string; qty: number; unitPrice: number; subtotal: number }>;
+  color: "blue" | "emerald" | "amber";
+}) {
+  const colorMap = {
+    blue: "text-blue-400",
+    emerald: "text-emerald-400",
+    amber: "text-amber-400",
+  };
+  if (lines.length === 0) return null;
+  return (
+    <div>
+      <p className={`mb-2 text-[10px] font-semibold uppercase tracking-wider ${colorMap[color]}`}>
+        {label}
+      </p>
+      <ul className="space-y-1">
+        {lines.map((line, i) => (
+          <li key={i} className="text-xs">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 flex-1 truncate text-slate-400">{line.name}</span>
+              <span className="shrink-0 text-slate-300">{formatCOP(line.subtotal)}</span>
+            </div>
+            <p className="text-[10px] text-slate-600">
+              {line.qty} {line.unit} × {formatCOP(line.unitPrice)}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
