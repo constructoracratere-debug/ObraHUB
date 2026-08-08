@@ -261,6 +261,54 @@ function APUItemRow({
             <span>Impr. ({item.aiu.imprevistos}%): <strong className="text-slate-300">{formatCOP(item.costoDirecto * item.aiu.imprevistos / 100)}</strong></span>
             <span>Util. ({item.aiu.utilidad}%): <strong className="text-slate-300">{formatCOP(item.costoDirecto * item.aiu.utilidad / 100)}</strong></span>
           </div>
+
+          {/* Scenarios comparison */}
+          {item.escenarios && item.escenarios.length > 1 && (
+            <div className="mt-4 border-t border-white/[0.04] pt-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                Escenarios de precio
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {item.escenarios.map((esc, ei) => {
+                  const isActive = ei === 0; // First scenario = "Estándar" = active
+                  const savings = item.subtotal - esc.subtotal;
+                  return (
+                    <div
+                      key={ei}
+                      className={`rounded-lg border p-3 ${
+                        isActive
+                          ? "border-blue-500/30 bg-blue-500/5"
+                          : "border-white/[0.06] bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-slate-200">{esc.nombre}</p>
+                        {isActive && (
+                          <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-300">
+                            Activo
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-slate-600">{esc.descripcion}</p>
+                      <div className="mt-2 flex items-baseline justify-between">
+                        <span className="text-sm font-bold text-slate-200">
+                          {formatCOP(esc.subtotal)}
+                        </span>
+                        {!isActive && savings !== 0 && (
+                          <span className={`text-[10px] font-medium ${savings > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {savings > 0 ? "−" : "+"}{formatCOP(Math.abs(savings))}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-slate-600">
+                        {formatCOP(esc.precioUnitarioTotal)}/{item.unidad}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -273,7 +321,7 @@ function APUCategory({
   color,
 }: {
   label: string;
-  lines: Array<{ name: string; unit: string; qty: number; unitPrice: number; subtotal: number }>;
+  lines: Array<{ name: string; unit: string; qty: number; unitPrice: number; subtotal: number; source?: string }>;
   color: "blue" | "emerald" | "amber";
 }) {
   const colorMap = {
@@ -294,9 +342,16 @@ function APUCategory({
               <span className="min-w-0 flex-1 truncate text-slate-400">{line.name}</span>
               <span className="shrink-0 text-slate-300">{formatCOP(line.subtotal)}</span>
             </div>
-            <p className="text-[10px] text-slate-600">
-              {line.qty} {line.unit} × {formatCOP(line.unitPrice)}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] text-slate-600">
+                {line.qty} {line.unit} × {formatCOP(line.unitPrice)}
+              </p>
+              {line.source && (
+                <span className="rounded bg-white/[0.04] px-1 py-0.5 text-[9px] text-slate-600">
+                  {line.source}
+                </span>
+              )}
+            </div>
           </li>
         ))}
       </ul>

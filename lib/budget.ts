@@ -20,6 +20,15 @@ export type APUItem = {
   aiu: { administracion: number; imprevistos: number; utilidad: number };
   precioUnitarioTotal: number;
   subtotal: number;
+  escenarios?: APUEscenario[];
+};
+
+export type APUEscenario = {
+  nombre: string;
+  descripcion: string;
+  costoDirecto: number;
+  precioUnitarioTotal: number;
+  subtotal: number;
 };
 
 export type APULineItem = {
@@ -28,6 +37,7 @@ export type APULineItem = {
   qty: number;
   unitPrice: number;
   subtotal: number;
+  source?: string;
 };
 
 export type APUBudget = {
@@ -61,6 +71,12 @@ REGLAS ESTRICTAS:
 8. El costoDirecto de cada ítem = suma de subtotales de materiales + mano de obra + equipos.
 9. precioUnitarioTotal = costoDirecto × (1 + AIU/100).
 10. subtotal = precioUnitarioTotal × cantidad.
+11. Cada línea (material/mano de obra/equipo) debe incluir "source" con la fuente del precio de la base de datos.
+12. Para cada ítem, genera 2-3 ESCENARIOS de precio alternativos en el campo "escenarios". Ejemplos:
+    - "Estándar" (el cálculo principal),
+    - "Económico" (usando ayudantes en lugar de oficiales, o materiales de menor costo),
+    - "Premium" (materiales de primera calidad, mano de obra certificada).
+    Cada escenario debe tener: nombre, descripción, costoDirecto, precioUnitarioTotal y subtotal.
 
 DEVUELVE EXCLUSIVAMENTE JSON válido (sin markdown, sin texto adicional) con esta estructura:
 {
@@ -72,13 +88,17 @@ DEVUELVE EXCLUSIVAMENTE JSON válido (sin markdown, sin texto adicional) con est
       "descripcion": "descripción del ítem",
       "unidad": "m² | m³ | ml | unidad | global",
       "cantidad": 200,
-      "materiales": [{"name":"...","unit":"...","qty":0.12,"unitPrice":45000,"subtotal":5400}],
-      "manoObra": [{"name":"...","unit":"día","qty":0.05,"unitPrice":80000,"subtotal":4000}],
-      "equipos": [{"name":"...","unit":"hora","qty":0.02,"unitPrice":28000,"subtotal":560}],
+      "materiales": [{"name":"...","unit":"...","qty":0.12,"unitPrice":45000,"subtotal":5400,"source":"curated"}],
+      "manoObra": [{"name":"...","unit":"día","qty":0.05,"unitPrice":80000,"subtotal":4000,"source":"curated"}],
+      "equipos": [{"name":"...","unit":"hora","qty":0.02,"unitPrice":28000,"subtotal":560,"source":"curated"}],
       "costoDirecto": 9960,
       "aiu": {"administracion":13,"imprevistos":3,"utilidad":6},
       "precioUnitarioTotal": 12151,
-      "subtotal": 2430240
+      "subtotal": 2430240,
+      "escenarios": [
+        {"nombre":"Estándar","descripcion":"Cálculo principal con materiales y mano de obra estándar","costoDirecto":9960,"precioUnitarioTotal":12151,"subtotal":2430240},
+        {"nombre":"Económico","descripcion":"Usando ayudantes en lugar de oficiales","costoDirecto":8500,"precioUnitarioTotal":10370,"subtotal":2074000}
+      ]
     }]
   }],
   "resumen": {

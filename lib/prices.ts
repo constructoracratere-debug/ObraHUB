@@ -79,7 +79,7 @@ export function formatCOP(value: number): string {
 export function buildPriceContext(items: PriceItem[]): string {
   const lines = items.map(
     (i) =>
-      `- [${i.category.toUpperCase()}] ${i.name} (${i.unit}): ${formatCOP(i.priceCop)}${i.code ? ` [cod: ${i.code}]` : ""}`,
+      `- [${i.category.toUpperCase()}] ${i.name} (${i.unit}): ${formatCOP(i.priceCop)}${i.code ? ` [cod: ${i.code}]` : ""} [fuente: ${i.source}]`,
   );
   return `BASE DE DATOS DE PRECIOS (COP - Pesos Colombianos):\n${lines.join("\n")}`;
 }
