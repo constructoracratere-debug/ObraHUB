@@ -16,6 +16,7 @@ import {
   type ProjectFile,
 } from "@/lib/files";
 import { CostosTool } from "@/app/_components/costos-tool";
+import { GanttTool } from "@/app/_components/gantt-tool";
 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
@@ -62,7 +63,7 @@ const TOOLS: ToolDef[] = [
     title: "Seguimiento de Obra",
     description: "Cronograma dinámico (Gantt) con tareas, dependencias y avance.",
     icon: "📊",
-    available: false,
+    available: true,
     gradient: "from-purple-500/15 to-purple-600/5",
   },
 ];
@@ -1999,25 +2000,13 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               ) : activeTool === "costos" ? (
                 <CostosTool />
               ) : activeTool === "seguimiento" ? (
-                <div className="my-auto w-full py-8">
-                  <div className="mx-auto max-w-md rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-8 text-center shadow-sm">
-                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl ring-1 ring-blue-500/20">
-                      📊
-                    </div>
-                    <h2 className="text-xl font-semibold text-white">Seguimiento de Obra</h2>
-                    <p className="mt-3 text-sm leading-relaxed text-slate-400">
-                      Esta herramienta estará disponible próximamente. Estamos trabajando
-                      para llevarla a ObraHub.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={backToLauncher}
-                      className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
-                    >
-                      ← Volver a herramientas
-                    </button>
+                activeProjectSlug ? (
+                  <GanttTool projectSlug={activeProjectSlug} />
+                ) : (
+                  <div className="py-8 text-center text-sm text-slate-500">
+                    Selecciona un proyecto para ver el cronograma.
                   </div>
-                </div>
+                )
               ) : (
                 <div className="w-full space-y-6 pb-4">
                   {activeProjectSlug && showMemory && (
