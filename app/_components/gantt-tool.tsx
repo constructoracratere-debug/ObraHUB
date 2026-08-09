@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Gantt } from "@svar-ui/react-gantt";
-import "@svar-ui/react-gantt/dist/index.css";
+import "@svar-ui/react-gantt/style.css";
 import type { ProjectTask } from "@/lib/gantt-tasks";
 
 /**
