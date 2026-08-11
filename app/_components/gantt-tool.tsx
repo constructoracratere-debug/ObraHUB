@@ -1,14 +1,15 @@
 "use client";
 
-import { ComponentType, Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+// CSS is lightweight — load normally so the Gantt renders correctly.
+import "@svar-ui/react-gantt/style.css";
 import type { ProjectTask } from "@/lib/gantt-tasks";
 
-// Lazy-load SVAR Gantt + CSS so it never blocks the rest of the app.
-const GanttChart = lazy(() => import("@svar-ui/react-gantt").then((mod) => {
-  // Side-effect import the CSS
-  import("@svar-ui/react-gantt/style.css");
-  return { default: mod.Gantt as ComponentType<Record<string, unknown>> };
-}));
+// Lazy-load the SVAR Gantt JS component so the heavy bundle only loads
+// when the Seguimiento tool is actually opened — doesn't block login.
+const GanttChart = lazy(() =>
+  import("@svar-ui/react-gantt").then((mod) => ({ default: mod.Gantt })),
+);
 
 /**
  * Seguimiento de Obra — Interactive Gantt chart.
@@ -255,6 +256,15 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
                   { id: "end", header: "Fin", width: 90, format: "d MMM" },
                   { id: "duration", header: "Días", width: 60 },
                 ]}
+                init={(api: { on: (event: string, cb: (data: Record<string, unknown>) => void) => void; exec: (action: string, data?: Record<string, unknown>) => Promise<unknown> }) => {
+                  // Listen for task drag/resize changes and auto-save
+                  api.on("update-task", (data: Record<string, unknown>) => {
+                    const task = data.task as GanttTask | undefined;
+                    if (task && task.id) {
+                      void debouncedSave([{ ...task }]);
+                    }
+                  });
+                }}
               />
             </Suspense>
           </div>
