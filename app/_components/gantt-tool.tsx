@@ -1,9 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Gantt } from "@svar-ui/react-gantt";
-import "@svar-ui/react-gantt/style.css";
+import { ComponentType, Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectTask } from "@/lib/gantt-tasks";
+
+// Lazy-load SVAR Gantt + CSS so it never blocks the rest of the app.
+const GanttChart = lazy(() => import("@svar-ui/react-gantt").then((mod) => {
+  // Side-effect import the CSS
+  import("@svar-ui/react-gantt/style.css");
+  return { default: mod.Gantt as ComponentType<Record<string, unknown>> };
+}));
 
 /**
  * Seguimiento de Obra — Interactive Gantt chart.
@@ -232,28 +237,26 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
             </div>
           </div>
 
-          {/* SVAR Gantt */}
+          {/* SVAR Gantt — lazy loaded with Suspense fallback */}
           <div
             className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a1120]"
             style={{ minHeight: "400px" }}
           >
-            <Gantt
-              tasks={ganttTasks}
-              scales={[
-                { unit: "month", step: 1, format: "MMMM yyyy" },
-                { unit: "day", step: 1, format: "d" },
-              ]}
-              columns={[
-                { id: "text", header: "Tarea", width: 250 },
-                { id: "start", header: "Inicio", width: 90, format: "d MMM" },
-                { id: "end", header: "Fin", width: 90, format: "d MMM" },
-                { id: "duration", header: "Días", width: 60 },
-              ]}
-              onTaskChange={(task: GanttTask) => {
-                const updated = ganttTasks.map((t) => (t.id === task.id ? { ...t, ...task } : t));
-                handleTaskChange(updated);
-              }}
-            />
+            <Suspense fallback={<div className="flex h-48 items-center justify-center"><p className="text-sm text-slate-500">Cargando diagrama de Gantt…</p></div>}>
+              <GanttChart
+                tasks={ganttTasks}
+                scales={[
+                  { unit: "month", step: 1, format: "MMMM yyyy" },
+                  { unit: "day", step: 1, format: "d" },
+                ]}
+                columns={[
+                  { id: "text", header: "Tarea", width: 250 },
+                  { id: "start", header: "Inicio", width: 90, format: "d MMM" },
+                  { id: "end", header: "Fin", width: 90, format: "d MMM" },
+                  { id: "duration", header: "Días", width: 60 },
+                ]}
+              />
+            </Suspense>
           </div>
 
           {/* Task summary */}
