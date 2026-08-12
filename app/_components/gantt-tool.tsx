@@ -1,15 +1,46 @@
 "use client";
 
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-// CSS is lightweight — load normally so the Gantt renders correctly.
-import "@svar-ui/react-gantt/style.css";
+import { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectTask } from "@/lib/gantt-tasks";
 
-// Lazy-load the SVAR Gantt JS component so the heavy bundle only loads
-// when the Seguimiento tool is actually opened — doesn't block login.
-const GanttChart = lazy(() =>
-  import("@svar-ui/react-gantt").then((mod) => ({ default: mod.Gantt })),
-);
+// CSS + JS lazy-loaded — this whole file is dynamically imported by app-shell,
+// so SVAR never touches the main bundle.
+const GanttChart = lazy(async () => {
+  await import("@svar-ui/react-gantt/style.css");
+  const mod = await import("@svar-ui/react-gantt");
+  return { default: mod.Gantt };
+});
+
+/**
+ * Error boundary — if SVAR throws at runtime, show a friendly fallback
+ * instead of crashing the entire app.
+ */
+class GanttBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-48 flex-col items-center justify-center gap-2 p-6 text-center">
+          <p className="text-sm text-slate-400">No se pudo cargar el diagrama.</p>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false })}
+            className="rounded-lg bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
+          >
+            Reintentar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /**
  * Seguimiento de Obra — Interactive Gantt chart.
@@ -243,30 +274,32 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
             className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a1120]"
             style={{ minHeight: "400px" }}
           >
-            <Suspense fallback={<div className="flex h-48 items-center justify-center"><p className="text-sm text-slate-500">Cargando diagrama de Gantt…</p></div>}>
-              <GanttChart
-                tasks={ganttTasks}
-                scales={[
-                  { unit: "month", step: 1, format: "MMMM yyyy" },
-                  { unit: "day", step: 1, format: "d" },
-                ]}
-                columns={[
-                  { id: "text", header: "Tarea", width: 250 },
-                  { id: "start", header: "Inicio", width: 90, format: "d MMM" },
-                  { id: "end", header: "Fin", width: 90, format: "d MMM" },
-                  { id: "duration", header: "Días", width: 60 },
-                ]}
-                init={(api: { on: (event: string, cb: (data: Record<string, unknown>) => void) => void; exec: (action: string, data?: Record<string, unknown>) => Promise<unknown> }) => {
-                  // Listen for task drag/resize changes and auto-save
-                  api.on("update-task", (data: Record<string, unknown>) => {
-                    const task = data.task as GanttTask | undefined;
-                    if (task && task.id) {
-                      void debouncedSave([{ ...task }]);
-                    }
-                  });
-                }}
-              />
-            </Suspense>
+            <GanttBoundary>
+              <Suspense fallback={<div className="flex h-48 items-center justify-center"><p className="text-sm text-slate-500">Cargando diagrama de Gantt…</p></div>}>
+                <GanttChart
+                  tasks={ganttTasks}
+                  scales={[
+                    { unit: "month", step: 1, format: "MMMM yyyy" },
+                    { unit: "day", step: 1, format: "d" },
+                  ]}
+                  columns={[
+                    { id: "text", header: "Tarea", width: 250 },
+                    { id: "start", header: "Inicio", width: 90, format: "d MMM" },
+                    { id: "end", header: "Fin", width: 90, format: "d MMM" },
+                    { id: "duration", header: "Días", width: 60 },
+                  ]}
+                  init={(api: { on: (event: string, cb: (data: Record<string, unknown>) => void) => void; exec: (action: string, data?: Record<string, unknown>) => Promise<unknown> }) => {
+                    // Listen for task drag/resize changes and auto-save
+                    api.on("update-task", (data: Record<string, unknown>) => {
+                      const task = data.task as GanttTask | undefined;
+                      if (task && task.id) {
+                        void debouncedSave([{ ...task }]);
+                      }
+                    });
+                  }}
+                />
+              </Suspense>
+            </GanttBoundary>
           </div>
 
           {/* Task summary */}

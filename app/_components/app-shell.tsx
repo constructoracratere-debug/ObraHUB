@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AssistantMessage } from "@/app/_components/assistant-message";
@@ -16,7 +17,16 @@ import {
   type ProjectFile,
 } from "@/lib/files";
 import { CostosTool } from "@/app/_components/costos-tool";
-import { GanttTool } from "@/app/_components/gantt-tool";
+// Dynamic import so the entire SVAR Gantt bundle (JS + CSS) only loads
+// when the user opens the Seguimiento tool — can never break login.
+const GanttTool = dynamic(() => import("@/app/_components/gantt-tool").then((m) => m.GanttTool), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-16">
+      <p className="text-sm text-slate-500">Cargando cronograma…</p>
+    </div>
+  ),
+});
 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
