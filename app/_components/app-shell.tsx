@@ -499,7 +499,12 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   useEffect(() => {
     try {
       const stored = localStorage.getItem(CHAT_HISTORY_KEY);
-      if (stored) setChatHistory(JSON.parse(stored));
+      if (stored) {
+        const parsed = JSON.parse(stored) as Array<{ question: string; answer: string; timestamp: string }>;
+        setChatHistory(parsed);
+        // Auto-open the panel if there's existing history
+        if (parsed.length > 0) setShowHistoryPanel(true);
+      }
     } catch {
       // non-critical
     }
@@ -1544,7 +1549,12 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 }`}
                 title="Historial de consultas"
               >
-                🕘 <span className="hidden sm:inline">Historial</span>
+                🕘 <span>Historial</span>
+                {chatHistory.length > 0 && (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[9px] font-bold text-white">
+                    {chatHistory.length}
+                  </span>
+                )}
               </button>
             )}
             <span className="hidden items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400 sm:inline-flex">
@@ -2159,7 +2169,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             onClick={() => setShowHistoryPanel(false)}
           />
           <aside
-            className="fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-white/[0.06] bg-[#0a1120] lg:static lg:z-auto lg:w-80 lg:shrink-0"
+            className="fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-white/[0.06] bg-[#0a1120] lg:static lg:z-auto lg:w-72 lg:shrink-0"
           >
             <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
               <p className="text-sm font-semibold text-slate-200">🕘 Historial</p>
@@ -2189,17 +2199,24 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                       type="button"
                       onClick={() => {
                         setInput(entry.question);
-                        setShowHistoryPanel(false);
+                        // On mobile, close panel so they can see the input.
+                        // On desktop, keep it open for browsing.
+                        if (window.innerWidth < 1024) setShowHistoryPanel(false);
                       }}
-                      className="block w-full rounded-lg border border-white/[0.04] bg-white/[0.01] p-3 text-left transition hover:border-white/[0.1] hover:bg-white/[0.03]"
+                      className="block w-full rounded-lg border border-white/[0.04] bg-white/[0.01] p-3 text-left transition hover:border-blue-500/20 hover:bg-blue-500/[0.04]"
                     >
-                      <p className="line-clamp-2 text-xs font-medium text-slate-200">
-                        {entry.question}
-                      </p>
-                      <p className="mt-1.5 line-clamp-2 text-[11px] text-slate-500">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-[10px] font-bold text-blue-400">
+                          {i + 1}
+                        </span>
+                        <p className="line-clamp-2 flex-1 text-xs font-medium text-slate-200">
+                          {entry.question}
+                        </p>
+                      </div>
+                      <p className="mt-1.5 line-clamp-2 pl-6.5 text-[11px] text-slate-500" style={{ paddingLeft: "1.65rem" }}>
                         {entry.answer}
                       </p>
-                      <p className="mt-1.5 text-[10px] text-slate-600">
+                      <p className="mt-1.5 pl-6.5 text-[10px] text-slate-600" style={{ paddingLeft: "1.65rem" }}>
                         {new Date(entry.timestamp).toLocaleDateString("es-CO", {
                           day: "numeric",
                           month: "short",
