@@ -115,3 +115,60 @@ export async function generateSchedule(
     throw new Error("El modelo devolvió JSON inválido. Intente de nuevo.");
   }
 }
+
+const EDIT_PROMPT = `Eres un planificador de obras civil en Colombia. Recibirás un cronograma existente en formato JSON y una instrucción de modificación del usuario.
+
+APLICA LOS CAMBIOS SOLICITADOS y devuelve el cronograma COMPLETO modificado (no solo los cambios).
+
+REGLAS:
+1. Conserva la estructura: type "summary" para capítulos, "task" para actividades, "milestone" para hitos.
+2. Mantén las dependencias lógicas (finish-to-start). Si mueves una tarea, ajusta las dependientes.
+3. Recalcula las fechas (formato YYYY-MM-DD) teniendo en cuenta la nueva secuencia.
+4. Si añades tareas, asígnales una posición lógica en la secuencia constructiva.
+5. Si eliminas tareas, ajusta las dependencias de las que dependían de ellas.
+6. Conserva el formato JSON exacto: { "title", "startDate", "tasks": [{ name, type, startDate, endDate, duration, progress, dependencies }] }.
+
+DEVUELVE EXCLUSIVAMENTE JSON válido.`;
+
+/**
+ * Edits an existing schedule based on a natural-language instruction.
+ * Returns the complete modified schedule.
+ */
+export async function editSchedule(
+  existingTasks: ScheduleTask[],
+  instruction: string,
+  title: string,
+  startDate: string,
+): Promise<Schedule> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
+
+  const openai = new OpenAI({ apiKey });
+
+  const existingJson = JSON.stringify(
+    { title, startDate, tasks: existingTasks },
+    null,
+    0,
+  );
+
+  const userContent = `CRONOGRAMA ACTUAL:\n${existingJson}\n\nINSTRUCCIÓN DEL USUARIO:\n${instruction}\n\nAplica los cambios y devuelve el cronograma completo modificado.`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4.1-mini",
+    messages: [
+      { role: "system", content: EDIT_PROMPT },
+      { role: "user", content: userContent },
+    ],
+    response_format: { type: "json_object" },
+    max_tokens: 8000,
+  });
+
+  const raw = completion.choices[0]?.message?.content?.trim();
+  if (!raw) throw new Error("El modelo no devolvió una respuesta");
+
+  try {
+    return JSON.parse(raw) as Schedule;
+  } catch {
+    throw new Error("El modelo devolvió JSON inválido. Intente de nuevo.");
+  }
+}

@@ -21,6 +21,8 @@ export interface GanttTask {
 interface GanttChartProps {
   tasks: GanttTask[];
   onTaskChange?: (task: GanttTask) => void;
+  selectedTaskId?: string | null;
+  onTaskSelect?: (taskId: string) => void;
 }
 
 type ViewMode = "day" | "week" | "month";
@@ -86,7 +88,7 @@ const TYPE_STYLES: Record<GanttTaskType, { bg: string; bar: string; label: strin
  * - Dependency arrows
  * - Colombian-standard layout
  */
-export function GanttChart({ tasks, onTaskChange }: GanttChartProps) {
+export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }: GanttChartProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
@@ -317,6 +319,15 @@ export function GanttChart({ tasks, onTaskChange }: GanttChartProps) {
     }
   }, [tasks, timelineStart, dayWidth]);
 
+  // Scroll to selected task when it changes
+  useEffect(() => {
+    if (!scrollRef.current || !selectedTaskId) return;
+    const task = visibleTasks.find((t) => t.id === selectedTaskId);
+    if (!task) return;
+    const offset = diffDays(timelineStart, task.start) * dayWidth - 120;
+    scrollRef.current.scrollTo({ left: Math.max(0, offset), behavior: "smooth" });
+  }, [selectedTaskId, visibleTasks, timelineStart, dayWidth]);
+
   const rowHeight = 40;
   const headerHeight = viewMode === "day" ? 36 : 56;
 
@@ -436,11 +447,12 @@ export function GanttChart({ tasks, onTaskChange }: GanttChartProps) {
             return (
               <div
                 key={task.id}
-                className={`flex border-b border-white/[0.03] hover:bg-white/[0.015] ${style.bg}`}
+                className={`flex border-b border-white/[0.03] hover:bg-white/[0.015] ${style.bg} ${selectedTaskId === task.id ? "!bg-amber-500/[0.06]" : ""}`}
                 style={{ height: `${rowHeight}px` }}
+                onClick={() => onTaskSelect?.(task.id)}
               >
                 {/* Task label */}
-                <div className="sticky left-0 z-20 flex shrink-0 items-center border-r border-white/[0.06] bg-[#0a1120]/95 backdrop-blur" style={{ width: "280px" }}>
+                <div className={`sticky left-0 z-20 flex shrink-0 items-center border-r bg-[#0a1120]/95 backdrop-blur ${selectedTaskId === task.id ? "border-amber-500/30" : "border-white/[0.06]"}`} style={{ width: "280px" }}>
                   <div
                     className="flex w-full items-center gap-1.5 px-2"
                     style={{ paddingLeft: `${12 + indent * 20}px` }}
@@ -491,26 +503,28 @@ export function GanttChart({ tasks, onTaskChange }: GanttChartProps) {
                   {/* Task bar / milestone */}
                   {task.type === "milestone" ? (
                     <div
-                      className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+                      className={`absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer ${selectedTaskId === task.id ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-[#0a1120] rounded" : ""}`}
                       style={{ left: `${leftPx + dayWidth / 2}px` }}
+                      onClick={() => onTaskSelect?.(task.id)}
                       title={`${task.text} — ${fmtDateFull(task.start)}`}
                     >
-                      <div className="h-4 w-4 rotate-45 rounded-sm border-2 border-purple-400 bg-purple-500 shadow-lg shadow-purple-500/30" />
+                      <div className={`h-4 w-4 rotate-45 rounded-sm border-2 ${selectedTaskId === task.id ? "border-amber-400" : "border-purple-400"} bg-purple-500 shadow-lg shadow-purple-500/30`} />
                     </div>
                   ) : (
                     <div
                       className={`absolute top-1/2 z-10 -translate-y-1/2 overflow-hidden rounded-md shadow-md ${style.bar} ${
                         task.type === "summary" ? "ring-1 ring-blue-300/30" : ""
-                      }`}
+                      } ${selectedTaskId === task.id ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-[#0a1120]" : ""}`}
                       style={{
                         left: `${leftPx}px`,
                         width: `${widthPx}px`,
                         height: task.type === "summary" ? "22px" : "20px",
                         cursor: "grab",
-                        opacity: 0.92,
+                        opacity: selectedTaskId === task.id ? 1 : 0.92,
                       }}
                       onMouseDown={(e) => handleMouseDown(e, task, "move")}
                       onTouchStart={(e) => handleTouchStart(e, task, "move")}
+                      onClick={() => onTaskSelect?.(task.id)}
                       title={`${task.text}\n${fmtDateFull(task.start)} → ${fmtDateFull(task.end)}\nDuración: ${duration} días\nProgreso: ${Math.round(task.progress * 100)}%`}
                     >
                       {/* Progress fill */}
