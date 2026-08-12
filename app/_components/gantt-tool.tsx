@@ -1,6 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+// On mobile the tree panel starts hidden; on desktop it starts visible.
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
 import { GanttChart } from "@/app/_components/gantt-chart";
 import type { GanttTask } from "@/app/_components/gantt-chart";
 import type { ProjectTask } from "@/lib/gantt-tasks";
@@ -29,7 +41,8 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
   const [error, setError] = useState<string | null>(null);
   const [hasSchedule, setHasSchedule] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [showTreePanel, setShowTreePanel] = useState(true);
+  const isMobile = useIsMobile();
+  const [showTreePanel, setShowTreePanel] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Excel import state
@@ -518,22 +531,45 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
 
           {/* Main layout: tree panel + chart */}
           <div className="flex flex-col gap-3 lg:flex-row">
-            {/* Side panel: Task tree */}
+            {/* Side panel: Task tree — drawer overlay on mobile, sidebar on desktop */}
             {showTreePanel && (
-              <div className="w-full shrink-0 rounded-2xl border border-white/[0.08] bg-[#0a1120] lg:w-72">
+              <>
+                {/* Mobile backdrop */}
+                {isMobile && (
+                  <div
+                    className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+                    onClick={() => setShowTreePanel(false)}
+                  />
+                )}
+                <div
+                  className={`shrink-0 rounded-2xl border border-white/[0.08] bg-[#0a1120] ${
+                    isMobile
+                      ? "fixed inset-x-0 bottom-0 top-16 z-50 w-full rounded-b-none"
+                      : "lg:sticky lg:top-4 lg:h-[calc(100vh-120px)] lg:w-72"
+                  }`}
+                >
                 {/* Search */}
-                <div className="border-b border-white/[0.06] p-2.5">
+                <div className="flex items-center gap-2 border-b border-white/[0.06] p-2.5">
                   <input
                     type="text"
                     value={treeSearch}
                     onChange={(e) => setTreeSearch(e.target.value)}
                     placeholder="🔍 Buscar tarea…"
-                    className="w-full rounded-lg border border-white/[0.06] bg-[#050b14] px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none"
+                    className="flex-1 rounded-lg border border-white/[0.06] bg-[#050b14] px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none"
                   />
+                  {isMobile && (
+                    <button
+                      type="button"
+                      onClick={() => setShowTreePanel(false)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-slate-400 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
 
                 {/* Tree content — scrollable */}
-                <div className="max-h-[400px] overflow-y-auto p-1.5 lg:max-h-[550px]">
+                <div className={`overflow-y-auto p-1.5 ${isMobile ? "h-full" : "max-h-[400px] lg:max-h-[calc(100vh-180px)]"}`}>
                   {filteredTasks ? (
                     /* Search results */
                     <div className="space-y-0.5">
@@ -639,8 +675,9 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
                     </>
                   )}
                 </div>
-              </div>
-            )}
+                </div>
+                </>
+              )}
 
             {/* Chart */}
             <div className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a1120]">

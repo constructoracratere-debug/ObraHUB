@@ -93,6 +93,15 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Responsive task column width — narrower on phones, wider on tablets/desktops
+  const [labelColWidth, setLabelColWidth] = useState(280);
+  useEffect(() => {
+    const update = () => setLabelColWidth(window.innerWidth < 640 ? 140 : window.innerWidth < 1024 ? 200 : 280);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
   const dragRef = useRef<{
     taskId: string;
     mode: "move" | "resize";
@@ -328,11 +337,12 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
     scrollRef.current.scrollTo({ left: Math.max(0, offset), behavior: "smooth" });
   }, [selectedTaskId, visibleTasks, timelineStart, dayWidth]);
 
-  const rowHeight = 40;
+  // Slightly smaller rows on mobile to show more tasks
+  const rowHeight = labelColWidth < 200 ? 34 : 40;
   const headerHeight = viewMode === "day" ? 36 : 56;
 
   return (
-    <div className="flex flex-col" style={{ minHeight: "400px" }}>
+    <div className="flex flex-col" style={{ minHeight: "50vh" }}>
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] bg-[#0a1120] px-3 py-2">
         <div className="flex items-center gap-1 rounded-lg bg-white/[0.03] p-0.5">
@@ -372,17 +382,17 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
         </div>
       </div>
 
-      {/* Chart container */}
+      {/* Chart container — fills available viewport height */}
       <div
         ref={scrollRef}
         className="relative flex-1 overflow-x-auto overflow-y-auto"
-        style={{ maxHeight: "600px" }}
+        style={{ height: "calc(100vh - 220px)", minHeight: "300px" }}
       >
-        <div style={{ width: `calc(280px + ${timelineWidth}px)`, minWidth: "100%" }}>
+        <div style={{ width: `calc(${labelColWidth}px + ${timelineWidth}px)`, minWidth: "100%" }}>
           {/* Header row */}
           <div className="sticky top-0 z-30 flex" style={{ height: headerHeight }}>
             {/* Task columns header */}
-            <div className="sticky left-0 z-40 flex shrink-0 border-b border-r border-white/[0.08] bg-[#0a1120]" style={{ width: "280px" }}>
+            <div className="sticky left-0 z-40 flex shrink-0 border-b border-r border-white/[0.08] bg-[#0a1120]" style={{ width: `${labelColWidth}px` }}>
               <div className="flex w-full items-center px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Tarea
               </div>
@@ -452,7 +462,7 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
                 onClick={() => onTaskSelect?.(task.id)}
               >
                 {/* Task label */}
-                <div className={`sticky left-0 z-20 flex shrink-0 items-center border-r bg-[#0a1120]/95 backdrop-blur ${selectedTaskId === task.id ? "border-amber-500/30" : "border-white/[0.06]"}`} style={{ width: "280px" }}>
+                <div className={`sticky left-0 z-20 flex shrink-0 items-center border-r bg-[#0a1120]/95 backdrop-blur ${selectedTaskId === task.id ? "border-amber-500/30" : "border-white/[0.06]"}`} style={{ width: `${labelColWidth}px` }}>
                   <div
                     className="flex w-full items-center gap-1.5 px-2"
                     style={{ paddingLeft: `${12 + indent * 20}px` }}
