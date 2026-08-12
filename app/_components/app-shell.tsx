@@ -482,37 +482,14 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   useEffect(() => {
     if (isLoadingProjects || hasRestoredProject.current) return;
 
-    const savedSlug = localStorage.getItem(ACTIVE_PROJECT_KEY);
-    if (!savedSlug) {
-      hasRestoredProject.current = true;
-      return;
-    }
-
-    if (!projects.some((project) => project.slug === savedSlug)) {
-      localStorage.removeItem(ACTIVE_PROJECT_KEY);
-      hasRestoredProject.current = true;
-      return;
-    }
-
+    // Always start at the home/dashboard page on a fresh app open.
+    // Navigation state (project, tool, folder) is tracked via localStorage
+    // during a session but NOT restored on next launch — the user sees
+    // the project list every time they open ObraHub.
+    localStorage.removeItem(ACTIVE_PROJECT_KEY);
+    localStorage.removeItem(ACTIVE_FOLDER_KEY);
+    localStorage.removeItem(ACTIVE_TOOL_KEY);
     hasRestoredProject.current = true;
-    setActiveProjectSlug(savedSlug);
-    // Load folders first, then restore the active folder (if any).
-    void (async () => {
-      await loadProjectFolders(savedSlug);
-      const savedFolder = localStorage.getItem(ACTIVE_FOLDER_KEY);
-      if (savedFolder) {
-        // A folder was open — restore the storage tool + folder (by ID).
-        setActiveTool("storage");
-        openFolderById(savedFolder);
-      } else {
-        // No folder — maybe a tool was open.
-        const savedTool = localStorage.getItem(ACTIVE_TOOL_KEY);
-        if (savedTool === "storage" || savedTool === "normativa" || savedTool === "costos" || savedTool === "seguimiento") {
-          setActiveTool(savedTool as ToolId);
-          if (savedTool === "normativa") void loadProjectMemories(savedSlug);
-        }
-      }
-    })();
   }, [isLoadingProjects, projects]);
 
   async function loadProjectConversations(slug: string) {
