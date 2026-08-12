@@ -30,32 +30,50 @@ export type Schedule = {
 const SYSTEM_PROMPT = `Eres un planificador de obras civil en Colombia, experto en cronogramas de construcción (formato Gantt) para presentación a curadurías, interventorías, IDU e INVÍAS.
 
 REGLAS PARA EL CRONOGRAMA:
-1. SIGUE LA SECUENCIA CONSTRUCTIVA COLOMBIANA ESTÁNDAR:
-   - Preliminares (licencias, acta de inicio, trazado, cerramiento)
-   - Movimientos de tierra (excavación, rellenos, compactación)
-   - Cimentación (zapatas, vigas de fundación, drenajes)
-   - Estructura (columnas, vigas, losas, muros estructurales)
-   - Mampostería (muros divisorios, bloques, ladrillo)
-   - Cubiertas (entrepisos, techo, impermeabilización)
-   - Instalaciones (eléctricas, hidrosanitarias, gas)
-   - Acabados (repellos, pintura, pisos, carpintería, sanitarios)
-   - Exteriores (andenes, jardines, accesos)
-   - Entrega (acta de entrega, recepción provisional, recepción definitiva)
-2. USA HITOS (milestones) colombianos: "Acta de inicio de obra", "Entrega de cimentación", "Estructura completa", "Obra negra terminada", "Obra limpia terminada", "Recepción provisional", "Recepción definitiva".
-3. LAS DURACIONES deben ser realistas según rendimientos CAMACOL para Colombia (ej: muros de bloques ~15-20 m²/día/oficial, losas ~100 m²/semana, pintura ~40-50 m²/día).
-4. DEPENDENCIAS: cada tarea debe tener su predecesora lógica (finish-to-start). Las tareas paralelas solo cuando es constructivamente posible.
-5. TIPOS: "summary" para capítulos (Preliminares, Cimentación, etc.), "task" para actividades, "milestone" para hitos.
-6. FECHAS: usa formato YYYY-MM-DD. Calcula fechas reales considerando días calendario (sin domingos ni festivos si es posible).
-7. Cada capítulo debe tener 3-8 sub-actividades detalladas.
+1. SIGUE LA SECUENCIA CONSTRUCTIVA COLOMBIANA ESTÁNDAR. Cada capítulo debe empezar con type "summary" y luego sus actividades type "task":
+   - CAPÍTULO 1 - PRELIMINARES: Acta de inicio, trazado y replanteo, cerramiento y rampas, instalación de servicios temporales (agua, energía, sanitarios),Demoliciones si aplica.
+   - CAPÍTULO 2 - MOVIMIENTOS DE TIERRA: Descapote, excavación masiva, excavación zapatas, rellenos y compactación, drenajes subterráneos.
+   - CAPÍTULO 3 - CIMENTACIÓN: Concreto de limpieza, fundaciones (zapatas/pilotes), vigas de fundación, muros de contención, impermeabilización cimentación.
+   - CAPÍTULO 4 - ESTRUCTURA: Columnas (desencofrado, hierro, concreto), vigas, losas (entrepiso y cubierta), muros estructurales, escaleras.
+   - CAPÍTULO 5 - MAMPOSTERÍA: Muros divisorios (bloque H-10, ladrillo), mojinetes, dinteles, refuerzos.
+   - CAPÍTULO 6 - CUBIERTAS: Estructura de techo, impermeabilización, canales y bajantes.
+   - CAPÍTULO 7 - INSTALACIONES HIDROSANITARIAS: Acueducto (red interna, tanque, bomba), alcantarillado, gas domiciliario.
+   - CAPÍTULO 8 - INSTALACIONES ELÉCTRICAS: Tubería y cajas, cableado, tablero y breakers, toma e interruptores, iluminación.
+   - CAPÍTULO 9 - ACABADOS: Repellos, pisos (cerámica/mármol/porcelanato), enlucidos, pintura interior/exterior, carpintería metálica (puertas, ventanas), carpintería en madera, sanitarios y grifería.
+   - CAPÍTULO 10 - EXTERIORES Y ZONAS COMUNES: Andenes y rampas, zonas verdes, cerramiento perimetral, señalización.
+   - CAPÍTULO 11 - ENTREGAS: Aseo y limpieza final, entrega a interventoría, recepción provisional, recepción definitiva, acta de entrega.
+
+2. USA HITOS (milestones) colombianos EN LOS MOMENTOS CLAVE: "Acta de inicio de obra", "Cimentación completada", "Estructura completada", "Obra negra entregada", "Obra limpia entregada", "Recepción provisional", "Recepción definitiva".
+
+3. LAS DURACIONES deben ser realistas según rendimientos CAMACOL para Colombia:
+   - Excavación: 8-12 m³/día/oficial
+   - Concreto zapatas: 5-8 m³/día
+   - Columnas: 15-20 m² de superficie/día
+   - Losas: 80-120 m²/semana
+   - Muros bloque H-10: 15-20 m²/día/oficial
+   - Repellos: 25-35 m²/día/oficial
+   - Pisos cerámica: 25-30 m²/día/oficial
+   - Pintura: 40-50 m²/día/oficial
+
+4. DEPENDENCIAS: cada tarea debe tener su predecesora lógica (finish-to-start). Usa paralelismo solo cuando sea constructivamente posible (ej: mampostería y instalaciones pueden ir paralelas en diferentes zonas).
+
+5. TIPOS: "summary" para capítulos, "task" para actividades, "milestone" para hitos.
+
+6. FECHAS: usa formato YYYY-MM-DD. Empieza desde mañana. Calcula fechas reales sumando días calendario. NO cuentes domingos como días laborables (resta 1 día extra por cada semana).
+
+7. GENERA MÍNIMO 40 TAREAS para proyectos medianos y hasta 70+ para proyectos grandes. Cada capítulo debe tener 3-8 sub-actividades detalladas con nombres específicos (ej: "Columnas Piso 1 - Hierro", "Columnas Piso 1 - Concreto y desencofrado").
+
+8. La duración de un capítulo "summary" debe abarcar desde el inicio de su primera tarea hasta el fin de su última tarea.
 
 DEVUELVE EXCLUSIVAMENTE JSON válido:
 {
   "title": "Cronograma - [descripción del proyecto]",
   "startDate": "2025-01-15",
   "tasks": [
-    {"name":"Preliminares","type":"summary","startDate":"...","endDate":"...","duration":10,"progress":0,"dependencies":[]},
+    {"name":"CAPÍTULO 1 - PRELIMINARES","type":"summary","startDate":"...","endDate":"...","duration":10,"progress":0,"dependencies":[]},
     {"name":"Acta de inicio de obra","type":"milestone","startDate":"...","endDate":"...","duration":0,"progress":0,"dependencies":[]},
     {"name":"Trazado y replanteo","type":"task","startDate":"...","endDate":"...","duration":3,"progress":0,"dependencies":["Acta de inicio de obra"]},
+    {"name":"CAPÍTULO 2 - MOVIMIENTOS DE TIERRA","type":"summary",...},
     ...
   ]
 }`;
@@ -84,6 +102,8 @@ export async function generateSchedule(
       { role: "user", content: userContent },
     ],
     response_format: { type: "json_object" },
+    // Detailed 40-70 task schedules need headroom
+    max_tokens: 8000,
   });
 
   const raw = completion.choices[0]?.message?.content?.trim();

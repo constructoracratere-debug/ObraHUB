@@ -1,46 +1,9 @@
 "use client";
 
-import { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { GanttChart } from "@/app/_components/gantt-chart";
+import type { GanttTask } from "@/app/_components/gantt-chart";
 import type { ProjectTask } from "@/lib/gantt-tasks";
-
-// CSS + JS lazy-loaded — this whole file is dynamically imported by app-shell,
-// so SVAR never touches the main bundle.
-const GanttChart = lazy(async () => {
-  await import("@svar-ui/react-gantt/style.css");
-  const mod = await import("@svar-ui/react-gantt");
-  return { default: mod.Gantt };
-});
-
-/**
- * Error boundary — if SVAR throws at runtime, show a friendly fallback
- * instead of crashing the entire app.
- */
-class GanttBoundary extends Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 p-6 text-center">
-          <p className="text-sm text-slate-400">No se pudo cargar el diagrama.</p>
-          <button
-            type="button"
-            onClick={() => this.setState({ hasError: false })}
-            className="rounded-lg bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
-          >
-            Reintentar
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 /**
  * Seguimiento de Obra — Interactive Gantt chart.
@@ -48,21 +11,11 @@ class GanttBoundary extends Component<
  * users drag/resize tasks; changes auto-save to Supabase.
  */
 
-type GanttTask = {
-  id: string;
-  text: string;
-  start: Date;
-  end: Date;
-  progress: number;
-  type: string;
-  details?: string;
-  open?: boolean;
-  parent?: string;
-};
+type LocalGanttTask = GanttTask;
 
 export function GanttTool({ projectSlug }: { projectSlug: string }) {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
-  const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
+  const [ganttTasks, setGanttTasks] = useState<LocalGanttTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -70,7 +23,6 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
   const [hasSchedule, setHasSchedule] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load existing tasks on mount
   useEffect(() => {
     void loadTasks();
   }, [projectSlug]);
@@ -93,24 +45,44 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
     }
   }
 
-  // Convert DB tasks → SVAR Gantt format
-  function convertToGantt(dbTasks: ProjectTask[]): GanttTask[] {
-    // Build parent-child hierarchy from task types
-    const summaryIds: string[] = [];
-    dbTasks.forEach((t) => {
-      if (t.taskType === "summary") summaryIds.push(t.id);
+  // Convert DB tasks → Gantt format with parent-child hierarchy
+  function convertToGantt(dbTasks: ProjectTask[]): LocalGanttTask[] {
+    const ganttMap = new Map<string, LocalGanttTask>();
+    const summaryByOrder: string[] = [];
+    let lastSummaryId: string | null = null;
+
+    // First pass: create all tasks, track last summary as implicit parent
+    dbTasks.forEach((t, i) => {
+      const ganttTask: LocalGanttTask = {
+        id: t.id,
+        text: t.name,
+        start: new Date(t.startDate),
+        end: new Date(t.endDate),
+        progress: t.progress / 100,
+        type:
+          t.taskType === "milestone"
+            ? "milestone"
+            : t.taskType === "summary"
+            ? "summary"
+            : "task",
+        details: t.description ?? undefined,
+        open: true,
+        sortOrder: i,
+      };
+
+      if (ganttTask.type === "summary") {
+        summaryByOrder.push(t.id);
+        lastSummaryId = t.id;
+        ganttTask.parent = undefined;
+      } else {
+        // Non-summary tasks belong to the most recent summary (if any)
+        ganttTask.parent = lastSummaryId ?? undefined;
+      }
+
+      ganttMap.set(t.id, ganttTask);
     });
 
-    return dbTasks.map((t) => ({
-      id: t.id,
-      text: t.name,
-      start: new Date(t.startDate),
-      end: new Date(t.endDate),
-      progress: t.progress / 100,
-      type: t.taskType === "milestone" ? "milestone" : t.taskType === "summary" ? "project" : "task",
-      details: t.description ?? undefined,
-      open: true,
-    }));
+    return Array.from(ganttMap.values());
   }
 
   async function handleGenerate() {
@@ -132,23 +104,27 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
       }
 
       const schedule = data.schedule;
-      // Convert AI schedule → task format and save
-      const tasksToSave = schedule.tasks.map((t: Record<string, unknown>, i: number) => ({
-        name: t.name as string,
-        description: (t.description as string) ?? "",
-        startDate: t.startDate as string,
-        endDate: t.endDate as string,
-        progress: (t.progress as number) ?? 0,
-        dependencies: (t.dependencies as string[]) ?? [],
-        taskType: (t.type as string) ?? "task",
-        sortOrder: i,
-      }));
+      const tasksToSave = schedule.tasks.map(
+        (t: Record<string, unknown>, i: number) => ({
+          name: t.name as string,
+          description: (t.description as string) ?? "",
+          startDate: t.startDate as string,
+          endDate: t.endDate as string,
+          progress: (t.progress as number) ?? 0,
+          dependencies: (t.dependencies as string[]) ?? [],
+          taskType: (t.type as string) ?? "task",
+          sortOrder: i,
+        }),
+      );
 
-      const saveRes = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tasks: tasksToSave }),
-      });
+      const saveRes = await fetch(
+        `/api/projects/${encodeURIComponent(projectSlug)}/tasks`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tasks: tasksToSave }),
+        },
+      );
 
       if (!saveRes.ok) throw new Error("Error al guardar el cronograma");
 
@@ -161,32 +137,33 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
     }
   }
 
-  // Debounced auto-save when tasks change via drag/edit
+  // Debounced auto-save when a task is dragged/resized
   const debouncedSave = useCallback(
-    (updatedTasks: GanttTask[]) => {
+    (updatedTask: LocalGanttTask) => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(async () => {
-        for (const task of updatedTasks) {
-          await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/tasks`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: task.id,
-              startDate: task.start.toISOString().split("T")[0],
-              endDate: task.end.toISOString().split("T")[0],
-              progress: Math.round(task.progress * 100),
-            }),
-          });
-        }
-      }, 1000);
+        await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/tasks`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: updatedTask.id,
+            startDate: updatedTask.start.toISOString().split("T")[0],
+            endDate: updatedTask.end.toISOString().split("T")[0],
+            progress: Math.round(updatedTask.progress * 100),
+          }),
+        });
+      }, 800);
     },
     [projectSlug],
   );
 
-  // Handle Gantt task changes (drag, resize, progress)
-  function handleTaskChange(updatedTasks: GanttTask[]) {
-    setGanttTasks(updatedTasks);
-    void debouncedSave(updatedTasks);
+  // Handle drag/resize from the Gantt chart
+  function handleTaskChange(updated: LocalGanttTask) {
+    setGanttTasks((prev) => {
+      const next = prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t));
+      void debouncedSave(updated);
+      return next;
+    });
   }
 
   if (isLoading) {
@@ -197,12 +174,25 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
     );
   }
 
+  const totalTasks = ganttTasks.length;
+  const milestones = ganttTasks.filter((t) => t.type === "milestone").length;
+  const chapters = ganttTasks.filter((t) => t.type === "summary").length;
+  const avgProgress =
+    totalTasks > 0
+      ? Math.round(
+          (ganttTasks.reduce((s, t) => s + t.progress, 0) / totalTasks) * 100,
+        )
+      : 0;
+
   return (
     <div className="w-full py-2">
       {/* Generate schedule bar */}
       {!hasSchedule && (
         <div className="mb-6">
-          <label htmlFor="gantt-prompt" className="mb-1.5 block text-sm font-medium text-slate-300">
+          <label
+            htmlFor="gantt-prompt"
+            className="mb-1.5 block text-sm font-medium text-slate-300"
+          >
             Describe el proyecto para generar el cronograma
           </label>
           <textarea
@@ -213,7 +203,7 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleGenerate();
+                void handleGenerate();
               }
             }}
             placeholder="Ej. Construcción de casa de 2 pisos, 180m², en Bogotá, estructura en concreto reforzado, acabados de primera"
@@ -222,7 +212,7 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
           />
           <button
             type="button"
-            onClick={handleGenerate}
+            onClick={() => void handleGenerate()}
             disabled={!prompt.trim() || isGenerating}
             className="mt-3 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -237,11 +227,14 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 text-2xl ring-1 ring-purple-500/20">
               📊
             </div>
-            <p className="text-sm font-medium text-white">Seguimiento de Obra — Cronograma Gantt</p>
+            <p className="text-sm font-medium text-white">
+              Seguimiento de Obra — Cronograma Gantt
+            </p>
             <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-              Genera un cronograma de obra detallado con secuencia constructiva colombiana,
-              hitos (acta de inicio, recepciones), dependencias y duraciones realistas.
-              Arrastra las tareas para ajustar fechas — todo se guarda automáticamente.
+              Genera un cronograma de obra detallado con secuencia constructiva
+              colombiana, hitos (acta de inicio, recepciones), dependencias y
+              duraciones realistas. Arrastra las tareas para ajustar fechas — todo
+              se guarda automáticamente.
             </p>
           </div>
         </div>
@@ -264,67 +257,41 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
                 ← Regenerar
               </button>
               <span className="text-xs text-slate-600">
-                {ganttTasks.length} tareas · Guardado automático activo
+                {totalTasks} tareas · Guardado automático activo
               </span>
             </div>
           </div>
 
-          {/* SVAR Gantt — lazy loaded with Suspense fallback */}
-          <div
-            className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a1120]"
-            style={{ minHeight: "400px" }}
-          >
-            <GanttBoundary>
-              <Suspense fallback={<div className="flex h-48 items-center justify-center"><p className="text-sm text-slate-500">Cargando diagrama de Gantt…</p></div>}>
-                <GanttChart
-                  tasks={ganttTasks}
-                  scales={[
-                    { unit: "month", step: 1, format: "MMMM yyyy" },
-                    { unit: "day", step: 1, format: "d" },
-                  ]}
-                  columns={[
-                    { id: "text", header: "Tarea", width: 250 },
-                    { id: "start", header: "Inicio", width: 90, format: "d MMM" },
-                    { id: "end", header: "Fin", width: 90, format: "d MMM" },
-                    { id: "duration", header: "Días", width: 60 },
-                  ]}
-                  init={(api: { on: (event: string, cb: (data: Record<string, unknown>) => void) => void; exec: (action: string, data?: Record<string, unknown>) => Promise<unknown> }) => {
-                    // Listen for task drag/resize changes and auto-save
-                    api.on("update-task", (data: Record<string, unknown>) => {
-                      const task = data.task as GanttTask | undefined;
-                      if (task && task.id) {
-                        void debouncedSave([{ ...task }]);
-                      }
-                    });
-                  }}
-                />
-              </Suspense>
-            </GanttBoundary>
+          {/* The Gantt chart */}
+          <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a1120]">
+            <GanttChart tasks={ganttTasks} onTaskChange={handleTaskChange} />
           </div>
 
           {/* Task summary */}
           <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-4 sm:grid-cols-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Total Tareas</p>
-              <p className="mt-1 text-sm font-bold text-slate-200">{ganttTasks.length}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Total Tareas
+              </p>
+              <p className="mt-1 text-sm font-bold text-slate-200">{totalTasks}</p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Hitos</p>
-              <p className="mt-1 text-sm font-bold text-purple-400">
-                {ganttTasks.filter((t) => t.type === "milestone").length}
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Hitos
               </p>
+              <p className="mt-1 text-sm font-bold text-purple-400">{milestones}</p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Capítulos</p>
-              <p className="mt-1 text-sm font-bold text-blue-400">
-                {ganttTasks.filter((t) => t.type === "project").length}
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Capítulos
               </p>
+              <p className="mt-1 text-sm font-bold text-blue-400">{chapters}</p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Progreso</p>
-              <p className="mt-1 text-sm font-bold text-emerald-400">
-                {Math.round(ganttTasks.reduce((s, t) => s + t.progress, 0) / (ganttTasks.length || 1) * 100)}%
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Progreso
               </p>
+              <p className="mt-1 text-sm font-bold text-emerald-400">{avgProgress}%</p>
             </div>
           </div>
         </div>

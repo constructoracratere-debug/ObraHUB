@@ -17,7 +17,8 @@ import {
   type ProjectFile,
 } from "@/lib/files";
 import { CostosTool } from "@/app/_components/costos-tool";
-// Dynamic import so the entire SVAR Gantt bundle (JS + CSS) only loads
+// Code-split the Gantt tool — its bundle (with the chart renderer) only loads
+// when the user opens the Seguimiento card. Keeps login/snappy.
 // when the user opens the Seguimiento tool — can never break login.
 const GanttTool = dynamic(() => import("@/app/_components/gantt-tool").then((m) => m.GanttTool), {
   ssr: false,
