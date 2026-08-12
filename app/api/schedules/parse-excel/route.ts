@@ -74,8 +74,14 @@ export async function POST(request: NextRequest) {
       if (valB.startsWith("└")) return;
       if (valB.toUpperCase().includes("TOTAL PRESUPUESTO")) return;
 
-      // Detect chapter: fill color OR uppercase long text with no unit/qty
+      // Detect chapter: fill color OR merged cells (A=B=C=D) OR uppercase text
       const isChapterFill = isChapterCell(cellA);
+      // Merged cells: when A:H is merged, ExcelJS copies the value to all cells
+      const isMergedChapter =
+        valA.length > 3 &&
+        valA === valB &&
+        valA === valC &&
+        !valA.match(/^[\d.]+$/);
       const isUpperLong =
         valA.length > 3 &&
         valA === valA.toUpperCase() &&
@@ -83,7 +89,7 @@ export async function POST(request: NextRequest) {
         valD === null &&
         !valA.match(/^[\d.]+$/);
 
-      if (isChapterFill || isUpperLong) {
+      if (isChapterFill || isUpperLong || isMergedChapter) {
         const chapterName = valA || valB;
         if (chapterName) {
           currentChapter = { nombre: chapterName, items: [] };
@@ -93,7 +99,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Detect item: has code in A + description in B
-      const hasCode = !!valA.match(/^[A-Za-z]?\d/) || !!valA.match(/^\d/);
+      // Codes can be: "1.2", "PRE.1.1", "CAP.3.2.1", "E5", "A1" etc.
+      const hasCode = !!valA.match(/^[A-Za-z]{0,5}\.?\d/) || !!valA.match(/^\d/);
       const hasDescription = valB.length > 2;
 
       if (hasCode && hasDescription) {

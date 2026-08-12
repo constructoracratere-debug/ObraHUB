@@ -85,17 +85,23 @@ export async function parseBudgetExcel(file: File): Promise<ImportedBudget> {
     if (valB.toUpperCase().includes("TOTAL PRESUPUESTO")) return;
 
     // Detect chapter header:
-    //   Option 1: Row is merged A:H with UPPER text + dark blue fill
-    //   Option 2: valA is uppercase text, no valC/valD (no unit/qty)
+    //   Option 1: Dark blue fill color (FF2A4A6B from our export)
+    //   Option 2: Merged cells — ExcelJS copies value to all cells (A=B=C)
+    //   Option 3: Upper-case long text with no unit/qty
     const isChapterFill = isChapterCell(cellA);
+    const isMergedChapter =
+      valA.length > 3 &&
+      valA === valB &&
+      valA === valC &&
+      !valA.match(/^[\d.]+$/);
     const isUpperLong =
       valA.length > 3 &&
       valA === valA.toUpperCase() &&
       !valC &&
       valD === null &&
-      !valA.match(/^[\d.]+$/); // not a code like "1.2"
+      !valA.match(/^[\d.]+$/);
 
-    if (isChapterFill || isUpperLong) {
+    if (isChapterFill || isUpperLong || isMergedChapter) {
       const chapterName = valA || valB;
       if (chapterName) {
         currentChapter = { nombre: chapterName, items: [] };
@@ -105,7 +111,8 @@ export async function parseBudgetExcel(file: File): Promise<ImportedBudget> {
     }
 
     // Detect item row: has a code in A and a description in B
-    const hasCode = !!valA.match(/^[A-Za-z]?\d/) || !!valA.match(/^\d/);
+    // Codes can be: "1.2", "PRE.1.1", "CAP.3.2.1", "E5", "A1" etc.
+    const hasCode = !!valA.match(/^[A-Za-z]{0,5}\.?\d/) || !!valA.match(/^\d/);
     const hasDescription = valB.length > 2;
 
     if (hasCode && hasDescription) {
