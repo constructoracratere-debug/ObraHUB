@@ -16,7 +16,6 @@ function useIsMobile() {
 import { GanttChart } from "@/app/_components/gantt-chart";
 import type { GanttTask } from "@/app/_components/gantt-chart";
 import type { ProjectTask } from "@/lib/gantt-tasks";
-import { parseBudgetExcel } from "@/lib/excel-import";
 import type { ImportedBudget } from "@/lib/excel-import";
 import type { ScheduleTask } from "@/lib/schedule";
 import type { DailyReport } from "@/lib/daily-reports";
@@ -160,7 +159,7 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
     return Array.from(ganttMap.values());
   }
 
-  // ---- Excel import ----
+  // ---- Excel import (server-side parse for reliability) ----
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -168,7 +167,20 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
     setIsImporting(true);
     setImportError(null);
     try {
-      const budget = await parseBudgetExcel(file);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/schedules/parse-excel", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Error al leer el Excel");
+      }
+
+      const budget = data as ImportedBudget;
       setImportedBudget(budget);
       setPrompt(`Generar cronograma basado en el presupuesto: ${budget.titulo}`);
     } catch (err) {

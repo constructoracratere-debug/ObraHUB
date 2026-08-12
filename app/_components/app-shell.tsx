@@ -32,6 +32,7 @@ const GanttTool = dynamic(() => import("@/app/_components/gantt-tool").then((m) 
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
+const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
 type ToolId = "storage" | "normativa" | "costos" | "seguimiento";
 
@@ -351,6 +352,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<Array<{ question: string; answer: string; timestamp: string }>>([]);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [showMemory, setShowMemory] = useState(false);
   const [newMemory, setNewMemory] = useState("");
@@ -491,6 +494,16 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     localStorage.removeItem(ACTIVE_TOOL_KEY);
     hasRestoredProject.current = true;
   }, [isLoadingProjects, projects]);
+
+  // Load chat history from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(CHAT_HISTORY_KEY);
+      if (stored) setChatHistory(JSON.parse(stored));
+    } catch {
+      // non-critical
+    }
+  }, []);
 
   async function loadProjectConversations(slug: string) {
     setIsLoadingConversations(true);
@@ -1045,6 +1058,18 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       } else {
         setMessages((prev) => [...prev, { role: "assistant", content: assistantContent }]);
       }
+
+      // Save to chat history (last 5 consultations)
+      try {
+        const stored = localStorage.getItem(CHAT_HISTORY_KEY);
+        const prev = stored ? JSON.parse(stored) as Array<{ question: string; answer: string; timestamp: string }> : [];
+        const entry = { question: message, answer: assistantContent, timestamp: new Date().toISOString() };
+        const next = [entry, ...prev].slice(0, 5);
+        setChatHistory(next);
+        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
+      } catch {
+        // localStorage might be full or unavailable — non-critical
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al enviar el mensaje");
       if (projectSlug) {
@@ -1506,6 +1531,21 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 </div>
               )}
             </div>
+            )}
+            {/* History toggle — only in normativa/hero mode */}
+            {(showHero || activeTool === "normativa") && (
+              <button
+                type="button"
+                onClick={() => setShowHistoryPanel((s) => !s)}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                  showHistoryPanel
+                    ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                    : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:bg-white/5 hover:text-white"
+                }`}
+                title="Historial de consultas"
+              >
+                🕘 <span className="hidden sm:inline">Historial</span>
+              </button>
             )}
             <span className="hidden items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400 sm:inline-flex">
               <span className="relative flex h-1.5 w-1.5">
@@ -2109,6 +2149,82 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
           )}
         </main>
       </div>
+
+      {/* ===== History Panel (right side) — only in normativa/hero mode ===== */}
+      {showHistoryPanel && (showHero || activeTool === "normativa") && (
+        <>
+          {/* Mobile backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+            onClick={() => setShowHistoryPanel(false)}
+          />
+          <aside
+            className="fixed inset-y-0 right-0 z-50 flex w-80 flex-col border-l border-white/[0.06] bg-[#0a1120] lg:static lg:z-auto lg:w-80 lg:shrink-0"
+          >
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+              <p className="text-sm font-semibold text-slate-200">🕘 Historial</p>
+              <button
+                type="button"
+                onClick={() => setShowHistoryPanel(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-white/5 text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {chatHistory.length === 0 ? (
+                <p className="mt-8 text-center text-sm text-slate-600">
+                  Aún no tienes consultas guardadas.
+                  <br />
+                  Haz una pregunta al Consultor Normativo.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Últimas {chatHistory.length} consultas
+                  </p>
+                  {chatHistory.map((entry, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setInput(entry.question);
+                        setShowHistoryPanel(false);
+                      }}
+                      className="block w-full rounded-lg border border-white/[0.04] bg-white/[0.01] p-3 text-left transition hover:border-white/[0.1] hover:bg-white/[0.03]"
+                    >
+                      <p className="line-clamp-2 text-xs font-medium text-slate-200">
+                        {entry.question}
+                      </p>
+                      <p className="mt-1.5 line-clamp-2 text-[11px] text-slate-500">
+                        {entry.answer}
+                      </p>
+                      <p className="mt-1.5 text-[10px] text-slate-600">
+                        {new Date(entry.timestamp).toLocaleDateString("es-CO", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem(CHAT_HISTORY_KEY);
+                      setChatHistory([]);
+                    }}
+                    className="mt-3 w-full rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400 transition hover:bg-red-500/10"
+                  >
+                    🗑 Limpiar historial
+                  </button>
+                </div>
+              )}
+            </div>
+          </aside>
+        </>
+      )}
 
       {showCreateProject && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
