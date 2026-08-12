@@ -101,6 +101,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       endDate: body.endDate as string | undefined,
       progress: body.progress as number | undefined,
       dependencies: body.dependencies as string[] | undefined,
+      taskType: body.taskType as string | undefined,
+      color: body.color as string | null | undefined,
       sortOrder: body.sortOrder as number | undefined,
     });
     return NextResponse.json({ ok: true });

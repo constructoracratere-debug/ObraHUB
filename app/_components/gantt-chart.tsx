@@ -16,6 +16,7 @@ export interface GanttTask {
   parent?: string;
   dependencies?: string[];
   sortOrder?: number;
+  color?: string | null;
 }
 
 interface GanttChartProps {
@@ -342,7 +343,7 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
   const headerHeight = viewMode === "day" ? 36 : 56;
 
   return (
-    <div className="flex flex-col" style={{ minHeight: "50vh" }}>
+    <div className="flex flex-col" style={{ minHeight: "60vh" }}>
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] bg-[#0a1120] px-3 py-2">
         <div className="flex items-center gap-1 rounded-lg bg-white/[0.03] p-0.5">
@@ -386,7 +387,7 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
       <div
         ref={scrollRef}
         className="relative flex-1 overflow-x-auto overflow-y-auto"
-        style={{ height: "calc(100vh - 220px)", minHeight: "300px" }}
+        style={{ height: "calc(100vh - 140px)", minHeight: "350px" }}
       >
         <div style={{ width: `calc(${labelColWidth}px + ${timelineWidth}px)`, minWidth: "100%" }}>
           {/* Header row */}

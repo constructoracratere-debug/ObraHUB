@@ -19,6 +19,7 @@ import type { ProjectTask } from "@/lib/gantt-tasks";
 import { parseBudgetExcel } from "@/lib/excel-import";
 import type { ImportedBudget } from "@/lib/excel-import";
 import type { ScheduleTask } from "@/lib/schedule";
+import type { DailyReport } from "@/lib/daily-reports";
 
 type LocalGanttTask = GanttTask;
 
@@ -59,6 +60,15 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
   const [treeSearch, setTreeSearch] = useState("");
   const [collapsedChapters, setCollapsedChapters] = useState<Set<string>>(new Set());
 
+  // Bitácora (daily reports) state
+  const [showBitacora, setShowBitacora] = useState(false);
+  const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
+  const [todayReport, setTodayReport] = useState<Partial<DailyReport>>({});
+  const reportSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Task edit panel state
+  const [showEditPanel, setShowEditPanel] = useState(false);
+
   const loadTasks = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -77,10 +87,42 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
     }
   }, [projectSlug]);
 
-  // Load existing tasks on mount
+  // ---- Bitácora (daily reports) ----
+  const loadDailyReports = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/daily-reports`);
+      const data = await res.json();
+      if (res.ok) {
+        setDailyReports(data.reports ?? []);
+        const today = new Date().toISOString().split("T")[0];
+        const existing = (data.reports ?? []).find((r: DailyReport) => r.reportDate === today);
+        setTodayReport(
+          existing
+            ? {
+                weather: existing.weather ?? "",
+                workersCount: existing.workersCount,
+                equipment: existing.equipment ?? "",
+                notes: existing.notes ?? "",
+                activitiesCompleted: existing.activitiesCompleted ?? [],
+              }
+            : { weather: "", workersCount: null, equipment: "", notes: "", activitiesCompleted: [] },
+        );
+      }
+    } catch {
+      // empty state
+    }
+  }, [projectSlug]);
+
+  // Load existing tasks + reports on mount
   useEffect(() => {
     void loadTasks();
-  }, [loadTasks]);
+    void loadDailyReports();
+  }, [loadTasks, loadDailyReports]);
+
+  // Auto-open edit panel when a task is clicked
+  useEffect(() => {
+    if (selectedTaskId) setShowEditPanel(true);
+  }, [selectedTaskId]);
 
   // Convert DB tasks → Gantt format with parent-child hierarchy
   function convertToGantt(dbTasks: ProjectTask[]): LocalGanttTask[] {
@@ -316,6 +358,111 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
       void debouncedSave(updated);
       return next;
     });
+    // Also sync the raw tasks array so derived stats stay correct
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === updated.id
+          ? {
+              ...t,
+              startDate: updated.start.toISOString().split("T")[0],
+              endDate: updated.end.toISOString().split("T")[0],
+              progress: Math.round(updated.progress * 100),
+            }
+          : t,
+      ),
+    );
+  }
+
+  // Debounced auto-save for the bitácora form
+  const debouncedReportSave = useCallback(
+    (data: Partial<DailyReport>) => {
+      if (reportSaveTimer.current) clearTimeout(reportSaveTimer.current);
+      reportSaveTimer.current = setTimeout(async () => {
+        const today = new Date().toISOString().split("T")[0];
+        await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/daily-reports`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reportDate: today, ...data }),
+        });
+        void loadDailyReports();
+      }, 1200);
+    },
+    [projectSlug, loadDailyReports],
+  );
+
+  function updateReportField(field: keyof DailyReport, value: unknown) {
+    setTodayReport((prev) => {
+      const next = { ...prev, [field]: value };
+      void debouncedReportSave(next);
+      return next;
+    });
+  }
+
+  // Toggle activity completion → updates task progress + bitácora
+  async function toggleActivityCompleted(taskId: string) {
+    const completed = todayReport.activitiesCompleted ?? [];
+    const isChecked = completed.includes(taskId);
+    const newCompleted = isChecked
+      ? completed.filter((id) => id !== taskId)
+      : [...completed, taskId];
+
+    updateReportField("activitiesCompleted", newCompleted);
+
+    // Update task progress: mark 100% when checked, leave unchanged when unchecked
+    const task = ganttTasks.find((t) => t.id === taskId);
+    if (task) {
+      const newProgress = isChecked ? task.progress : 1; // don't revert on uncheck, set 100% on check
+      if (!isChecked) {
+        const updated = { ...task, progress: newProgress };
+        handleTaskChange(updated);
+      }
+    }
+  }
+
+  // ---- Task editing ----
+  const selectedTask = useMemo(
+    () => ganttTasks.find((t) => t.id === selectedTaskId) ?? null,
+    [ganttTasks, selectedTaskId],
+  );
+
+  async function handleUpdateSelectedTask(updates: Partial<LocalGanttTask>) {
+    if (!selectedTask) return;
+    handleTaskChange({ ...selectedTask, ...updates });
+    // Also update name/description in DB
+    if (updates.text !== undefined || updates.details !== undefined) {
+      await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/tasks`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedTask.id,
+          ...(updates.text !== undefined ? { name: updates.text } : {}),
+          ...(updates.details !== undefined ? { description: updates.details } : {}),
+        }),
+      });
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === selectedTask.id
+            ? {
+                ...t,
+                ...(updates.text !== undefined ? { name: updates.text } : {}),
+                ...(updates.details !== undefined ? { description: updates.details } : {}),
+              }
+            : t,
+        ),
+      );
+    }
+  }
+
+  async function handleDeleteTask() {
+    if (!selectedTask) return;
+    await fetch(
+      `/api/projects/${encodeURIComponent(projectSlug)}/tasks?id=${selectedTask.id}`,
+      { method: "DELETE" },
+    );
+    setGanttTasks((prev) => prev.filter((t) => t.id !== selectedTask.id));
+    setTasks((prev) => prev.filter((t) => t.id !== selectedTask.id));
+    setSelectedTaskId(null);
+    setShowEditPanel(false);
   }
 
   // ---- Derived data for tree panel ----
@@ -523,6 +670,30 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
               >
                 ☰ Tareas
               </button>
+              <button
+                type="button"
+                onClick={() => setShowBitacora((s) => !s)}
+                className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                  showBitacora
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                    : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:bg-white/5"
+                }`}
+              >
+                📓 Bitácora
+              </button>
+              {selectedTask && (
+                <button
+                  type="button"
+                  onClick={() => setShowEditPanel((s) => !s)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                    showEditPanel
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                      : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:bg-white/5"
+                  }`}
+                >
+                  ✏️ {selectedTask.type === "milestone" ? "Hito" : "Tarea"}
+                </button>
+              )}
               <span className="hidden text-xs text-slate-600 sm:inline">
                 {totalTasks} tareas · Guardado automático
               </span>
@@ -690,6 +861,248 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
             </div>
           </div>
 
+          {/* ===== Task Edit Panel ===== */}
+          {showEditPanel && selectedTask && (
+            <div className="rounded-2xl border border-amber-500/20 bg-[#0a1120] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-medium text-amber-300">
+                  ✏️ {selectedTask.type === "milestone" ? "Editar Hito" : selectedTask.type === "summary" ? "Editar Capítulo" : "Editar Tarea"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowEditPanel(false)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md bg-white/5 text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedTask.text}
+                    onChange={(e) => {
+                      const newText = e.target.value;
+                      setGanttTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? { ...t, text: newText } : t)));
+                      void handleUpdateSelectedTask({ text: newText });
+                    }}
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 focus:border-amber-500/40 focus:outline-none"
+                  />
+                </div>
+                {selectedTask.type !== "milestone" && (
+                  <div>
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      Fecha Inicio
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedTask.start.toISOString().split("T")[0]}
+                      onChange={(e) => {
+                        const newStart = new Date(e.target.value);
+                        void handleUpdateSelectedTask({ start: newStart });
+                      }}
+                      className="w-full rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 focus:border-amber-500/40 focus:outline-none"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    {selectedTask.type === "milestone" ? "Fecha" : "Fecha Fin"}
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedTask.end.toISOString().split("T")[0]}
+                    onChange={(e) => {
+                      const newEnd = new Date(e.target.value);
+                      void handleUpdateSelectedTask({ end: newEnd });
+                    }}
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 focus:border-amber-500/40 focus:outline-none"
+                  />
+                </div>
+                {selectedTask.type !== "summary" && (
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      Progreso: {Math.round(selectedTask.progress * 100)}%
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round(selectedTask.progress * 100)}
+                      onChange={(e) => {
+                        const newProgress = parseInt(e.target.value, 10) / 100;
+                        void handleUpdateSelectedTask({ progress: newProgress });
+                      }}
+                      className="w-full accent-amber-500"
+                    />
+                  </div>
+                )}
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Descripción / Notas
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={selectedTask.details ?? ""}
+                    onChange={(e) => {
+                      const newDetails = e.target.value;
+                      setGanttTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? { ...t, details: newDetails } : t)));
+                      void handleUpdateSelectedTask({ details: newDetails });
+                    }}
+                    placeholder="Añade notas o detalles de esta tarea…"
+                    className="w-full resize-none rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-amber-500/40 focus:outline-none"
+                  />
+                </div>
+              </div>
+              {selectedTask.type !== "summary" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleUpdateSelectedTask({ progress: 1 });
+                  }}
+                  className="mt-3 w-full rounded-lg bg-emerald-600/20 px-3 py-2 text-xs font-medium text-emerald-300 transition hover:bg-emerald-600/30"
+                >
+                  ✓ Marcar como completada (100%)
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleDeleteTask()}
+                className="mt-2 w-full rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
+              >
+                🗑 Eliminar {selectedTask.type === "milestone" ? "hito" : "tarea"}
+              </button>
+            </div>
+          )}
+
+          {/* ===== Bitácora de Obra Panel ===== */}
+          {showBitacora && (
+            <div className="rounded-2xl border border-emerald-500/20 bg-[#0a1120] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-medium text-emerald-300">
+                  📓 Bitácora de Obra — {new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowBitacora(false)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md bg-white/5 text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Clima
+                  </label>
+                  <select
+                    value={todayReport.weather ?? ""}
+                    onChange={(e) => updateReportField("weather", e.target.value)}
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 focus:border-emerald-500/40 focus:outline-none"
+                  >
+                    <option value="">— Seleccionar —</option>
+                    <option value="Soleado">☀️ Soleado</option>
+                    <option value="Nublado">☁️ Nublado</option>
+                    <option value="Lluvioso">🌧 Lluvioso</option>
+                    <option value="Parcialmente nublado">⛅ Parcialmente nublado</option>
+                    <option value="Tormenta">⛈ Tormenta</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    N° Obreros
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={todayReport.workersCount ?? ""}
+                    onChange={(e) => updateReportField("workersCount", e.target.value ? parseInt(e.target.value, 10) : null)}
+                    placeholder="0"
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 focus:border-emerald-500/40 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Equipo / Maquinaria
+                  </label>
+                  <input
+                    type="text"
+                    value={todayReport.equipment ?? ""}
+                    onChange={(e) => updateReportField("equipment", e.target.value)}
+                    placeholder="Ej: Mezcladora, andamio"
+                    className="w-full rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/40 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Activities checklist */}
+              <div className="mt-3">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Actividades de hoy (marca las completadas)
+                </p>
+                <div className="max-h-40 space-y-0.5 overflow-y-auto rounded-lg border border-white/[0.06] bg-[#050b14] p-2">
+                  {ganttTasks
+                    .filter((t) => t.type === "task")
+                    .map((task) => {
+                      const isDone = (todayReport.activitiesCompleted ?? []).includes(task.id);
+                      return (
+                        <label
+                          key={task.id}
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.04]"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isDone}
+                            onChange={() => void toggleActivityCompleted(task.id)}
+                            className="h-3.5 w-3.5 accent-emerald-500"
+                          />
+                          <span className={isDone ? "text-emerald-400 line-through" : ""}>
+                            {task.text}
+                          </span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Notes / Novedades */}
+              <div className="mt-3">
+                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Novedades / Observaciones
+                </label>
+                <textarea
+                  rows={3}
+                  value={todayReport.notes ?? ""}
+                  onChange={(e) => updateReportField("notes", e.target.value)}
+                  placeholder="Reporta retrasos, imprevistos, visitas de interventoría, entregas de material…"
+                  className="w-full resize-none rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-emerald-500/40 focus:outline-none"
+                />
+              </div>
+
+              <p className="mt-2 text-right text-[10px] text-slate-600">
+                💾 Guardado automático
+              </p>
+
+              {/* Previous days */}
+              {dailyReports.length > 0 && (
+                <div className="mt-4 border-t border-white/[0.06] pt-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Días anteriores ({dailyReports.length})
+                  </p>
+                  <div className="max-h-48 space-y-1.5 overflow-y-auto">
+                    {dailyReports.map((report) => (
+                      <BitacoraDay key={report.id} report={report} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Edit via AI */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-3">
             <p className="mb-2 text-xs font-medium text-slate-300">
@@ -773,6 +1186,52 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
               <p className="mt-1 text-sm font-bold text-emerald-400">{avgProgress}%</p>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Collapsible summary of a previous day's report. */
+function BitacoraDay({ report }: { report: DailyReport }) {
+  const [open, setOpen] = useState(false);
+  const date = new Date(report.reportDate + "T12:00:00");
+  const label = date.toLocaleDateString("es-CO", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+
+  return (
+    <div className="rounded-lg border border-white/[0.04] bg-white/[0.01]">
+      <button
+        type="button"
+        onClick={() => setOpen((s) => !s)}
+        className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-xs text-slate-400 hover:text-slate-200"
+      >
+        <span className="text-[9px]">{open ? "▾" : "▸"}</span>
+        <span className="font-medium capitalize">{label}</span>
+        {report.weather && (
+          <span className="ml-auto text-[10px] text-slate-500">{report.weather}</span>
+        )}
+        {report.workersCount != null && report.workersCount > 0 && (
+          <span className="text-[10px] text-slate-600">{report.workersCount} obreros</span>
+        )}
+      </button>
+      {open && (
+        <div className="space-y-1.5 px-2.5 pb-2.5 pt-0.5 text-xs text-slate-400">
+          {report.equipment && (
+            <p><span className="text-slate-500">Equipo:</span> {report.equipment}</p>
+          )}
+          {report.activitiesCompleted.length > 0 && (
+            <p>
+              <span className="text-slate-500">Completadas:</span>{" "}
+              <span className="text-emerald-400">{report.activitiesCompleted.length} actividades</span>
+            </p>
+          )}
+          {report.notes && (
+            <p className="whitespace-pre-wrap rounded-md bg-white/[0.02] p-2">{report.notes}</p>
+          )}
         </div>
       )}
     </div>

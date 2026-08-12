@@ -130,6 +130,7 @@ export async function updateTask(
     progress: number;
     dependencies: string[];
     taskType: string;
+    color: string | null;
     sortOrder: number;
   }>,
 ): Promise<void> {
@@ -141,6 +142,7 @@ export async function updateTask(
   if (updates.progress !== undefined) dbUpdates.progress = updates.progress;
   if (updates.dependencies !== undefined) dbUpdates.dependencies = updates.dependencies;
   if (updates.taskType !== undefined) dbUpdates.task_type = updates.taskType;
+  if (updates.color !== undefined) dbUpdates.color = updates.color;
   if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
 
   const { error } = await supabase.from("project_tasks").update(dbUpdates).eq("id", taskId);
