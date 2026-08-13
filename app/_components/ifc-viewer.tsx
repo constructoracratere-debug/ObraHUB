@@ -36,6 +36,8 @@ type IfcViewerProps = {
   fileId?: string;
   /** Gantt tasks for 4D linking. If omitted and projectSlug is set, they are auto-loaded. */
   tasks?: GanttTaskLite[];
+  /** IFC GlobalIDs to highlight after the model loads (4D navigation from Gantt). */
+  highlightGlobalIds?: string[];
   /** Called when the user wants to generate an APU budget from the model. */
   onGenerateBudget?: (contextPrompt: string, summary: IfcQuantitySummary) => void;
   /** Called when the user wants to generate a Gantt schedule from the model. */
@@ -49,6 +51,7 @@ export function IfcViewer({
   projectSlug,
   fileId,
   tasks: tasksProp,
+  highlightGlobalIds,
   onGenerateBudget,
   onGenerateSchedule,
 }: IfcViewerProps) {
@@ -217,6 +220,54 @@ export function IfcViewer({
         setSummary(quantSummary);
         setProgress(100);
         setState("ready");
+
+        // 4D navigation: if highlightGlobalIds was passed (from Gantt),
+        // isolate + highlight those elements now that the model is loaded.
+        if (highlightGlobalIds && highlightGlobalIds.length > 0) {
+          const targetExpressIds = new Set<number>();
+          for (const guid of highlightGlobalIds) {
+            try {
+              const eid = ifcApi.GetExpressIdFromGuid(modelID, guid);
+              if (typeof eid === "number") targetExpressIds.add(eid);
+            } catch {
+              /* guid not found in this model */
+            }
+          }
+          if (targetExpressIds.size > 0) {
+            // Isolate: hide everything, show only targets
+            for (const m of meshesRef.current) m.visible = false;
+            const highlightIds = new Set<number>();
+            for (const [eid, mesh] of elementToMeshRef.current) {
+              if (targetExpressIds.has(eid)) {
+                mesh.visible = true;
+                (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x004422);
+                highlightIds.add(eid);
+              }
+            }
+            // Fit camera to the highlighted elements only
+            const box = new THREE.Box3();
+            for (const id of highlightIds) {
+              const m = elementToMeshRef.current.get(id);
+              if (m) box.expandByObject(m);
+            }
+            if (!box.isEmpty()) {
+              const center = box.getCenter(new THREE.Vector3());
+              const size = box.getSize(new THREE.Vector3());
+              const maxDim = Math.max(size.x, size.y, size.z, 1);
+              const cam = cameraRef.current;
+              const ctrl = controlsRef.current;
+              if (cam && ctrl) {
+                const dist = maxDim * 2.5;
+                cam.position.set(center.x + dist, center.y + dist * 0.7, center.z + dist);
+                cam.near = maxDim / 100;
+                cam.far = maxDim * 100;
+                cam.updateProjectionMatrix();
+                ctrl.target.copy(center);
+                ctrl.update();
+              }
+            }
+          }
+        }
       } catch (err) {
         if (cancelled) return;
         console.error("IFC load error:", err);

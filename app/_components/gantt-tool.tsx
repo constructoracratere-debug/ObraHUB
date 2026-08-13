@@ -36,9 +36,11 @@ type LocalGanttTask = GanttTask;
 export function GanttTool({
   projectSlug,
   initialBudgetContext,
+  onOpenIfcWithHighlights,
 }: {
   projectSlug: string;
   initialBudgetContext?: string;
+  onOpenIfcWithHighlights?: (fileId: string, globalIds: string[]) => void;
 }) {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [ganttTasks, setGanttTasks] = useState<LocalGanttTask[]>([]);

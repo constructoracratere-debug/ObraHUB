@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getSignedDownloadUrl, isIfcFile } from "@/lib/files";
+import { getSignedDownloadUrl, isIfcFile, isRevitFile } from "@/lib/files";
 
 type RouteContext = {
   params: Promise<{ folderId: string }>;
@@ -36,9 +36,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    // IFC models can be large and take longer to download/parse in the browser.
+    // IFC and Revit models can be large and take longer to download/parse.
     // Extend the signed URL TTL to 30 minutes for those files.
-    const ttl = isIfcFile(file.name) ? 1800 : 300;
+    const ttl = isIfcFile(file.name) || isRevitFile(file.name) ? 1800 : 300;
     const signedUrl = await getSignedDownloadUrl(supabase, file.storage_path, ttl);
     return NextResponse.json({
       url: signedUrl,

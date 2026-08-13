@@ -5,8 +5,10 @@ import {
   FILE_BUCKET,
   MAX_FILE_BYTES,
   MAX_IFC_BYTES,
+  MAX_REVIT_BYTES,
   deleteFileRecord,
   isIfcFile,
+  isRevitFile,
   listFiles,
 } from "@/lib/files";
 
@@ -71,7 +73,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const uploaded: { id: string; name: string }[] = [];
 
     for (const file of entries) {
-      const limit = isIfcFile(file.name) ? MAX_IFC_BYTES : MAX_FILE_BYTES;
+      const limit = isRevitFile(file.name)
+        ? MAX_REVIT_BYTES
+        : isIfcFile(file.name)
+          ? MAX_IFC_BYTES
+          : MAX_FILE_BYTES;
       if (file.size > limit) {
         const limitMb = Math.round(limit / (1024 * 1024));
         return NextResponse.json(

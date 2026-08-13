@@ -390,6 +390,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   // the preview modal, set this prompt, and switch to the costos tool.
   const [pendingBudgetPrompt, setPendingBudgetPrompt] = useState<string | null>(null);
   const [pendingScheduleContext, setPendingScheduleContext] = useState<string | null>(null);
+
+  // IFC 4D highlight: when the Gantt asks to "view linked elements in model",
+  // we open the IFC file and pass these GlobalIds to highlight after load.
+  const [ifcHighlightIds, setIfcHighlightIds] = useState<string[]>([]);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -646,7 +650,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     setSidebarOpen(false);
     setMemories([]);
     setShowMemory(false);
-    void loadProjectFolders(slug);
+    // Folders are auto-loaded by the useEffect that watches activeProjectSlug.
   }
 
   // Open a tool within the active project.
@@ -692,6 +696,19 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       setIsLoadingFolders(false);
     }
   }
+
+  // Auto-reload root folders whenever the active project changes.
+  // This ensures folders are always visible even after navigation or
+  // state resets — the previous bug where folders "disappeared" was
+  // because no effect observed activeProjectSlug.
+  useEffect(() => {
+    if (!activeProjectSlug) {
+      setFolders([]);
+      return;
+    }
+    void loadProjectFolders(activeProjectSlug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectSlug]);
 
   // Create a folder — inside the active folder (if any), or at project root.
   async function handleCreateFolder(name: string) {
@@ -861,6 +878,38 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       // ignore
     } finally {
       setIsLoadingPreview(false);
+    }
+  }
+
+  // Open an IFC file from the Gantt (4D link navigation) with specific elements highlighted.
+  // Loads the file metadata, sets the highlight IDs, then opens the preview modal.
+  async function openIfcWithHighlights(fileId: string, globalIds: string[]) {
+    if (!activeFolderId) return;
+    setIfcHighlightIds(globalIds);
+    // Find the file in the current folder's file list, or fetch it directly.
+    let file = files.find((f) => f.id === fileId);
+    if (!file) {
+      // Fetch file metadata via the preview endpoint (it returns name + mime).
+      try {
+        const res = await fetch(`/api/folders/${activeFolderId}/files/preview?id=${fileId}`);
+        if (res.ok) {
+          const data = await res.json();
+          file = {
+            id: fileId,
+            folderId: activeFolderId,
+            name: data.name ?? "modelo.ifc",
+            storagePath: "",
+            mimeType: data.mimeType ?? null,
+            sizeBytes: 0,
+            createdAt: new Date().toISOString(),
+          };
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    if (file) {
+      await handlePreviewFile(file);
     }
   }
 
@@ -2063,6 +2112,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   <GanttTool
                     projectSlug={activeProjectSlug}
                     initialBudgetContext={pendingScheduleContext ?? undefined}
+                    onOpenIfcWithHighlights={openIfcWithHighlights}
                   />
                 ) : (
                   <div className="py-8 text-center text-sm text-slate-500">
@@ -2516,7 +2566,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               </button>
               <button
                 type="button"
-                onClick={() => { setPreviewFile(null); setPreviewUrl(null); }}
+                onClick={() => { setPreviewFile(null); setPreviewUrl(null); setIfcHighlightIds([]); }}
                 aria-label="Cerrar"
                 className="rounded-lg p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
               >
@@ -2548,16 +2598,19 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 url={previewUrl}
                 projectSlug={activeProjectSlug ?? undefined}
                 fileId={previewFile.id}
+                highlightGlobalIds={ifcHighlightIds}
                 onGenerateBudget={(ctx) => {
                   setPendingBudgetPrompt(ctx);
                   setPreviewFile(null);
                   setPreviewUrl(null);
+                  setIfcHighlightIds([]);
                   setActiveTool("costos");
                 }}
                 onGenerateSchedule={(ctx) => {
                   setPendingScheduleContext(ctx);
                   setPreviewFile(null);
                   setPreviewUrl(null);
+                  setIfcHighlightIds([]);
                   setActiveTool("seguimiento");
                 }}
               />
@@ -2574,6 +2627,75 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 className="h-full w-full"
                 title={previewFile.name}
               />
+            ) : previewKind(previewFile.name, previewFile.mimeType) === "revit" ? (
+              <div className="flex h-full items-center justify-center px-4">
+                <div className="max-w-md text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-4xl ring-1 ring-blue-500/20">
+                    🏭
+                  </div>
+                  <p className="text-base font-semibold text-white">Modelo de Revit</p>
+                  <p className="mt-1 text-sm text-slate-400">{previewFile.name}</p>
+                  <p className="mt-4 text-sm text-slate-500">
+                    Los archivos <strong className="text-slate-300">.rvt</strong> son formato
+                    propietario de Autodesk Revit y no pueden visualizarse directamente en el
+                    navegador.
+                  </p>
+                  <div className="mt-5 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-left">
+                    <p className="text-xs font-semibold text-blue-300">💡 Para visualizar este modelo en ObraHub:</p>
+                    <ol className="mt-2 space-y-1.5 text-xs text-slate-400">
+                      <li>1. En Revit: <strong>Archivo → Exportar → IFC</strong></li>
+                      <li>2. Sube el archivo <strong className="text-cyan-300">.ifc</strong> exportado a esta carpeta</li>
+                      <li>3. Haz clic en el archivo IFC — se abrirá el visor 3D completo</li>
+                    </ol>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => previewFile && handleDownloadFile(previewFile.id)}
+                    className="mt-4 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500"
+                  >
+                    Descargar modelo .rvt
+                  </button>
+                </div>
+              </div>
+            ) : previewKind(previewFile.name, previewFile.mimeType) === "cad" ? (
+              <div className="flex h-full items-center justify-center px-4">
+                <div className="max-w-md text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-4xl ring-1 ring-amber-500/20">
+                    📐
+                  </div>
+                  <p className="text-base font-semibold text-white">Plano CAD</p>
+                  <p className="mt-1 text-sm text-slate-400">{previewFile.name}</p>
+                  <p className="mt-4 text-sm text-slate-500">
+                    Los archivos <strong className="text-slate-300">.dwg / .dxf</strong> requieren
+                    un visor CAD especializado para visualizar los planos vectoriales.
+                  </p>
+                  <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-left">
+                    <p className="text-xs font-semibold text-amber-300">💡 Visualizadores gratuitos recomendados:</p>
+                    <ul className="mt-2 space-y-1.5 text-xs text-slate-400">
+                      <li>• <strong>Autodesk Viewer</strong> (web) — view.autodesk.com</li>
+                      <li>• <strong>DWG FastView</strong> (web/móvil)</li>
+                      <li>• <strong>LibreCAD</strong> (escritorio, gratuito)</li>
+                    </ul>
+                  </div>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <a
+                      href={`https://viewer.autodesk.com/?design=${encodeURIComponent(previewUrl)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 transition hover:bg-amber-500/25"
+                    >
+                      Abrir en Autodesk Viewer ↗
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => previewFile && handleDownloadFile(previewFile.id)}
+                      className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.06]"
+                    >
+                      Descargar
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex h-full items-center justify-center px-4 text-center">
                 <p className="text-sm text-slate-500">Vista previa no disponible. Descarga el archivo.</p>
