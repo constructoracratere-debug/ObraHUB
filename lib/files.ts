@@ -55,6 +55,12 @@ export function isCadFile(name: string): boolean {
   return ext === "dwg" || ext === "dxf";
 }
 
+/** Returns true when a filename is a spreadsheet (Excel/CSV). */
+export function isExcelFile(name: string): boolean {
+  const ext = name.toLowerCase().split(".").pop() ?? "";
+  return ext === "xlsx" || ext === "xls" || ext === "csv";
+}
+
 /** Returns an emoji icon for a filename based on its extension. */
 export function fileIcon(name: string): string {
   const ext = name.toLowerCase().split(".").pop() ?? "";

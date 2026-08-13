@@ -13,6 +13,7 @@ import {
   MAX_FILE_BYTES,
   fileIcon,
   formatFileSize,
+  isExcelFile,
   previewKind,
   type ProjectFile,
 } from "@/lib/files";
@@ -46,6 +47,26 @@ const DxfPreview = dynamic(() => import("@/app/_components/dxf-preview").then((m
   loading: () => (
     <div className="flex h-full items-center justify-center">
       <p className="text-sm text-slate-500">Cargando visor de planos…</p>
+    </div>
+  ),
+});
+
+// Code-split the DWG viewer — libredwg WASM (~9.5MB) + dxf-viewer.
+const DwgPreview = dynamic(() => import("@/app/_components/dwg-preview").then((m) => m.DwgPreview), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center">
+      <p className="text-sm text-slate-500">Cargando visor DWG…</p>
+    </div>
+  ),
+});
+
+// Code-split the Excel viewer — ExcelJS, loaded on demand.
+const ExcelPreview = dynamic(() => import("@/app/_components/excel-preview").then((m) => m.ExcelPreview), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center">
+      <p className="text-sm text-slate-500">Cargando hoja de cálculo…</p>
     </div>
   ),
 });
@@ -2631,6 +2652,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={previewUrl} alt={previewFile.name} className="max-h-full max-w-full rounded-lg" />
               </div>
+            ) : isExcelFile(previewFile.name) ? (
+              <ExcelPreview url={previewUrl} filename={previewFile.name} />
             ) : previewKind(previewFile.name, previewFile.mimeType) === "office" ? (
               <iframe
                 src={`https://view.officeapps.office.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`}
@@ -2671,49 +2694,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               previewFile.name.toLowerCase().endsWith(".dxf") ? (
                 <DxfPreview url={previewUrl} filename={previewFile.name} />
               ) : (
-                // .dwg — binary format, can't render in-browser. Show options.
-                <div className="flex h-full items-center justify-center px-4">
-                  <div className="max-w-md text-center">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-4xl ring-1 ring-amber-500/20">
-                      📐
-                    </div>
-                    <p className="text-base font-semibold text-white">Plano DWG de AutoCAD</p>
-                    <p className="mt-1 text-sm text-slate-400">{previewFile.name}</p>
-                    <p className="mt-4 text-sm text-slate-500">
-                      Los archivos <strong className="text-slate-300">.dwg</strong> son formato
-                      binario propietario de Autodesk y no pueden renderizarse nativamente en el
-                      navegador. Los archivos <strong className="text-emerald-300">.dxf</strong> sí
-                      se visualizan directamente en ObraHub.
-                    </p>
-                    <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-left">
-                      <p className="text-xs font-semibold text-amber-300">💡 Para visualizar este plano:</p>
-                      <div className="mt-2 space-y-2 text-xs text-slate-400">
-                        <div>
-                          <p className="font-medium text-slate-300">Opción 1 — Convertir a DXF (recomendada):</p>
-                          <p className="ml-3">En AutoCAD: <strong>Guardar como → Tipo: DXF (*.dxf)</strong> → subir el .dxf a esta carpeta</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-300">Opción 2 — Ver online:</p>
-                          <a
-                            href="https://viewer.autodesk.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="ml-3 text-amber-400 underline hover:text-amber-300"
-                          >
-                            Abrir en Autodesk Viewer (gratuito) ↗
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => previewFile && handleDownloadFile(previewFile.id)}
-                      className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.06]"
-                    >
-                      Descargar plano
-                    </button>
-                  </div>
-                </div>
+                // .dwg — convert to DXF in-browser via libredwg WASM, then render.
+                <DwgPreview url={previewUrl} filename={previewFile.name} />
               )
             ) : (
               <div className="flex h-full items-center justify-center px-4 text-center">
