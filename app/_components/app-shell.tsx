@@ -40,6 +40,16 @@ const IfcViewer = dynamic(() => import("@/app/_components/ifc-viewer").then((m) 
   ),
 });
 
+// Code-split the DXF viewer — three.js + dxf-viewer bundle, loaded on demand.
+const DxfPreview = dynamic(() => import("@/app/_components/dxf-preview").then((m) => m.DxfPreview), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center">
+      <p className="text-sm text-slate-500">Cargando visor de planos…</p>
+    </div>
+  ),
+});
+
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
@@ -2658,44 +2668,53 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 </div>
               </div>
             ) : previewKind(previewFile.name, previewFile.mimeType) === "cad" ? (
-              <div className="flex h-full items-center justify-center px-4">
-                <div className="max-w-md text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-4xl ring-1 ring-amber-500/20">
-                    📐
-                  </div>
-                  <p className="text-base font-semibold text-white">Plano CAD</p>
-                  <p className="mt-1 text-sm text-slate-400">{previewFile.name}</p>
-                  <p className="mt-4 text-sm text-slate-500">
-                    Los archivos <strong className="text-slate-300">.dwg / .dxf</strong> requieren
-                    un visor CAD especializado para visualizar los planos vectoriales.
-                  </p>
-                  <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-left">
-                    <p className="text-xs font-semibold text-amber-300">💡 Visualizadores gratuitos recomendados:</p>
-                    <ul className="mt-2 space-y-1.5 text-xs text-slate-400">
-                      <li>• <strong>Autodesk Viewer</strong> (web) — view.autodesk.com</li>
-                      <li>• <strong>DWG FastView</strong> (web/móvil)</li>
-                      <li>• <strong>LibreCAD</strong> (escritorio, gratuito)</li>
-                    </ul>
-                  </div>
-                  <div className="mt-4 flex flex-wrap justify-center gap-2">
-                    <a
-                      href={`https://viewer.autodesk.com/?design=${encodeURIComponent(previewUrl)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 transition hover:bg-amber-500/25"
-                    >
-                      Abrir en Autodesk Viewer ↗
-                    </a>
+              previewFile.name.toLowerCase().endsWith(".dxf") ? (
+                <DxfPreview url={previewUrl} filename={previewFile.name} />
+              ) : (
+                // .dwg — binary format, can't render in-browser. Show options.
+                <div className="flex h-full items-center justify-center px-4">
+                  <div className="max-w-md text-center">
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-4xl ring-1 ring-amber-500/20">
+                      📐
+                    </div>
+                    <p className="text-base font-semibold text-white">Plano DWG de AutoCAD</p>
+                    <p className="mt-1 text-sm text-slate-400">{previewFile.name}</p>
+                    <p className="mt-4 text-sm text-slate-500">
+                      Los archivos <strong className="text-slate-300">.dwg</strong> son formato
+                      binario propietario de Autodesk y no pueden renderizarse nativamente en el
+                      navegador. Los archivos <strong className="text-emerald-300">.dxf</strong> sí
+                      se visualizan directamente en ObraHub.
+                    </p>
+                    <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-left">
+                      <p className="text-xs font-semibold text-amber-300">💡 Para visualizar este plano:</p>
+                      <div className="mt-2 space-y-2 text-xs text-slate-400">
+                        <div>
+                          <p className="font-medium text-slate-300">Opción 1 — Convertir a DXF (recomendada):</p>
+                          <p className="ml-3">En AutoCAD: <strong>Guardar como → Tipo: DXF (*.dxf)</strong> → subir el .dxf a esta carpeta</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-300">Opción 2 — Ver online:</p>
+                          <a
+                            href="https://viewer.autodesk.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-3 text-amber-400 underline hover:text-amber-300"
+                          >
+                            Abrir en Autodesk Viewer (gratuito) ↗
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => previewFile && handleDownloadFile(previewFile.id)}
-                      className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.06]"
+                      className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.06]"
                     >
-                      Descargar
+                      Descargar plano
                     </button>
                   </div>
                 </div>
-              </div>
+              )
             ) : (
               <div className="flex h-full items-center justify-center px-4 text-center">
                 <p className="text-sm text-slate-500">Vista previa no disponible. Descarga el archivo.</p>
