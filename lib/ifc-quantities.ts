@@ -344,6 +344,123 @@ function round(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Enriches a quantity summary with geometric fallback estimates for elements
+ * that lack Qto sets. Uses the rendered Three.js geometry to approximate:
+ *  - Volume from bounding box dimensions (w × h × d)
+ *  - Area from the largest face of the bounding box (for walls/slabs)
+ *
+ * @param summary     The summary returned by extractQuantities()
+ * @param geometryMap A Map of expressID → { positions: Float32Array, indices: Uint32Array }
+ *                    (the raw geometry data). Typically built from web-ifc meshes.
+ */
+export function enrichWithGeometryFallback(
+  summary: IfcQuantitySummary,
+  geometryMap: Map<number, { positions: Float32Array; indices?: Uint32Array }>,
+): IfcQuantitySummary {
+  let enriched = false;
+
+  for (const group of summary.byClass) {
+    let groupChanged = false;
+    for (const el of group.elements) {
+      // Only enrich if the element has NO quantity data at all.
+      if (el.area != null || el.volume != null || el.length != null) continue;
+      const geom = geometryMap.get(el.expressID);
+      if (!geom || geom.positions.length < 9) continue;
+
+      const bounds = computeBoundingBox(geom.positions);
+      if (!bounds) continue;
+
+      const w = bounds.maxX - bounds.minX;
+      const h = bounds.maxY - bounds.minY;
+      const d = bounds.maxZ - bounds.minZ;
+      if (w <= 0 || h <= 0 || d <= 0) continue;
+
+      // Approximate volume as bounding box volume.
+      // For walls (thin in one dimension), area = largest face.
+      // For slabs (flat), area = top face (w × d).
+      // For columns/beams (elongated), length = longest dimension.
+      const dims = [w, h, d].sort((a, b) => a - b); // [smallest, mid, largest]
+      const vol = w * h * d;
+      const largestFace = dims[1] * dims[2]; // two largest dims = biggest face
+
+      // Heuristic by IFC class:
+      if (el.ifcClass === "IfcWall" || el.ifcClass === "IfcSlab" || el.ifcClass === "IfcRoof") {
+        // Flat elements → area is the most useful quantity
+        el.area = round(largestFace);
+      } else if (el.ifcClass === "IfcColumn" || el.ifcClass === "IfcBeam") {
+        // Elongated elements → length + volume
+        el.length = round(dims[2]);
+        el.volume = round(vol);
+      } else if (el.ifcClass === "IfcFooting") {
+        el.volume = round(vol);
+      } else {
+        el.volume = round(vol);
+      }
+      enriched = true;
+      groupChanged = true;
+    }
+
+    if (groupChanged) {
+      // Recalculate group totals
+      let gArea = 0;
+      let gVol = 0;
+      let gLen = 0;
+      let hasA = false;
+      let hasV = false;
+      let hasL = false;
+      for (const el of group.elements) {
+        if (el.area != null) { gArea += el.area; hasA = true; }
+        if (el.volume != null) { gVol += el.volume; hasV = true; }
+        if (el.length != null) { gLen += el.length; hasL = true; }
+      }
+      group.totalArea = hasA ? round(gArea) : undefined;
+      group.totalVolume = hasV ? round(gVol) : undefined;
+      group.totalLength = hasL ? round(gLen) : undefined;
+      if (hasA) group.unit = "m²";
+      else if (hasV) group.unit = "m³";
+      else if (hasL) group.unit = "ml";
+    }
+  }
+
+  if (enriched) {
+    // Recalculate totals
+    let tArea = 0;
+    let tVol = 0;
+    let hasArea = false;
+    let hasVol = false;
+    for (const group of summary.byClass) {
+      if (group.totalArea != null) { tArea += group.totalArea; hasArea = true; }
+      if (group.totalVolume != null) { tVol += group.totalVolume; hasVol = true; }
+    }
+    summary.totalArea = hasArea ? round(tArea) : undefined;
+    summary.totalVolume = hasVol ? round(tVol) : undefined;
+  }
+
+  return summary;
+}
+
+/** Computes the axis-aligned bounding box from a flat positions array [x,y,z,...]. */
+function computeBoundingBox(positions: Float32Array): {
+  minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number;
+} | null {
+  if (positions.length < 3) return null;
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i];
+    const y = positions[i + 1];
+    const z = positions[i + 2];
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (z < minZ) minZ = z;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+    if (z > maxZ) maxZ = z;
+  }
+  return { minX, maxX, minY, maxY, minZ, maxZ };
+}
+
 // ---------------------------------------------------------------------------
 // Prompt context builders (for AI budget/schedule generators)
 // ---------------------------------------------------------------------------

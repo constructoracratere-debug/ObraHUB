@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { IfcAPI } from "web-ifc";
 import {
   extractQuantities,
+  enrichWithGeometryFallback,
   buildBudgetContextFromIFC,
   buildScheduleContextFromIFC,
   classNameForTypeId,
@@ -187,7 +188,9 @@ export function IfcViewer({
         initScene();
         const trackedIds = getTrackedTypeIds();
         let processed = 0;
-        ifcApi.StreamAllMeshesWithTypes(modelID, trackedIds, (mesh) => {
+        // Collect raw geometry per element for fallback quantity estimation.
+        const geometryMap = new Map<number, { positions: Float32Array }>();
+        ifcApi.StreamAllMeshesWithTypes(modelID, trackedIds, (mesh: any) => {
           if (cancelled) return;
           const geom = ifcApi.GetGeometry(modelID, mesh.geometries.get(0).geometryExpressID);
           const threeGeom = ifcGeometryToThree(ifcApi, geom, mesh.geometries.get(0).flatTransformation);
@@ -201,6 +204,15 @@ export function IfcViewer({
           sceneRef.current?.add(threeMesh);
           meshesRef.current.push(threeMesh);
           elementToMeshRef.current.set(mesh.expressID, threeMesh);
+
+          // Save positions for fallback quantity calculation.
+          const posAttr = threeGeom.getAttribute("position");
+          if (posAttr) {
+            geometryMap.set(mesh.expressID, {
+              positions: posAttr.array as Float32Array,
+            });
+          }
+
           processed++;
           if (processed % 50 === 0) {
             setProgress(55 + Math.min(35, Math.round((processed / 200) * 35)));
@@ -215,8 +227,18 @@ export function IfcViewer({
         setProgress(92);
 
         // Extract quantities (async, reads psets/qsets).
-        const quantSummary = await extractQuantities(ifcApi, modelID);
+        let quantSummary = await extractQuantities(ifcApi, modelID);
         if (cancelled) return;
+
+        // Fallback: if many elements lack Qto sets, estimate from geometry.
+        const totalEls = quantSummary.totalElements;
+        const withQuant = quantSummary.byClass.reduce(
+          (sum, g) => sum + g.elements.filter((e) => e.area != null || e.volume != null || e.length != null).length,
+          0,
+        );
+        if (totalEls > 0 && withQuant < totalEls * 0.5) {
+          quantSummary = enrichWithGeometryFallback(quantSummary, geometryMap);
+        }
         setSummary(quantSummary);
         setProgress(100);
         setState("ready");

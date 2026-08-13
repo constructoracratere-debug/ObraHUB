@@ -1047,20 +1047,35 @@ export function GanttTool({
                                 {link.ifcClass && ` · ${link.ifcClass}`}
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                await fetch(
-                                  `/api/projects/${encodeURIComponent(projectSlug)}/ifc-links?id=${link.id}`,
-                                  { method: "DELETE" },
-                                );
-                                setIfcLinks((prev) => prev.filter((l) => l.id !== link.id));
-                              }}
-                              className="shrink-0 rounded p-1 text-slate-600 hover:bg-red-500/10 hover:text-red-400"
-                              title="Desvincular"
-                            >
-                              ✕
-                            </button>
+                            <div className="flex shrink-0 items-center gap-1">
+                              {link.ifcFileId && onOpenIfcWithHighlights && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onOpenIfcWithHighlights(link.ifcFileId!, link.ifcGlobalIds);
+                                    setShowEditPanel(false);
+                                  }}
+                                  className="rounded p-1 text-cyan-500 hover:bg-cyan-500/10 hover:text-cyan-300"
+                                  title="Ver elementos en el modelo BIM"
+                                >
+                                  🏗️
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await fetch(
+                                    `/api/projects/${encodeURIComponent(projectSlug)}/ifc-links?id=${link.id}`,
+                                    { method: "DELETE" },
+                                  );
+                                  setIfcLinks((prev) => prev.filter((l) => l.id !== link.id));
+                                }}
+                                className="rounded p-1 text-slate-600 hover:bg-red-500/10 hover:text-red-400"
+                                title="Desvincular"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
