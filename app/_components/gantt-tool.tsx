@@ -19,6 +19,7 @@ import type { ProjectTask } from "@/lib/gantt-tasks";
 import type { ImportedBudget } from "@/lib/excel-import";
 import type { ScheduleTask } from "@/lib/schedule";
 import type { DailyReport } from "@/lib/daily-reports";
+import type { IfcLink } from "@/lib/ifc-links";
 
 type LocalGanttTask = GanttTask;
 
@@ -73,6 +74,17 @@ export function GanttTool({
 
   // Task edit panel state
   const [showEditPanel, setShowEditPanel] = useState(false);
+
+  // BIM 4D links — loaded from project_ifc_links
+  const [ifcLinks, setIfcLinks] = useState<IfcLink[]>([]);
+
+  // Load IFC 4D links alongside tasks
+  useEffect(() => {
+    fetch(`/api/projects/${encodeURIComponent(projectSlug)}/ifc-links`)
+      .then((r) => (r.ok ? r.json() : { links: [] }))
+      .then((data) => setIfcLinks(data.links ?? []))
+      .catch(() => { /* links are optional */ });
+  }, [projectSlug]);
 
   // When navigated here from the IFC viewer with a pre-built context prompt
   // (quantities extracted from the BIM model), inject it into the prompt
@@ -790,6 +802,9 @@ export function GanttTool({
                           {task.type === "summary" && <span className="text-blue-400">▣</span>}
                           {task.type === "task" && <span className="text-emerald-400">●</span>}
                           <span className="truncate">{task.text}</span>
+                          {ifcLinks.some((l) => l.taskId === task.id) && (
+                            <span className="shrink-0 text-[9px]" title="Tiene vínculos BIM 4D">🏗️</span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -840,6 +855,9 @@ export function GanttTool({
                                       <span className="text-emerald-400/60">●</span>
                                     )}
                                     <span className="truncate">{child.text}</span>
+                                    {ifcLinks.some((l) => l.taskId === child.id) && (
+                                      <span className="shrink-0 text-[9px]" title="Tiene vínculos BIM 4D">🏗️</span>
+                                    )}
                                   </button>
                                 ))}
                               </div>
@@ -996,6 +1014,58 @@ export function GanttTool({
                   ✓ Marcar como completada (100%)
                 </button>
               )}
+
+              {/* BIM 4D links section */}
+              {(() => {
+                const taskLinks = ifcLinks.filter((l) => l.taskId === selectedTask.id);
+                return (
+                  <div className="mt-3 rounded-lg border border-cyan-500/15 bg-cyan-500/[0.03] p-3">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-cyan-400">
+                      🔗 Elementos BIM vinculados (4D)
+                    </p>
+                    {taskLinks.length === 0 ? (
+                      <p className="text-[11px] text-slate-500">
+                        Sin vínculos BIM. Abre un modelo IFC en Documentos y usa
+                        el modo vinculación para conectar elementos del modelo
+                        a esta tarea.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {taskLinks.map((link) => (
+                          <div
+                            key={link.id}
+                            className="flex items-center justify-between rounded-md bg-white/[0.03] px-2 py-1.5"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-[11px] font-medium text-slate-300">
+                                {link.label ?? `${link.ifcGlobalIds.length} elemento(s)`}
+                              </p>
+                              <p className="text-[10px] text-slate-600">
+                                {link.ifcGlobalIds.length} GUID(s)
+                                {link.ifcClass && ` · ${link.ifcClass}`}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await fetch(
+                                  `/api/projects/${encodeURIComponent(projectSlug)}/ifc-links?id=${link.id}`,
+                                  { method: "DELETE" },
+                                );
+                                setIfcLinks((prev) => prev.filter((l) => l.id !== link.id));
+                              }}
+                              className="shrink-0 rounded p-1 text-slate-600 hover:bg-red-500/10 hover:text-red-400"
+                              title="Desvincular"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <button
                 type="button"
                 onClick={() => void handleDeleteTask()}

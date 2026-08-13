@@ -20,9 +20,22 @@ import {
   type IfcClassGroup,
 } from "@/lib/ifc-quantities";
 
+type GanttTaskLite = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+};
+
 type IfcViewerProps = {
   /** Signed URL to the .ifc file in Supabase Storage. */
   url: string;
+  /** Project slug — needed to load/save 4D links. */
+  projectSlug?: string;
+  /** File ID of the IFC file in the files table (for link persistence). */
+  fileId?: string;
+  /** Gantt tasks for 4D linking. If omitted and projectSlug is set, they are auto-loaded. */
+  tasks?: GanttTaskLite[];
   /** Called when the user wants to generate an APU budget from the model. */
   onGenerateBudget?: (contextPrompt: string, summary: IfcQuantitySummary) => void;
   /** Called when the user wants to generate a Gantt schedule from the model. */
@@ -31,7 +44,14 @@ type IfcViewerProps = {
 
 type LoadState = "loading-wasm" | "downloading" | "parsing" | "ready" | "error";
 
-export function IfcViewer({ url, onGenerateBudget, onGenerateSchedule }: IfcViewerProps) {
+export function IfcViewer({
+  url,
+  projectSlug,
+  fileId,
+  tasks: tasksProp,
+  onGenerateBudget,
+  onGenerateSchedule,
+}: IfcViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -45,6 +65,16 @@ export function IfcViewer({ url, onGenerateBudget, onGenerateSchedule }: IfcView
   const meshesRef = useRef<THREE.Mesh[]>([]);
   const elementToMeshRef = useRef<Map<number, THREE.Mesh>>(new Map());
   const raycasterRef = useRef(new THREE.Raycaster());
+  // Refs that mirror state for use inside the stable click handler.
+  const linkModeRef = useRef(false);
+  const ifcApiForClickRef = useRef<IfcAPI | null>(null);
+  const modelIdForClickRef = useRef<number>(-1);
+  const selectedElementsRef = useRef<Array<{
+    expressID: number;
+    guid: string;
+    ifcClass: string;
+    name: string;
+  }>>([]);
 
   // React state for UI
   const [state, setState] = useState<LoadState>("loading-wasm");
@@ -55,6 +85,47 @@ export function IfcViewer({ url, onGenerateBudget, onGenerateSchedule }: IfcView
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [elementCount, setElementCount] = useState(0);
+
+  // 4D linking state
+  const [linkMode, setLinkMode] = useState(false);
+  const [selectedElements, setSelectedElements] = useState<Array<{
+    expressID: number;
+    guid: string;
+    ifcClass: string;
+    name: string;
+  }>>([]);
+  const [linkTaskId, setLinkTaskId] = useState<string | null>(null);
+  const [linkedCount, setLinkedCount] = useState(0);
+  const [isSavingLink, setIsSavingLink] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Keep refs in sync with state — these are read by the stable click handler
+  // defined inside initScene(), which can't close over the state directly.
+  useEffect(() => { linkModeRef.current = linkMode; }, [linkMode]);
+  useEffect(() => { selectedElementsRef.current = selectedElements; }, [selectedElements]);
+
+  // Tasks available for 4D linking — auto-loaded from the API if not passed as prop.
+  const [loadedTasks, setLoadedTasks] = useState<GanttTaskLite[]>([]);
+  const tasks = tasksProp ?? loadedTasks;
+
+  useEffect(() => {
+    if (!projectSlug || tasksProp) return;
+    let cancelled = false;
+    fetch(`/api/projects/${encodeURIComponent(projectSlug)}/tasks`)
+      .then((r) => (r.ok ? r.json() : { tasks: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const list: GanttTaskLite[] = (data.tasks ?? []).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          startDate: t.startDate,
+          endDate: t.endDate,
+        }));
+        setLoadedTasks(list);
+      })
+      .catch(() => { /* tasks are optional */ });
+    return () => { cancelled = true; };
+  }, [projectSlug, tasksProp]);
 
   // -------------------------------------------------------------------------
   // Cleanup on unmount
@@ -106,6 +177,8 @@ export function IfcViewer({ url, onGenerateBudget, onGenerateSchedule }: IfcView
         });
         if (modelID < 0) throw new Error("No se pudo abrir el modelo IFC.");
         modelIdRef.current = modelID;
+        modelIdForClickRef.current = modelID;
+        ifcApiForClickRef.current = ifcApi;
 
         // Build Three.js scene + render all meshes.
         initScene();
@@ -211,23 +284,62 @@ export function IfcViewer({ url, onGenerateBudget, onGenerateSchedule }: IfcView
     };
     let rafId = requestAnimationFrame(animate);
 
-    // Click → highlight element
+    // Click → highlight element (or select for 4D linking)
     const handleClick = (e: MouseEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycasterRef.current.setFromCamera(new THREE.Vector2(x, y), camera);
       const hits = raycasterRef.current.intersectObjects(meshesRef.current, false);
-      if (hits.length > 0) {
-        const hit = hits[0].object as THREE.Mesh;
-        highlightMesh(hit);
-        // Find the expressID for this mesh
-        for (const [eid, m] of elementToMeshRef.current) {
-          if (m === hit) {
-            console.log("Selected element", eid);
-            break;
-          }
+      if (hits.length === 0) {
+        // Clicked empty space — clear selection in link mode
+        if (linkModeRef.current) {
+          clearHighlight();
+          setSelectedElements([]);
         }
+        return;
+      }
+
+      const hit = hits[0].object as THREE.Mesh;
+      // Find the expressID for this mesh
+      let hitExpressId: number | null = null;
+      for (const [eid, m] of elementToMeshRef.current) {
+        if (m === hit) { hitExpressId = eid; break; }
+      }
+      if (hitExpressId == null) return;
+
+      if (linkModeRef.current) {
+        // 4D link mode — toggle element in selection
+        const existing = selectedElementsRef.current.find((el) => el.expressID === hitExpressId);
+        let newList: typeof selectedElementsRef.current;
+        if (existing) {
+          // Deselect
+          newList = selectedElementsRef.current.filter((el) => el.expressID !== hitExpressId);
+          (hit.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+        } else {
+          // Select — read element info from IFC
+          const api = ifcApiForClickRef.current;
+          const mid = modelIdForClickRef.current;
+          let guid = "";
+          let ifcClass = "Element";
+          let name = `Element ${hitExpressId}`;
+          if (api && mid >= 0) {
+            try {
+              const line = api.GetLine(mid, hitExpressId, false);
+              guid = typeof line?.GlobalId?.value === "string" ? line.GlobalId.value : "";
+              name = typeof line?.Name?.value === "string" && line.Name.value ? line.Name.value : name;
+              const typeId = api.GetLineType(mid, hitExpressId);
+              ifcClass = classNameForTypeId(typeId) ?? "Element";
+            } catch { /* ignore */ }
+          }
+          newList = [...selectedElementsRef.current, { expressID: hitExpressId, guid, ifcClass, name }];
+          (hit.material as THREE.MeshStandardMaterial).emissive.setHex(0x004422);
+        }
+        selectedElementsRef.current = newList;
+        setSelectedElements(newList);
+      } else {
+        // Normal mode — single highlight
+        highlightMesh(hit);
       }
     };
     renderer.domElement.addEventListener("click", handleClick);
@@ -316,6 +428,65 @@ export function IfcViewer({ url, onGenerateBudget, onGenerateSchedule }: IfcView
     isolateClass(null);
   }
 
+  /** Clears all emissive highlights. */
+  function clearHighlight() {
+    for (const m of meshesRef.current) {
+      (m.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+    }
+  }
+
+  /** Toggles 4D link mode — clears selection on exit. */
+  function toggleLinkMode() {
+    if (!linkMode) {
+      setLinkMode(true);
+    } else {
+      setLinkMode(false);
+      clearHighlight();
+      setSelectedElements([]);
+      selectedElementsRef.current = [];
+    }
+  }
+
+  /** Saves a 4D link: connects selected elements to a Gantt task. */
+  async function handleSaveLink() {
+    if (!projectSlug || !linkTaskId || selectedElements.length === 0) return;
+    setIsSavingLink(true);
+    setLinkError(null);
+    try {
+      const guids = selectedElements
+        .map((el) => el.guid)
+        .filter((g): g is string => !!g);
+      const ifcClass = selectedElements[0]?.ifcClass ?? null;
+      const label = `${selectedElements.length} elemento(s) · ${ifcClass ?? "IFC"}`;
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/ifc-links`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: linkTaskId,
+          ifcFileId: fileId ?? null,
+          ifcGlobalIds: guids.length > 0 ? guids : selectedElements.map((e) => String(e.expressID)),
+          ifcClass,
+          label,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(typeof data.error === "string" ? data.error : "Error al guardar vínculo");
+      }
+      setLinkedCount((c) => c + 1);
+      // Clear selection after saving
+      clearHighlight();
+      setSelectedElements([]);
+      selectedElementsRef.current = [];
+      setLinkTaskId(null);
+      setLinkMode(false);
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "Error al vincular");
+    } finally {
+      setIsSavingLink(false);
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Action callbacks
   // -------------------------------------------------------------------------
@@ -377,9 +548,110 @@ export function IfcViewer({ url, onGenerateBudget, onGenerateSchedule }: IfcView
             >
               📅 Crear Cronograma
             </button>
+            {tasks.length > 0 && projectSlug && (
+              <button
+                type="button"
+                onClick={toggleLinkMode}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+                  linkMode
+                    ? "border-cyan-400/50 bg-cyan-500/25 text-cyan-100"
+                    : "border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20"
+                }`}
+              >
+                {linkMode ? "🔗 Vinculando (Cancelar)" : "🔗 Vincular 4D"}
+              </button>
+            )}
           </>
         )}
       </div>
+
+      {/* 4D Linking bar — shows when in link mode */}
+      {linkMode && (
+        <div className="pointer-events-auto absolute left-1/2 top-16 z-10 w-[min(640px,90%)] -translate-x-1/2 rounded-xl border border-cyan-500/30 bg-[#0a1120]/95 p-4 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-cyan-200">
+                🔗 Modo vinculación BIM 4D
+              </p>
+              <p className="text-[11px] text-slate-400">
+                {selectedElements.length === 0
+                  ? "Haz clic en elementos del modelo para seleccionarlos"
+                  : `${selectedElements.length} elemento(s) seleccionado(s) — clic de nuevo para deseleccionar`}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-200">
+              {selectedElements.length} sel.
+            </span>
+          </div>
+
+          {selectedElements.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <select
+                value={linkTaskId ?? ""}
+                onChange={(e) => setLinkTaskId(e.target.value || null)}
+                className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 focus:border-cyan-500/40 focus:outline-none"
+              >
+                <option value="">Selecciona una tarea del cronograma…</option>
+                {tasks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleSaveLink}
+                disabled={!linkTaskId || isSavingLink}
+                className="shrink-0 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSavingLink ? "Guardando…" : "✓ Vincular"}
+              </button>
+            </div>
+          )}
+
+          {linkError && (
+            <p className="mt-2 text-[11px] text-red-400">{linkError}</p>
+          )}
+
+          {linkedCount > 0 && (
+            <p className="mt-2 text-[11px] text-emerald-400">
+              ✓ {linkedCount} vínculo(s) creado(s)
+            </p>
+          )}
+
+          {/* Selected elements list */}
+          {selectedElements.length > 0 && (
+            <div className="mt-3 max-h-32 overflow-y-auto rounded-lg border border-white/[0.04] bg-white/[0.02] p-2">
+              {selectedElements.map((el) => (
+                <div
+                  key={el.expressID}
+                  className="flex items-center justify-between py-0.5 text-[10px]"
+                >
+                  <span className="truncate text-slate-400">
+                    <span className="text-cyan-400">{el.ifcClass}</span>
+                    {el.name && el.name !== `Element ${el.expressID}` && ` · ${el.name}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const mesh = elementToMeshRef.current.get(el.expressID);
+                      if (mesh) {
+                        (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+                      }
+                      const newList = selectedElements.filter((e) => e.expressID !== el.expressID);
+                      setSelectedElements(newList);
+                      selectedElementsRef.current = newList;
+                    }}
+                    className="shrink-0 text-slate-600 hover:text-red-400"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Panel toggle */}
       <button

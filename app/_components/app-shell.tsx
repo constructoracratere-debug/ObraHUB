@@ -2546,6 +2546,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             ) : isIfc ? (
               <IfcViewer
                 url={previewUrl}
+                projectSlug={activeProjectSlug ?? undefined}
+                fileId={previewFile.id}
                 onGenerateBudget={(ctx) => {
                   setPendingBudgetPrompt(ctx);
                   setPreviewFile(null);
