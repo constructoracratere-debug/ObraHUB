@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getSignedDownloadUrl } from "@/lib/files";
+import { getSignedDownloadUrl, isIfcFile } from "@/lib/files";
 
 type RouteContext = {
   params: Promise<{ folderId: string }>;
@@ -36,7 +36,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    const signedUrl = await getSignedDownloadUrl(supabase, file.storage_path);
+    // IFC models can be large and take longer to download/parse in the browser.
+    // Extend the signed URL TTL to 30 minutes for those files.
+    const ttl = isIfcFile(file.name) ? 1800 : 300;
+    const signedUrl = await getSignedDownloadUrl(supabase, file.storage_path, ttl);
     return NextResponse.json({
       url: signedUrl,
       name: file.name,

@@ -29,6 +29,17 @@ const GanttTool = dynamic(() => import("@/app/_components/gantt-tool").then((m) 
   ),
 });
 
+// Code-split the IFC viewer — the web-ifc WASM + Three.js bundle is heavy
+// (~1.5 MB) and must only load when a user actually opens a .ifc file.
+const IfcViewer = dynamic(() => import("@/app/_components/ifc-viewer").then((m) => m.IfcViewer), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center">
+      <p className="text-sm text-slate-500">Cargando visor BIM…</p>
+    </div>
+  ),
+});
+
 const ACTIVE_PROJECT_KEY = "obrahub-active-project";
 const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
@@ -373,6 +384,12 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Shared state for passing prompts from the IFC viewer to Costos/Seguimiento.
+  // When the user clicks "Generar Presupuesto" inside the IFC viewer, we close
+  // the preview modal, set this prompt, and switch to the costos tool.
+  const [pendingBudgetPrompt, setPendingBudgetPrompt] = useState<string | null>(null);
+  const [pendingScheduleContext, setPendingScheduleContext] = useState<string | null>(null);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -2040,10 +2057,13 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   <p className="text-sm text-slate-500">Cargando conversaciones…</p>
                 </div>
               ) : activeTool === "costos" ? (
-                <CostosTool />
+                <CostosTool initialPrompt={pendingBudgetPrompt ?? undefined} />
               ) : activeTool === "seguimiento" ? (
                 activeProjectSlug ? (
-                  <GanttTool projectSlug={activeProjectSlug} />
+                  <GanttTool
+                    projectSlug={activeProjectSlug}
+                    initialBudgetContext={pendingScheduleContext ?? undefined}
+                  />
                 ) : (
                   <div className="py-8 text-center text-sm text-slate-500">
                     Selecciona un proyecto para ver el cronograma.
@@ -2469,7 +2489,9 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       )}
 
       {/* Document preview modal */}
-      {previewFile && (
+      {previewFile && (() => {
+        const isIfc = previewKind(previewFile.name, previewFile.mimeType) === "ifc";
+        return (
         <div className="fixed inset-0 z-[70] flex flex-col bg-black/80 backdrop-blur-sm">
           <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -2478,6 +2500,11 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">
                 {formatFileSize(previewFile.sizeBytes)}
               </span>
+              {isIfc && (
+                <span className="hidden shrink-0 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-300 sm:inline">
+                  Modelo BIM
+                </span>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <button
@@ -2516,6 +2543,22 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   </p>
                 </div>
               </div>
+            ) : isIfc ? (
+              <IfcViewer
+                url={previewUrl}
+                onGenerateBudget={(ctx) => {
+                  setPendingBudgetPrompt(ctx);
+                  setPreviewFile(null);
+                  setPreviewUrl(null);
+                  setActiveTool("costos");
+                }}
+                onGenerateSchedule={(ctx) => {
+                  setPendingScheduleContext(ctx);
+                  setPreviewFile(null);
+                  setPreviewUrl(null);
+                  setActiveTool("seguimiento");
+                }}
+              />
             ) : previewKind(previewFile.name, previewFile.mimeType) === "pdf" ? (
               <iframe src={previewUrl} className="h-full w-full" title={previewFile.name} />
             ) : previewKind(previewFile.name, previewFile.mimeType) === "image" ? (
@@ -2536,7 +2579,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

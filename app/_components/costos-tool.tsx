@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { APUBudget, APUItem } from "@/lib/budget";
 import { formatCOP } from "@/lib/prices";
 
-export function CostosTool() {
+export function CostosTool({ initialPrompt }: { initialPrompt?: string }) {
   const [prompt, setPrompt] = useState("");
   const [budget, setBudget] = useState<APUBudget | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  // When navigated here from the IFC viewer with a pre-filled prompt,
+  // load it into the textarea and kick off generation immediately.
+  useEffect(() => {
+    if (initialPrompt && initialPrompt.trim()) {
+      setPrompt(initialPrompt);
+    }
+  }, [initialPrompt]);
 
   async function handleGenerate() {
     const value = prompt.trim();

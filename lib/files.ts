@@ -21,17 +21,29 @@ export const FILE_BUCKET = "project-files";
 /** Maximum upload size per file. */
 export const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
 
+/** Larger limit for BIM models (IFC files are often 50–200 MB). */
+export const MAX_IFC_BYTES = 100 * 1024 * 1024; // 100 MB
+
 /** Accepted MIME types / extensions for the Storage tool. */
 export const ACCEPTED_EXTENSIONS = [
-  ".pdf", ".dwg", ".dxf", ".doc", ".docx", ".xls", ".xlsx",
-  ".ppt", ".pptx", ".txt", ".csv", ".jpg", ".jpeg", ".png", ".gif", ".webp",
+  ".pdf", ".dwg", ".dxf", ".ifc", ".ifczip",
+  ".doc", ".docx", ".xls", ".xlsx",
+  ".ppt", ".pptx", ".txt", ".csv",
+  ".jpg", ".jpeg", ".png", ".gif", ".webp",
 ];
+
+/** Returns true when a filename is an IFC model. */
+export function isIfcFile(name: string): boolean {
+  const ext = name.toLowerCase().split(".").pop() ?? "";
+  return ext === "ifc" || ext === "ifczip";
+}
 
 /** Returns an emoji icon for a filename based on its extension. */
 export function fileIcon(name: string): string {
   const ext = name.toLowerCase().split(".").pop() ?? "";
   if (ext === "pdf") return "📄";
   if (ext === "dwg" || ext === "dxf") return "📐";
+  if (ext === "ifc" || ext === "ifczip") return "🏗️";
   if (ext === "doc" || ext === "docx") return "📝";
   if (ext === "xls" || ext === "xlsx" || ext === "csv") return "📊";
   if (ext === "ppt" || ext === "pptx") return "🎯";
@@ -48,7 +60,7 @@ export function formatFileSize(bytes: number): string {
 }
 
 /** Preview category for rendering decisions in the UI. */
-export type PreviewKind = "pdf" | "image" | "office" | "none";
+export type PreviewKind = "pdf" | "image" | "office" | "ifc" | "none";
 
 /** Determines how a file should be previewed based on its name/MIME. */
 export function previewKind(name: string, mimeType?: string | null): PreviewKind {
@@ -56,6 +68,7 @@ export function previewKind(name: string, mimeType?: string | null): PreviewKind
   const mt = (mimeType ?? "").toLowerCase();
   if (ext === "pdf" || mt === "application/pdf") return "pdf";
   if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext) || mt.startsWith("image/")) return "image";
+  if (ext === "ifc" || ext === "ifczip" || mt.includes("ifc") || mt.includes("step")) return "ifc";
   if (["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) return "office";
   return "none";
 }
@@ -116,11 +129,12 @@ export async function deleteFileRecord(
 export async function getSignedDownloadUrl(
   supabase: SupabaseClient,
   storagePath: string,
+  ttlSeconds = 300,
 ): Promise<string> {
   const { data, error } = await supabase
     .storage
     .from(FILE_BUCKET)
-    .createSignedUrl(storagePath, 300); // 5-minute URL
+    .createSignedUrl(storagePath, ttlSeconds);
 
   if (error || !data?.signedUrl) {
     throw new Error("No se pudo generar el enlace de descarga");

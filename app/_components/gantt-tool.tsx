@@ -32,7 +32,13 @@ type LocalGanttTask = GanttTask;
  * - Side panel with hierarchical task tree + quick milestone list
  * - Click a task in the tree → highlights + scrolls to it in the chart
  */
-export function GanttTool({ projectSlug }: { projectSlug: string }) {
+export function GanttTool({
+  projectSlug,
+  initialBudgetContext,
+}: {
+  projectSlug: string;
+  initialBudgetContext?: string;
+}) {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [ganttTasks, setGanttTasks] = useState<LocalGanttTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,6 +73,16 @@ export function GanttTool({ projectSlug }: { projectSlug: string }) {
 
   // Task edit panel state
   const [showEditPanel, setShowEditPanel] = useState(false);
+
+  // When navigated here from the IFC viewer with a pre-built context prompt
+  // (quantities extracted from the BIM model), inject it into the prompt
+  // textarea so the user can review and generate.
+  useEffect(() => {
+    if (initialBudgetContext && initialBudgetContext.trim()) {
+      const basePrompt = "Generar cronograma de obra basado en el siguiente modelo BIM:";
+      setPrompt(`${basePrompt}\n${initialBudgetContext}`);
+    }
+  }, [initialBudgetContext]);
 
   const loadTasks = useCallback(async () => {
     setIsLoading(true);

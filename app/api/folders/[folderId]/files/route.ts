@@ -4,7 +4,9 @@ import {
   ACCEPTED_EXTENSIONS,
   FILE_BUCKET,
   MAX_FILE_BYTES,
+  MAX_IFC_BYTES,
   deleteFileRecord,
+  isIfcFile,
   listFiles,
 } from "@/lib/files";
 
@@ -69,9 +71,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const uploaded: { id: string; name: string }[] = [];
 
     for (const file of entries) {
-      if (file.size > MAX_FILE_BYTES) {
+      const limit = isIfcFile(file.name) ? MAX_IFC_BYTES : MAX_FILE_BYTES;
+      if (file.size > limit) {
+        const limitMb = Math.round(limit / (1024 * 1024));
         return NextResponse.json(
-          { error: `El archivo "${file.name}" excede el límite de 50 MB` },
+          { error: `El archivo "${file.name}" excede el límite de ${limitMb} MB` },
           { status: 413 },
         );
       }
