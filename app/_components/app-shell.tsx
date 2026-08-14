@@ -25,8 +25,7 @@ const GanttTool = dynamic(() => import("@/app/_components/gantt-tool").then((m) 
   loading: () => (
     <div className="flex items-center justify-center py-16">
       <p className="text-sm text-slate-500">Cargando cronograma…</p>
-    </div>
-  ),
+    </div>  ),
 });
 
 // Code-split the IFC viewer — the web-ifc WASM + Three.js bundle is heavy
@@ -36,6 +35,16 @@ const IfcViewer = dynamic(() => import("@/app/_components/ifc-viewer").then((m) 
   loading: () => (
     <div className="flex h-full items-center justify-center">
       <p className="text-sm text-slate-500">Cargando visor BIM…</p>
+    </div>
+  ),
+});
+
+// Code-split the bitácora tool — loaded when the user opens Bitácora Diaria.
+const BitacoraTool = dynamic(() => import("@/app/_components/bitacora-tool").then((m) => m.BitacoraTool), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-16">
+      <p className="text-sm text-slate-500">Cargando bitácora…</p>
     </div>
   ),
 });
@@ -75,7 +84,7 @@ const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
 const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
-type ToolId = "storage" | "normativa" | "costos" | "seguimiento";
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora";
 
 type ToolDef = {
   id: ToolId;
@@ -118,6 +127,14 @@ const TOOLS: ToolDef[] = [
     icon: "📊",
     available: true,
     gradient: "from-purple-500/15 to-purple-600/5",
+  },
+  {
+    id: "bitacora",
+    title: "Bitácora Diaria",
+    description: "Registro diario de obra: clima, personal, avance por tarea y novedades.",
+    icon: "📔",
+    available: true,
+    gradient: "from-rose-500/15 to-rose-600/5",
   },
 ];
 
@@ -2219,7 +2236,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   <p className="text-sm text-slate-500">Cargando conversaciones…</p>
                 </div>
               ) : activeTool === "costos" ? (
-                <CostosTool initialPrompt={pendingBudgetPrompt ?? undefined} />
+                <CostosTool
+                  initialPrompt={pendingBudgetPrompt ?? undefined}
+                  projectSlug={activeProjectSlug ?? undefined}
+                />
               ) : activeTool === "seguimiento" ? (
                 activeProjectSlug ? (
                   <GanttTool
@@ -2230,6 +2250,14 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 ) : (
                   <div className="py-8 text-center text-sm text-slate-500">
                     Selecciona un proyecto para ver el cronograma.
+                  </div>
+                )
+              ) : activeTool === "bitacora" ? (
+                activeProjectSlug ? (
+                  <BitacoraTool projectSlug={activeProjectSlug} />
+                ) : (
+                  <div className="py-8 text-center text-sm text-slate-500">
+                    Selecciona un proyecto para llevar la bitácora.
                   </div>
                 )
               ) : (

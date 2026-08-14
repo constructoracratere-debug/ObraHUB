@@ -4,13 +4,64 @@ import { useState, useEffect } from "react";
 import type { APUBudget, APUItem } from "@/lib/budget";
 import { formatCOP } from "@/lib/prices";
 
-export function CostosTool({ initialPrompt }: { initialPrompt?: string }) {
+export function CostosTool({
+  initialPrompt,
+  projectSlug,
+}: {
+  initialPrompt?: string;
+  /** Project slug — when set, budgets can be saved to (and listed from) it. */
+  projectSlug?: string;
+}) {
   const [prompt, setPrompt] = useState("");
   const [budget, setBudget] = useState<APUBudget | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [savedBudgets, setSavedBudgets] = useState<Array<{
+    id: string;
+    title: string;
+    total: number;
+    itemCount: number;
+    createdAt: string;
+  }>>([]);
+
+  // Saved budgets of the project (for the 5D↔4D link and future reports).
+  useEffect(() => {
+    if (!projectSlug) return;
+    let cancelled = false;
+    fetch(`/api/projects/${encodeURIComponent(projectSlug)}/budgets`)
+      .then((r) => (r.ok ? r.json() : { budgets: [] }))
+      .then((data) => {
+        if (!cancelled) setSavedBudgets(data.budgets ?? []);
+      })
+      .catch(() => { /* optional */ });
+    return () => { cancelled = true; };
+  }, [projectSlug, savedId]);
+
+  async function handleSaveBudget() {
+    if (!projectSlug || !budget || isSaving) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/budgets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ budget, prompt, source: "ai" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Error al guardar");
+      }
+      setSavedId(data.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al guardar el presupuesto");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   // When navigated here from the IFC viewer with a pre-filled prompt,
   // load it into the textarea and kick off generation immediately.
@@ -124,6 +175,19 @@ export function CostosTool({ initialPrompt }: { initialPrompt?: string }) {
               {isExporting ? "Exportando…" : "Exportar Excel"}
             </button>
           )}
+          {budget && projectSlug && (
+            <button
+              type="button"
+              onClick={handleSaveBudget}
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-2.5 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
+            >
+              💾 {isSaving ? "Guardando…" : "Guardar en el proyecto"}
+            </button>
+          )}
+          {budget && savedId && (
+            <span className="text-xs text-emerald-400">✓ Presupuesto guardado</span>
+          )}
         </div>
         {error && (
           <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
@@ -208,6 +272,35 @@ export function CostosTool({ initialPrompt }: { initialPrompt?: string }) {
             unitarios completo con materiales, mano de obra, equipos, AIU e IVA — listo
             para exportar a Excel y presentar a clientes o entidades gubernamentales.
           </p>
+        </div>
+      )}
+
+      {/* Saved budgets of the project — the 5D side of the controls spine */}
+      {projectSlug && savedBudgets.length > 0 && (
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            🗂️ Presupuestos del proyecto ({savedBudgets.length})
+          </h3>
+          <div className="space-y-2">
+            {savedBudgets.map((b) => (
+              <div
+                key={b.id}
+                className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
+                  b.id === savedId
+                    ? "border-emerald-500/30 bg-emerald-500/[0.06]"
+                    : "border-white/[0.05] bg-white/[0.02]"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-slate-200">{b.title}</p>
+                  <p className="text-[10px] text-slate-500">
+                    {b.itemCount} ítems · {new Date(b.createdAt).toLocaleDateString("es-CO")}
+                  </p>
+                </div>
+                <span className="shrink-0 font-mono text-xs text-amber-300">{formatCOP(b.total)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
