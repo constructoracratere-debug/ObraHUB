@@ -5,7 +5,7 @@ import { isValidFolderSlug } from "@/lib/folders";
 import { getSignedDownloadUrl } from "@/lib/files";
 
 type RouteContext = {
-  params: Promise<{ slug: string; folderSlug: string }>;
+  params: Promise<{ slug: string; folderId: string }>;
 };
 
 /**
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const { slug, folderSlug } = await context.params;
+    const { slug, folderId: folderSlug } = await context.params;
     if (!isValidProjectSlug(slug) || !isValidFolderSlug(folderSlug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
     }

@@ -37,10 +37,18 @@ export async function uploadFileResumable(
   } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("Sesión expirada — inicia sesión de nuevo");
 
-  const { default: tus } = await import("tus-js-client");
+  // tus-js-client's ESM build exports named members (Upload, canStoreURLs…)
+  // and NO default — `const { default: tus }` yields undefined and crashes
+  // at `new tus.Upload(...)`. Resolve the constructor defensively instead.
+  const tusModule = (await import("tus-js-client")) as unknown as {
+    Upload?: typeof import("tus-js-client").Upload;
+    default?: { Upload?: typeof import("tus-js-client").Upload };
+  };
+  const TusUpload = tusModule.Upload ?? tusModule.default?.Upload;
+  if (!TusUpload) throw new Error("No se pudo inicializar el módulo de subida");
 
   return new Promise<ResumableUploadResult>((resolve, reject) => {
-    const upload = new tus.Upload(file, {
+    const upload = new TusUpload(file, {
       endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
       retryDelays: [0, 2000, 5000, 10000, 20000],
       headers: {

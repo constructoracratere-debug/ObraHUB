@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 type RouteContext = {
-  params: Promise<{ slug: string; folderSlug: string }>;
+  params: Promise<{ slug: string; folderId: string }>;
 };
 
 async function requireUser() {
@@ -28,7 +28,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const { slug, folderSlug } = await context.params;
+    const { slug, folderId: folderSlug } = await context.params;
     if (!isValidProjectSlug(slug) || !isValidFolderSlug(folderSlug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
     }
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const { slug, folderSlug } = await context.params;
+    const { slug, folderId: folderSlug } = await context.params;
     if (!isValidProjectSlug(slug) || !isValidFolderSlug(folderSlug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
     }
