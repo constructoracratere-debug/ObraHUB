@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * DWG (AutoCAD) viewer — converts DWG to DXF in-browser via libredwg (WASM),
- * then renders the DXF using dxf-viewer + three.js.
+ * DWG (AutoCAD) viewer — parses DWG in-browser via libredwg (WASM),
+ * converts to DwgDatabase, then generates SVG for rendering.
  *
  * The libredwg WASM is ~9.5MB so this component is loaded dynamically with
  * ssr:false only when a .dwg file is opened.
@@ -17,16 +17,18 @@ type DwgPreviewProps = {
   filename: string;
 };
 
-type ConvertState = "downloading" | "loading-wasm" | "converting" | "rendering" | "ready" | "error";
+type ConvertState = "downloading" | "loading-wasm" | "parsing" | "rendering" | "ready" | "error";
 
 export function DwgPreview({ url, filename }: DwgPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<any>(null);
   const [state, setState] = useState<ConvertState>("downloading");
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("Descargando plano DWG…");
   const [error, setError] = useState<string | null>(null);
-  const [layers, setLayers] = useState<Array<{ name: string; color: number; visible: boolean }>>([]);
+  const [svgContent, setSvgContent] = useState<string | null>(null);
+  const [dwgVersion, setDwgVersion] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -40,93 +42,60 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
         if (!res.ok) throw new Error(`Error HTTP ${res.status} al descargar`);
         const dwgBuffer = await res.arrayBuffer();
         if (cancelled) return;
-        setProgress(25);
+        setProgress(20);
 
         // Step 2: Load libredwg WASM.
         setState("loading-wasm");
         setProgressLabel("Cargando motor CAD (WASM)…");
-        const { LibreDwg } = await import("@mlightcad/libredwg-web");
+        const { LibreDwg, Dwg_File_Type } = await import("@mlightcad/libredwg-web");
         const libredwg = await LibreDwg.create("/wasm");
         if (cancelled) return;
-        setProgress(50);
+        setProgress(45);
 
-        // Step 3: Convert DWG → DXF in memory.
-        setState("converting");
-        setProgressLabel("Convirtiendo DWG a DXF…");
-        const dxfBytes = libredwg.dwg_write_dxf(dwgBuffer);
+        // Step 3: Read the DWG file into libredwg data structure.
+        setState("parsing");
+        setProgressLabel("Analizando archivo DWG…");
+        const dataPtr = libredwg.dwg_read_data(dwgBuffer, Dwg_File_Type.DWG);
         if (cancelled) return;
-
-        if (!dxfBytes || dxfBytes.length === 0) {
-          throw new Error("No se pudo convertir el archivo DWG. Puede ser una versión no soportada.");
+        if (dataPtr == null) {
+          throw new Error("No se pudo leer el archivo DWG. Verifica que sea un DWG válido.");
         }
-        setProgress(65);
+        setProgress(60);
 
-        // Create a Blob URL from the DXF bytes for dxf-viewer.
-        const dxfBlob = new Blob([dxfBytes as BlobPart], { type: "application/dxf" });
-        const dxfUrl = URL.createObjectURL(dxfBlob);
+        // Get version info for display.
+        try {
+          const ver = libredwg.dwg_get_version_type(dataPtr);
+          setDwgVersion(ver?.hdr ?? ver?.type ?? null);
+        } catch {
+          /* version optional */
+        }
 
-        // Step 4: Render the DXF with dxf-viewer.
+        // Step 4: Convert to DwgDatabase (structured data).
+        setProgressLabel("Procesando entidades…");
+        const { database } = libredwg.convertEx(dataPtr);
+        if (cancelled) return;
+        setProgress(75);
+
+        // Free the raw DWG data — we have the database now.
+        try {
+          libredwg.dwg_free(dataPtr);
+        } catch {
+          /* best effort */
+        }
+
+        // Step 5: Convert database to SVG for rendering.
         setState("rendering");
-        setProgressLabel("Renderizando plano…");
-        const { DxfViewer } = await import("dxf-viewer");
-        if (cancelled || !containerRef.current) {
-          URL.revokeObjectURL(dxfUrl);
-          return;
-        }
-
-        const viewer = new DxfViewer(containerRef.current, {
-          autoResize: true,
-          clearColor: { r: 0.04, g: 0.07, b: 0.12 },
-          clearAlpha: 1,
-          antialias: true,
-          colorCorrection: true,
-          blackWhiteInversion: true,
-          pointSize: 3,
-          sceneOptions: { arcTessellationAngle: Math.PI / 16 },
-        });
-        viewerRef.current = viewer;
-
-        await viewer.Load({
-          url: dxfUrl,
-          fonts: null,
-          progressCbk: (_phase: string, processed: number, total: number) => {
-            if (cancelled) return;
-            const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
-            setProgress(65 + Math.round(pct * 0.3));
-          },
-        });
-
-        // Clean up the blob URL — dxf-viewer has its own copy now.
-        URL.revokeObjectURL(dxfUrl);
-
+        setProgressLabel("Generando visualización…");
+        const svg = libredwg.dwg_to_svg(database);
         if (cancelled) return;
 
-        // Get layers.
-        try {
-          const layerList = Array.from(viewer.GetLayers() as Iterable<any>);
-          setLayers(
-            layerList.map((l: any) => ({
-              name: l.displayName ?? l.name,
-              color: l.color,
-              visible: true,
-            })),
-          );
-        } catch {
-          /* layers optional */
+        if (!svg || svg.trim().length === 0) {
+          throw new Error("El plano no contiene entidades renderizables.");
         }
 
-        // Fit view.
-        try {
-          const bounds = viewer.GetBounds();
-          if (bounds) {
-            viewer.FitView(bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, 0.1);
-          }
-        } catch {
-          /* fit optional */
-        }
-
-        setState("ready");
+        setSvgContent(svg);
         setProgress(100);
+        setState("ready");
       } catch (err) {
         if (cancelled) return;
         console.error("DWG load error:", err);
@@ -139,89 +108,95 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
 
     return () => {
       cancelled = true;
-      if (viewerRef.current) {
-        try {
-          viewerRef.current.Destroy();
-        } catch {
-          /* ignore */
-        }
-        viewerRef.current = null;
-      }
     };
   }, [url]);
 
-  function toggleLayer(name: string) {
-    const layer = layers.find((l) => l.name === name);
-    if (!layer || !viewerRef.current) return;
-    const newVisible = !layer.visible;
+  // Pan handling
+  const isPanning = useRef(false);
+  const lastPan = useRef({ x: 0, y: 0 });
+
+  function handlePointerDown(e: React.PointerEvent) {
+    isPanning.current = true;
+    lastPan.current = { x: e.clientX, y: e.clientY };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function handlePointerMove(e: React.PointerEvent) {
+    if (!isPanning.current) return;
+    const dx = e.clientX - lastPan.current.x;
+    const dy = e.clientY - lastPan.current.y;
+    lastPan.current = { x: e.clientX, y: e.clientY };
+    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+  }
+  function handlePointerUp(e: React.PointerEvent) {
+    isPanning.current = false;
     try {
-      viewerRef.current.ShowLayer(name, newVisible);
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
-    setLayers((prev) => prev.map((l) => (l.name === name ? { ...l, visible: newVisible } : l)));
+  }
+  function handleWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((z) => Math.max(0.05, Math.min(20, z * factor)));
   }
 
-  function fitToView() {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    try {
-      const bounds = viewer.GetBounds();
-      if (bounds) viewer.FitView(bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, 0.1);
-    } catch {
-      /* ignore */
-    }
+  function resetView() {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   }
 
   return (
-    <div className="relative h-full w-full bg-[#0a1120]">
-      {/* Canvas container */}
-      <div ref={containerRef} className="absolute inset-0" />
-
+    <div className="relative h-full w-full overflow-hidden bg-[#0a1120]">
       {/* Toolbar */}
       <div className="pointer-events-auto absolute left-3 top-3 z-10 flex items-center gap-2">
-        {state === "ready" && (
-          <button
-            type="button"
-            onClick={fitToView}
-            className="rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-3 py-1.5 text-xs font-medium text-slate-200 backdrop-blur transition hover:bg-white/[0.08]"
-          >
-            🎯 Ajustar vista
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={resetView}
+          className="rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-3 py-1.5 text-xs font-medium text-slate-200 backdrop-blur transition hover:bg-white/[0.08]"
+        >
+          🎯 Reset
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => Math.min(20, z * 1.3))}
+          className="rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-3 py-1.5 text-xs font-medium text-slate-200 backdrop-blur transition hover:bg-white/[0.08]"
+        >
+          🔍+
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => Math.max(0.05, z * 0.7))}
+          className="rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-3 py-1.5 text-xs font-medium text-slate-200 backdrop-blur transition hover:bg-white/[0.08]"
+        >
+          🔍−
+        </button>
         <span className="rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-3 py-1.5 text-xs text-slate-400 backdrop-blur">
           📐 {filename}
+          {dwgVersion && ` · ${dwgVersion}`}
+          {state === "ready" && ` · ${Math.round(zoom * 100)}%`}
         </span>
       </div>
 
-      {/* Layers panel */}
-      {state === "ready" && layers.length > 0 && (
-        <div className="absolute right-3 top-3 z-10 max-h-[60vh] w-56 overflow-y-auto rounded-xl border border-white/[0.06] bg-[#0a1120]/95 p-3 backdrop-blur-xl">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Capas ({layers.length})
-          </p>
-          <div className="space-y-0.5">
-            {layers.map((layer) => (
-              <button
-                key={layer.name}
-                type="button"
-                onClick={() => toggleLayer(layer.name)}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[11px] transition hover:bg-white/[0.04]"
-              >
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-sm border border-white/20"
-                  style={{
-                    backgroundColor: layer.visible
-                      ? `#${layer.color.toString(16).padStart(6, "0")}`
-                      : "transparent",
-                  }}
-                />
-                <span className={layer.visible ? "truncate text-slate-300" : "truncate text-slate-600 line-through"}>
-                  {layer.name}
-                </span>
-              </button>
-            ))}
-          </div>
+      {/* SVG render area */}
+      {state === "ready" && svgContent && (
+        <div
+          className="h-full w-full cursor-grab active:cursor-grabbing"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onWheel={handleWheel}
+        >
+          <div
+            ref={containerRef}
+            className="flex h-full w-full items-center justify-center"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "center center",
+              transition: isPanning.current ? "none" : "transform 0.1s ease-out",
+            }}
+            dangerouslySetInnerHTML={{ __html: svgContent }}
+          />
         </div>
       )}
 
@@ -258,11 +233,14 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
             </div>
             <p className="text-sm font-medium text-white">No se pudo cargar el plano DWG</p>
             <p className="mt-1 text-xs text-slate-400">{error}</p>
-            <p className="mt-3 text-[11px] text-slate-600">
-              Algunos archivos DWG de versiones muy antiguas (anteriores a AutoCAD 2000) o con
-              entidades complejas pueden no ser compatibles. Intenta exportarlo como DXF desde
-              AutoCAD y subir el archivo .dxf.
-            </p>
+            <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-left">
+              <p className="text-[11px] font-semibold text-amber-300">💡 Alternativas:</p>
+              <ul className="mt-1.5 space-y-1 text-[11px] text-slate-400">
+                <li>• Exportar como <strong>DXF</strong> desde AutoCAD y subir el .dxf (se renderiza nativamente)</li>
+                <li>• Abrir en <a href="https://viewer.autodesk.com" target="_blank" rel="noopener noreferrer" className="text-amber-400 underline">Autodesk Viewer online</a> (gratuito)</li>
+                <li>• DWG de versiones muy antiguas (pre-2000) pueden no ser compatibles</li>
+              </ul>
+            </div>
           </div>
         </div>
       )}
