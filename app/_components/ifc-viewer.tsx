@@ -26,7 +26,18 @@ type GanttTaskLite = {
   name: string;
   startDate: string;
   endDate: string;
+  progress?: number;
 };
+
+type IfcLinkLite = {
+  id: string;
+  taskId: string;
+  ifcGlobalIds: string[];
+  label: string | null;
+};
+
+/** Status of an element relative to the simulation date. */
+type SimStatus = "completed" | "active" | "pending" | "unlinked";
 
 type IfcViewerProps = {
   /** Signed URL to the .ifc file in Supabase Storage. */

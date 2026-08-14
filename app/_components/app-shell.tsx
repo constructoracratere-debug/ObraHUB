@@ -10,7 +10,6 @@ import { FOLDER_TEMPLATE, folderIcon } from "@/lib/folders";
 import type { KBDocument } from "@/lib/documents";
 import {
   ACCEPTED_EXTENSIONS,
-  MAX_FILE_BYTES,
   fileIcon,
   formatFileSize,
   isExcelFile,
@@ -410,6 +409,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -853,22 +853,72 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
 
     setIsUploading(true);
     setUploadError(null);
+    setUploadProgress(null);
 
     try {
-      const form = new FormData();
-      for (const f of list) form.append("files", f);
+      // Vercel serverless bodies are capped at ~4.5MB, so anything bigger
+      // must go straight from the browser to Supabase via TUS resumable
+      // upload (chunked, retryable, multi-GB capable). Small files keep
+      // using the regular multipart route.
+      const TUS_THRESHOLD = 4 * 1024 * 1024; // 4 MB
+      const bigFiles = list.filter((f) => f.size > TUS_THRESHOLD);
+      const smallFiles = list.filter((f) => f.size <= TUS_THRESHOLD);
 
-      const res = await fetch(`/api/folders/${fid}/files`, { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(typeof data.error === "string" ? data.error : "Error al subir");
+      if (smallFiles.length > 0) {
+        const form = new FormData();
+        for (const f of smallFiles) form.append("files", f);
+        const res = await fetch(`/api/folders/${fid}/files`, { method: "POST", body: form });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(typeof data.error === "string" ? data.error : "Error al subir");
+        }
       }
+
+      if (bigFiles.length > 0) {
+        const supabase = createClient();
+        for (const file of bigFiles) {
+          setUploadProgress(`Preparando "${file.name}"…`);
+          const ticketRes = await fetch(
+            `/api/folders/${fid}/files/prepare?name=${encodeURIComponent(file.name)}`,
+          );
+          const ticket = await ticketRes.json();
+          if (!ticketRes.ok || !ticket.storagePath) {
+            throw new Error(typeof ticket.error === "string" ? ticket.error : "Error al preparar la subida");
+          }
+
+          const { uploadFileResumable } = await import("@/lib/storage-upload");
+          await uploadFileResumable(supabase, {
+            file,
+            storagePath: ticket.storagePath,
+            onProgress: (p) => {
+              setUploadProgress(`Subiendo "${file.name}"… ${Math.round(p * 100)}%`);
+            },
+          });
+
+          const regRes = await fetch(`/api/folders/${fid}/files/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: file.name,
+              storagePath: ticket.storagePath,
+              mimeType: file.type || null,
+              sizeBytes: file.size,
+            }),
+          });
+          const reg = await regRes.json();
+          if (!regRes.ok) {
+            throw new Error(typeof reg.error === "string" ? reg.error : `No se pudo registrar "${file.name}"`);
+          }
+        }
+      }
+
       await loadFolderContents(fid);
       setFileInputKey((k) => k + 1);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Error al subir archivos");
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -2054,12 +2104,21 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                           </svg>
                         </div>
                         <p className="text-sm font-medium text-slate-200">
-                          {isUploading ? "Subiendo archivos…" : "Arrastra archivos o haz clic para subir"}
+                          {isUploading ? (uploadProgress ?? "Subiendo archivos…") : "Arrastra archivos o haz clic para subir"}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          PDF, DWG, DXF, DOCX, XLSX, PPTX, imágenes · hasta {Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB
+                          PDF, DWG, DXF, IFC, XLSX, imágenes · IFC hasta 100 MB · Revit (.rvt) hasta 300 MB
                         </p>
                       </label>
+
+                      {isUploading && uploadProgress && (
+                        <div className="mt-3 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2">
+                          <p className="text-xs font-medium text-blue-300">{uploadProgress}</p>
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            Subida por partes con reintentos automáticos — puedes seguir navegando.
+                          </p>
+                        </div>
+                      )}
 
                       {uploadError && (
                         <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
