@@ -194,6 +194,79 @@ export function IfcViewer({
 
   const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
 
+  // Element inspection (normal mode click → properties panel)
+  const [elementProps, setElementProps] = useState<{
+    expressID: number;
+    guid: string;
+    ifcClass: string;
+    name: string;
+    rows: Array<{ key: string; value: string }>;
+    linkedTask: GanttTaskLite | null;
+  } | null>(null);
+  // Bridge so the stable click handler defined in initScene() can call the
+  // latest inspector without re-subscribing listeners.
+  const inspectElementRef = useRef<((eid: number) => void) | null>(null);
+
+  const inspectElement = useCallback((eid: number) => {
+    const api = ifcApiForClickRef.current;
+    const mid = modelIdForClickRef.current;
+    let guid = "";
+    let ifcClass = "Element";
+    let name = `Element ${eid}`;
+    const rows: Array<{ key: string; value: string }> = [];
+
+    if (api && mid >= 0) {
+      try {
+        const line = api.GetLine(mid, eid, false);
+        guid = typeof line?.GlobalId?.value === "string" ? line.GlobalId.value : "";
+        name = typeof line?.Name?.value === "string" && line.Name.value ? line.Name.value : name;
+        ifcClass = classNameForTypeId(api.GetLineType(mid, eid)) ?? "Element";
+      } catch { /* ignore */ }
+
+      try {
+        // flatten=true resolves relations: property sets appear as nested
+        // objects with {value}-wrapped typed values.
+        const props = api.GetLine(mid, eid, true) as Record<string, unknown>;
+        for (const [k, v] of Object.entries(props)) {
+          if (Array.isArray(v)) continue; // relation lists — not for display
+          const direct = flattenIfcValue(v);
+          if (direct != null) {
+            rows.push({ key: k, value: direct });
+          } else if (v && typeof v === "object") {
+            // Nested property set: prefix with the pset name.
+            for (const [k2, v2] of Object.entries(v as Record<string, unknown>)) {
+              if (Array.isArray(v2)) continue;
+              const nested = flattenIfcValue(v2);
+              if (nested != null) rows.push({ key: `${k} · ${k2}`, value: nested });
+            }
+          }
+        }
+      } catch { /* properties are optional */ }
+    }
+
+    // Which Gantt task is this element linked to (4D)?
+    let linkedTask: GanttTaskLite | null = null;
+    if (guid) {
+      for (const l of links) {
+        if (l.ifcGlobalIds.includes(guid)) {
+          linkedTask = taskById.get(l.taskId) ?? null;
+          break;
+        }
+      }
+    }
+
+    setElementProps({
+      expressID: eid,
+      guid,
+      ifcClass,
+      name,
+      rows: rows.slice(0, 80),
+      linkedTask,
+    });
+  }, [links, taskById]);
+
+  useEffect(() => { inspectElementRef.current = inspectElement; }, [inspectElement]);
+
   // -------------------------------------------------------------------------
   // Cleanup on unmount
   // -------------------------------------------------------------------------
@@ -474,8 +547,9 @@ export function IfcViewer({
         selectedElementsRef.current = newList;
         setSelectedElements(newList);
       } else {
-        // Normal mode — single highlight
+        // Normal mode — single highlight + open the properties inspector
         highlightMesh(hit);
+        inspectElementRef.current?.(hitExpressId);
       }
     };
     renderer.domElement.addEventListener("click", handleClick);
@@ -1061,6 +1135,79 @@ export function IfcViewer({
         </div>
       )}
 
+      {/* Element properties inspector — opened by clicking an element */}
+      {elementProps && (
+        <div className="pointer-events-auto absolute bottom-4 left-3 z-10 flex max-h-[52%] w-80 flex-col overflow-hidden rounded-xl border border-blue-500/25 bg-[#0a1120]/95 backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-blue-200">
+                <span className="text-blue-400">{elementProps.ifcClass}</span>
+                {elementProps.name !== `Element ${elementProps.expressID}` && ` · ${elementProps.name}`}
+              </p>
+              <p className="mt-0.5 truncate font-mono text-[9px] text-slate-600">
+                ID {elementProps.expressID}
+                {elementProps.guid && ` · ${elementProps.guid}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setElementProps(null)}
+              className="shrink-0 rounded p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-300"
+              title="Cerrar"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Linked task (4D) */}
+          {elementProps.linkedTask ? (
+            (() => {
+              const t = elementProps.linkedTask!;
+              const now = Date.now();
+              const s = new Date(t.startDate).getTime();
+              const e = new Date(t.endDate).getTime();
+              const st = now >= e ? "completed" : now >= s ? "active" : "pending";
+              const label = st === "completed" ? "Ejecutada" : st === "active" ? "En curso" : "Programada";
+              const cls = st === "completed"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                : st === "active"
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                  : "border-slate-500/30 bg-slate-500/10 text-slate-300";
+              return (
+                <div className={`m-2 rounded-lg border px-2.5 py-2 ${cls}`}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                    🔗 Tarea vinculada · {label}
+                  </p>
+                  <p className="truncate text-xs font-medium">{t.name}</p>
+                  <p className="text-[10px] opacity-70">
+                    {formatSimDate(s)} → {formatSimDate(e)}
+                  </p>
+                </div>
+              );
+            })()
+          ) : (
+            <p className="mx-2 mt-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-2.5 py-1.5 text-[10px] text-slate-500">
+              Sin tarea vinculada — usa 🔗 Vincular 4D para conectar este elemento al cronograma.
+            </p>
+          )}
+
+          {/* IFC property sets */}
+          {elementProps.rows.length > 0 && (
+            <div className="flex-1 overflow-y-auto px-2 pb-2">
+              {elementProps.rows.map((r, i) => (
+                <div
+                  key={`${r.key}-${i}`}
+                  className="flex items-baseline justify-between gap-2 border-b border-white/[0.03] py-1 last:border-0"
+                >
+                  <span className="shrink-0 max-w-[45%] truncate text-[10px] text-slate-500">{r.key}</span>
+                  <span className="min-w-0 break-words text-right font-mono text-[10px] text-slate-300">{r.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Loading overlay */}
       {state !== "ready" && state !== "error" && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a1120]/90 backdrop-blur">
@@ -1251,6 +1398,23 @@ function formatSimDate(ms: number): string {
     month: "short",
     year: "numeric",
   }).format(new Date(ms));
+}
+
+/**
+ * Normalizes an IFC property value for display: unwraps `{ value: X }`
+ * wrappers (web-ifc typed values) into plain strings; returns null for
+ * anything not displayable (nested objects are handled one level up).
+ */
+function flattenIfcValue(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : null;
+  if (typeof v === "boolean") return v ? "Sí" : "No";
+  if (typeof v === "string") return v.length > 0 ? v : null;
+  if (typeof v === "object") {
+    const wrapped = (v as { value?: unknown }).value;
+    if (wrapped != null && typeof wrapped !== "object") return String(wrapped);
+  }
+  return null;
 }
 
 function colorForClass(className: string): THREE.Color {
