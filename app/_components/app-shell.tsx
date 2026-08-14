@@ -49,6 +49,16 @@ const BitacoraTool = dynamic(() => import("@/app/_components/bitacora-tool").the
   ),
 });
 
+// Code-split the control dashboard — S-curve + earned value.
+const ControlTool = dynamic(() => import("@/app/_components/control-tool").then((m) => m.ControlTool), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-16">
+      <p className="text-sm text-slate-500">Cargando control de obra…</p>
+    </div>
+  ),
+});
+
 // Code-split the DXF viewer — three.js + dxf-viewer bundle, loaded on demand.
 const DxfPreview = dynamic(() => import("@/app/_components/dxf-preview").then((m) => m.DxfPreview), {
   ssr: false,
@@ -84,7 +94,7 @@ const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
 const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
-type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora";
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control";
 
 type ToolDef = {
   id: ToolId;
@@ -135,6 +145,14 @@ const TOOLS: ToolDef[] = [
     icon: "📔",
     available: true,
     gradient: "from-rose-500/15 to-rose-600/5",
+  },
+  {
+    id: "control",
+    title: "Control de Obra",
+    description: "Curva S, valor ganado (SPI/CPI) y vínculo presupuesto ↔ cronograma.",
+    icon: "📈",
+    available: true,
+    gradient: "from-teal-500/15 to-teal-600/5",
   },
 ];
 
@@ -2258,6 +2276,14 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 ) : (
                   <div className="py-8 text-center text-sm text-slate-500">
                     Selecciona un proyecto para llevar la bitácora.
+                  </div>
+                )
+              ) : activeTool === "control" ? (
+                activeProjectSlug ? (
+                  <ControlTool projectSlug={activeProjectSlug} />
+                ) : (
+                  <div className="py-8 text-center text-sm text-slate-500">
+                    Selecciona un proyecto para ver el control de obra.
                   </div>
                 )
               ) : (
