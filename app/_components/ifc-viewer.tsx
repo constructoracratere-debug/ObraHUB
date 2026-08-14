@@ -7,7 +7,7 @@
  * heavy (~1.5 MB) and must never block login or the tool launcher.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import * as THREE from "three";
 import { IfcAPI } from "web-ifc";
 import {
@@ -114,6 +114,21 @@ export function IfcViewer({
   const [isSavingLink, setIsSavingLink] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
 
+  // 4D simulation state
+  const [links, setLinks] = useState<IfcLinkLite[]>([]);
+  const [simEnabled, setSimEnabled] = useState(false);
+  const [simDate, setSimDate] = useState<number>(0);
+  const [simPlaying, setSimPlaying] = useState(false);
+  const [simSpeed, setSimSpeed] = useState(1);
+  const [simStats, setSimStats] = useState<{ completed: number; active: number; pending: number }>({ completed: 0, active: 0, pending: 0 });
+  // Original material per mesh — captured before the simulation first paints,
+  // so leaving the simulation (or "unlinked" elements) restores the model.
+  const originalMaterialsRef = useRef<Map<THREE.Mesh, {
+    color: THREE.Color;
+    opacity: number;
+    transparent: boolean;
+  }>>(new Map());
+
   // Keep refs in sync with state — these are read by the stable click handler
   // defined inside initScene(), which can't close over the state directly.
   useEffect(() => { linkModeRef.current = linkMode; }, [linkMode]);
@@ -141,6 +156,43 @@ export function IfcViewer({
       .catch(() => { /* tasks are optional */ });
     return () => { cancelled = true; };
   }, [projectSlug, tasksProp]);
+
+  // Saved 4D links — loaded once the model is ready (simulation needs the
+  // meshes to exist to be meaningful, and this avoids a flash of empty sim).
+  useEffect(() => {
+    if (!projectSlug || state !== "ready") return;
+    let cancelled = false;
+    fetch(`/api/projects/${encodeURIComponent(projectSlug)}/ifc-links`)
+      .then((r) => (r.ok ? r.json() : { links: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const list: IfcLinkLite[] = (data.links ?? []).map((l: any) => ({
+          id: l.id,
+          taskId: l.taskId,
+          ifcGlobalIds: Array.isArray(l.ifcGlobalIds) ? l.ifcGlobalIds : [],
+          label: l.label ?? null,
+        }));
+        setLinks(list);
+      })
+      .catch(() => { /* links are optional */ });
+    return () => { cancelled = true; };
+  }, [projectSlug, state]);
+
+  // Simulation window: min task start → max task end.
+  const [simStart, simEnd] = useMemo(() => {
+    if (tasks.length === 0) return [0, 0];
+    let min = Infinity;
+    let max = -Infinity;
+    for (const t of tasks) {
+      const s = new Date(t.startDate).getTime();
+      const e = new Date(t.endDate).getTime();
+      if (Number.isFinite(s) && s < min) min = s;
+      if (Number.isFinite(e) && e > max) max = e;
+    }
+    return [min, max] as const;
+  }, [tasks]);
+
+  const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
 
   // -------------------------------------------------------------------------
   // Cleanup on unmount
@@ -531,6 +583,136 @@ export function IfcViewer({
     }
   }
 
+  /** Restores every mesh to its original (pre-simulation) material. */
+  function restoreSimulation() {
+    for (const [mesh, orig] of originalMaterialsRef.current) {
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      mat.color.copy(orig.color);
+      mat.opacity = orig.opacity;
+      mat.transparent = orig.transparent;
+      mat.emissive.setHex(0x000000);
+    }
+    originalMaterialsRef.current.clear();
+    setSimStats({ completed: 0, active: 0, pending: 0 });
+  }
+
+  /**
+   * 4D simulation paint: colors each linked element by its task's status at
+   * `dateMs` — completed (green), in progress (amber), not started (ghost
+   * gray, ~12% opacity so the building "grows" as the date advances).
+   * Unlinked elements keep their original material.
+   */
+  const applySimulation = useCallback((dateMs: number) => {
+    const api = ifcApiRef.current;
+    const mid = modelIdRef.current;
+    const statusByExpress = new Map<number, SimStatus>();
+
+    if (api && mid >= 0) {
+      for (const link of links) {
+        const task = taskById.get(link.taskId);
+        if (!task) continue;
+        const s = new Date(task.startDate).getTime();
+        const e = new Date(task.endDate).getTime();
+        const st: SimStatus = !Number.isFinite(s) || !Number.isFinite(e)
+          ? "pending"
+          : dateMs >= e ? "completed"
+          : dateMs >= s ? "active"
+          : "pending";
+        for (const guid of link.ifcGlobalIds) {
+          try {
+            // Links may store real GlobalIds or (fallback) raw expressIDs as
+            // strings when the model lacks GlobalId attributes.
+            const eid = /^\d+$/.test(guid)
+              ? Number(guid)
+              : api.GetExpressIdFromGuid(mid, guid);
+            if (typeof eid === "number") statusByExpress.set(eid, st);
+          } catch {
+            /* guid not present in this model */
+          }
+        }
+      }
+    }
+
+    const counts = { completed: 0, active: 0, pending: 0 };
+    for (const [eid, mesh] of elementToMeshRef.current) {
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      if (!originalMaterialsRef.current.has(mesh)) {
+        originalMaterialsRef.current.set(mesh, {
+          color: mat.color.clone(),
+          opacity: mat.opacity,
+          transparent: mat.transparent,
+        });
+      }
+      const st = statusByExpress.get(eid) ?? "unlinked";
+      if (st === "unlinked") continue; // keeps its original look untouched
+      if (st === "completed") {
+        mat.color.setHex(0x22c55e);
+        mat.opacity = 1;
+        mat.transparent = false;
+        mat.emissive.setHex(0x04310f);
+        counts.completed++;
+      } else if (st === "active") {
+        mat.color.setHex(0xf59e0b);
+        mat.opacity = 1;
+        mat.transparent = false;
+        mat.emissive.setHex(0x4a2a03);
+        counts.active++;
+      } else {
+        mat.color.setHex(0x64748b);
+        mat.opacity = 0.12;
+        mat.transparent = true;
+        mat.emissive.setHex(0x000000);
+        counts.pending++;
+      }
+    }
+    setSimStats(counts);
+  }, [links, taskById]);
+
+  // Enable/disable simulation: enter paints at the current date (defaults to
+  // the project start); leaving restores the original materials.
+  useEffect(() => {
+    if (!simEnabled) {
+      restoreSimulation();
+      setSimPlaying(false);
+      return;
+    }
+    const start = simStart;
+    setSimDate((d) => (d >= start ? d : start));
+    applySimulation(Math.max(simDate, start));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simEnabled, simStart]);
+
+  // Repaint whenever the simulated date or the links change while active.
+  useEffect(() => {
+    if (simEnabled) applySimulation(simDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simDate, applySimulation]);
+
+  // Playback loop: advance ~1 day per tick. 1× ≈ one day every 250 ms.
+  useEffect(() => {
+    if (!simEnabled || !simPlaying) return;
+    const DAY = 24 * 60 * 60 * 1000;
+    const step = DAY;
+    const id = window.setInterval(() => {
+      setSimDate((d) => {
+        const next = d + step;
+        if (next >= simEnd) {
+          setSimPlaying(false);
+          return simEnd;
+        }
+        return next;
+      });
+    }, Math.max(60, Math.round(250 / simSpeed)));
+    return () => window.clearInterval(id);
+  }, [simEnabled, simPlaying, simSpeed, simEnd]);
+
+  function toggleSimulation() {
+    setSimEnabled((on) => {
+      if (!on && tasks.length === 0) return false;
+      return !on;
+    });
+  }
+
   /** Saves a 4D link: connects selected elements to a Gantt task. */
   async function handleSaveLink() {
     if (!projectSlug || !linkTaskId || selectedElements.length === 0) return;
@@ -556,6 +738,20 @@ export function IfcViewer({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(typeof data.error === "string" ? data.error : "Error al guardar vínculo");
+      }
+      const created = await res.json().catch(() => null) as { link?: {
+        id: string; taskId: string; ifcGlobalIds?: string[]; label?: string | null;
+      } } | null;
+      if (created?.link) {
+        setLinks((prev) => [
+          ...prev,
+          {
+            id: created.link!.id,
+            taskId: created.link!.taskId,
+            ifcGlobalIds: Array.isArray(created.link!.ifcGlobalIds) ? created.link!.ifcGlobalIds : [],
+            label: created.link!.label ?? null,
+          },
+        ]);
       }
       setLinkedCount((c) => c + 1);
       // Clear selection after saving
@@ -645,6 +841,20 @@ export function IfcViewer({
                 {linkMode ? "🔗 Vinculando (Cancelar)" : "🔗 Vincular 4D"}
               </button>
             )}
+            {tasks.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleSimulation}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+                  simEnabled
+                    ? "border-amber-400/50 bg-amber-500/25 text-amber-100"
+                    : "border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                }`}
+                title={links.length === 0 ? "Primero vincula elementos con tareas (Vincular 4D)" : "Reproduce la construcción en el tiempo"}
+              >
+                {simEnabled ? "⏸ Cerrar simulación" : "▶ Simulación 4D"}
+              </button>
+            )}
           </>
         )}
       </div>
@@ -731,7 +941,82 @@ export function IfcViewer({
                     ✕
                   </button>
                 </div>
-              ))}
+                  ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4D Simulation bar — shows when simulation is on */}
+      {simEnabled && (
+        <div className="pointer-events-auto absolute bottom-4 left-1/2 z-10 w-[min(760px,94%)] -translate-x-1/2 rounded-xl border border-amber-500/30 bg-[#0a1120]/95 p-4 backdrop-blur-xl">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (simDate >= simEnd) setSimDate(simStart);
+                setSimPlaying((p) => !p);
+              }}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-sm text-black transition hover:bg-amber-400"
+              title={simPlaying ? "Pausar" : "Reproducir"}
+            >
+              {simPlaying ? "⏸" : "▶"}
+            </button>
+            <div className="min-w-0 flex-1">
+              <input
+                type="range"
+                min={simStart}
+                max={simEnd}
+                step={24 * 60 * 60 * 1000}
+                value={simDate}
+                onChange={(e) => {
+                  setSimPlaying(false);
+                  setSimDate(Number(e.target.value));
+                }}
+                className="w-full accent-amber-400"
+              />
+              <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
+                <span>{formatSimDate(simStart)}</span>
+                <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-semibold text-amber-200">
+                  📅 {formatSimDate(simDate)}
+                </span>
+                <span>{formatSimDate(simEnd)}</span>
+              </div>
+            </div>
+            <select
+              value={simSpeed}
+              onChange={(e) => setSimSpeed(Number(e.target.value))}
+              className="shrink-0 rounded-lg border border-white/[0.1] bg-[#050b14] px-2 py-1.5 text-xs text-slate-200 focus:border-amber-500/40 focus:outline-none"
+              title="Velocidad de reproducción"
+            >
+              <option value={1}>1×</option>
+              <option value={2}>2×</option>
+              <option value={5}>5×</option>
+            </select>
+          </div>
+
+          {links.length === 0 ? (
+            <p className="mt-2 text-[11px] text-slate-400">
+              Sin vínculos todavía — usa <span className="text-cyan-300">🔗 Vincular 4D</span> para
+              conectar elementos del modelo con tareas del cronograma y poder simularlos.
+            </p>
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+              <span className="flex items-center gap-1.5 text-emerald-300">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                {simStats.completed} ejecutado
+              </span>
+              <span className="flex items-center gap-1.5 text-amber-300">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-500" />
+                {simStats.active} en curso
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-400">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-slate-500/60" />
+                {simStats.pending} por construir
+              </span>
+              <span className="text-slate-600">
+                {links.length} vínculo(s) · {tasks.length} tarea(s)
+              </span>
             </div>
           )}
         </div>
@@ -958,6 +1243,16 @@ function ifcGeometryToThree(
 
 /** Stable color per IFC class (for visual distinction in the viewer). */
 const colorCache = new Map<string, THREE.Color>();
+/** es-CO short date for the 4D simulation timeline. */
+function formatSimDate(ms: number): string {
+  if (!Number.isFinite(ms)) return "—";
+  return new Intl.DateTimeFormat("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(ms));
+}
+
 function colorForClass(className: string): THREE.Color {
   const c = colorCache.get(className);
   if (c) return c;
