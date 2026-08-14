@@ -178,25 +178,27 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
         </span>
       </div>
 
-      {/* SVG render area */}
+      {/* SVG render area — white background like a real CAD viewport */}
       {state === "ready" && svgContent && (
         <div
-          className="h-full w-full cursor-grab active:cursor-grabbing"
+          className="h-full w-full cursor-grab overflow-hidden active:cursor-grabbing"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onWheel={handleWheel}
         >
-          <div
-            ref={containerRef}
-            className="flex h-full w-full items-center justify-center"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: "center center",
-              transition: isPanning.current ? "none" : "transform 0.1s ease-out",
-            }}
-            dangerouslySetInnerHTML={{ __html: svgContent }}
-          />
+          <div className="flex h-full w-full items-center justify-center bg-white p-4">
+            <div
+              ref={containerRef}
+              className="flex items-center justify-center"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transformOrigin: "center center",
+                transition: isPanning.current ? "none" : "transform 0.1s ease-out",
+              }}
+              dangerouslySetInnerHTML={{ __html: svgContent }}
+            />
+          </div>
         </div>
       )}
 
