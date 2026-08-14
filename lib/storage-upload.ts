@@ -45,9 +45,10 @@ export async function uploadFileResumable(
       retryDelays: [0, 2000, 5000, 10000, 20000],
       headers: {
         authorization: `Bearer ${session.access_token}`,
-        "x-upsert": "true",
       },
-      uploadDataDuringCreation: true,
+      // Classic TUS flow: small creation POST (metadata only) + PATCH chunks.
+      // Sending the first chunk inside the creation POST proved fragile.
+      uploadDataDuringCreation: false,
       removeFingerprintOnSuccess: true,
       chunkSize: 6 * 1024 * 1024, // 6 MB chunks
       metadata: {
@@ -63,7 +64,17 @@ export async function uploadFileResumable(
         resolve({ storagePath, sizeBytes: file.size });
       },
       onError: (error) => {
-        reject(new Error(error?.message || "Error en la subida resumable"));
+        const raw = error?.message || "Error en la subida";
+        // Network-level failures surface as "Failed to fetch" / "Network Error"
+        // — translate them into something actionable for the user.
+        const isNetwork = /failed to fetch|network error|load failed/i.test(raw);
+        reject(
+          new Error(
+            isNetwork
+              ? `Error de red durante la subida (verifica tu conexión e inténtalo de nuevo)`
+              : raw,
+          ),
+        );
       },
     });
 

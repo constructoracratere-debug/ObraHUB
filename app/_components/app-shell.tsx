@@ -877,37 +877,60 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       if (bigFiles.length > 0) {
         const supabase = createClient();
         for (const file of bigFiles) {
+          // Phase 1 — get the storage path ticket from our API.
           setUploadProgress(`Preparando "${file.name}"…`);
-          const ticketRes = await fetch(
-            `/api/folders/${fid}/files/prepare?name=${encodeURIComponent(file.name)}`,
-          );
-          const ticket = await ticketRes.json();
-          if (!ticketRes.ok || !ticket.storagePath) {
-            throw new Error(typeof ticket.error === "string" ? ticket.error : "Error al preparar la subida");
+          let storagePath = "";
+          try {
+            const ticketRes = await fetch(
+              `/api/folders/${fid}/files/prepare?name=${encodeURIComponent(file.name)}`,
+            );
+            const ticket = await ticketRes.json();
+            if (!ticketRes.ok || !ticket.storagePath) {
+              throw new Error(typeof ticket.error === "string" ? ticket.error : "Error al preparar la subida");
+            }
+            storagePath = ticket.storagePath;
+          } catch (err) {
+            throw new Error(
+              `"${file.name}": no se pudo preparar la subida (${err instanceof Error ? err.message : "error"})`,
+            );
           }
 
+          // Phase 2 — TUS resumable upload, browser → Supabase directly.
           const { uploadFileResumable } = await import("@/lib/storage-upload");
-          await uploadFileResumable(supabase, {
-            file,
-            storagePath: ticket.storagePath,
-            onProgress: (p) => {
-              setUploadProgress(`Subiendo "${file.name}"… ${Math.round(p * 100)}%`);
-            },
-          });
+          try {
+            await uploadFileResumable(supabase, {
+              file,
+              storagePath,
+              onProgress: (p) => {
+                setUploadProgress(`Subiendo "${file.name}"… ${Math.round(p * 100)}%`);
+              },
+            });
+          } catch (err) {
+            throw new Error(
+              `"${file.name}": ${err instanceof Error ? err.message : "falló la subida del archivo"}`,
+            );
+          }
 
-          const regRes = await fetch(`/api/folders/${fid}/files/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: file.name,
-              storagePath: ticket.storagePath,
-              mimeType: file.type || null,
-              sizeBytes: file.size,
-            }),
-          });
-          const reg = await regRes.json();
-          if (!regRes.ok) {
-            throw new Error(typeof reg.error === "string" ? reg.error : `No se pudo registrar "${file.name}"`);
+          // Phase 3 — index the uploaded object in the files table.
+          try {
+            const regRes = await fetch(`/api/folders/${fid}/files/register`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: file.name,
+                storagePath,
+                mimeType: file.type || null,
+                sizeBytes: file.size,
+              }),
+            });
+            const reg = await regRes.json();
+            if (!regRes.ok) {
+              throw new Error(typeof reg.error === "string" ? reg.error : "error desconocido");
+            }
+          } catch (err) {
+            throw new Error(
+              `"${file.name}" se subió pero no se pudo registrar (${err instanceof Error ? err.message : "error"})`,
+            );
           }
         }
       }

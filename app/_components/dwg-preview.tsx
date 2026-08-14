@@ -29,6 +29,21 @@ type View = { x: number; y: number; w: number; h: number };
 
 const FIT_MARGIN = 1.06; // 3% padding on each side when fitting
 
+/** High-visibility CAD crosshair cursor (blue with white outline + red center). */
+const CROSSHAIR_CURSOR = (() => {
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">' +
+    '<g stroke="#ffffff" stroke-width="5" stroke-linecap="round">' +
+    '<line x1="16" y1="2" x2="16" y2="30"/><line x1="2" y1="16" x2="30" y2="16"/>' +
+    "</g>" +
+    '<g stroke="#1e3a8a" stroke-width="2" stroke-linecap="round">' +
+    '<line x1="16" y1="2" x2="16" y2="30"/><line x1="2" y1="16" x2="30" y2="16"/>' +
+    "</g>" +
+    '<circle cx="16" cy="16" r="2.5" fill="#ef4444" stroke="#ffffff" stroke-width="1"/>' +
+    "</svg>";
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}") 16 16, crosshair`;
+})();
+
 export function DwgPreview({ url, filename }: DwgPreviewProps) {
   const wrapRef = useRef<HTMLDivElement>(null); // interactive container (wheel/pan)
   const svgHostRef = useRef<HTMLDivElement>(null); // where the <svg> is injected
@@ -192,7 +207,7 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
       panning.current = true;
       lastPt.current = { x: e.clientX, y: e.clientY };
       el.setPointerCapture(e.pointerId);
-      el.style.cursor = "grabbing";
+      el.style.cursor = "move";
     };
     const onPointerMove = (e: PointerEvent) => {
       if (!panning.current) return;
@@ -208,7 +223,7 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
     };
     const onPointerUp = (e: PointerEvent) => {
       panning.current = false;
-      el.style.cursor = "grab";
+      el.style.cursor = CROSSHAIR_CURSOR;
       try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     };
     const onDblClick = (e: MouseEvent) => {
@@ -308,7 +323,8 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
       {state === "ready" && (
         <div
           ref={wrapRef}
-          className="absolute inset-0 cursor-grab bg-white"
+          className="absolute inset-0 bg-white"
+          style={{ cursor: CROSSHAIR_CURSOR }}
         >
           <div ref={svgHostRef} className="h-full w-full" />
         </div>

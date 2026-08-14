@@ -148,7 +148,7 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
   return (
     <div className="relative h-full w-full bg-[#0a1120]">
       {/* The dxf-viewer canvas container */}
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="absolute inset-0 cursor-crosshair" />
 
       {/* Top toolbar */}
       <div className="pointer-events-auto absolute left-3 top-3 z-10 flex items-center gap-2">
