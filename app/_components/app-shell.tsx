@@ -540,7 +540,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         ? `${selectedDocumentIds.length} normas seleccionadas`
         : documents
             .filter((d) => selectedDocumentIds.includes(d.id))
-            .map((d) => d.name.split(" - ")[0].split("(")[0].trim())
+            .map((d) => d.title.split(" - ")[0].split("(")[0].trim())
             .join(" · ") || "biblioteca completa";
 
   // Tool Launcher: a project is selected but no tool is active yet.

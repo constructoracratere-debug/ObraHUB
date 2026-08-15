@@ -42,6 +42,7 @@ export function CostosTool({
   }, [projectSlug, savedId]);
 
   async function handleOpenSaved(id: string) {
+    if (!projectSlug) return;
     setError(null);
     try {
       const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/budgets?id=${id}`);
@@ -316,7 +317,8 @@ export function CostosTool({
                   </p>
                 </div>
                 <span className="shrink-0 font-mono text-xs text-amber-300">{formatCOP(b.total)}</span>
-              </div>
+                <span className="shrink-0 text-[10px] text-slate-500">abrir ↗</span>
+              </button>
             ))}
           </div>
         </div>
