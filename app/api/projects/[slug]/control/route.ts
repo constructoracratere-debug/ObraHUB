@@ -4,6 +4,7 @@ import { findProjectBySlug } from "@/lib/projects";
 import { listTasks } from "@/lib/gantt-tasks";
 import { listBudgets, getBudgetDetail } from "@/lib/project-controls";
 import { computeDashboard } from "@/lib/earned-value";
+import { buildAlerts } from "@/lib/alerts";
 
 type RouteContext = {
   params: Promise<{ slug: string }>;
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       dashboard,
+      alerts: buildAlerts(dashboard, rain),
       budget: { id: detail.id, title: detail.title, total: detail.total },
       budgets: budgets.map((b) => ({ id: b.id, title: b.title, total: b.total })),
       items: detail.items,

@@ -13,6 +13,15 @@ import { formatCOP } from "@/lib/prices";
  *   • The budget↔task link editor (each APU item → a Gantt task)
  */
 
+type ProjectAlert = {
+  id: string;
+  level: "critica" | "advertencia";
+  icon: string;
+  title: string;
+  evidence: string;
+  recommendation: string;
+};
+
 type Dashboard = {
   window: { start: string; end: string };
   bac: number;
@@ -76,6 +85,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [alerts, setAlerts] = useState<ProjectAlert[]>([]);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [tasks, setTasks] = useState<TaskOption[]>([]);
   const [budgets, setBudgets] = useState<Array<{ id: string; title: string; total: number }>>([]);
@@ -95,6 +105,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
         if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error al cargar");
         setBudgets(data.budgets ?? []);
         setDashboard(data.dashboard ?? null);
+        setAlerts(data.alerts ?? []);
         setItems(data.items ?? []);
         setReason(data.dashboard ? null : (data.reason ?? null));
         if (data.tasksCount != null) {
@@ -210,6 +221,43 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
         </div>
       ) : dashboard ? (
         <>
+          {/* Alerts */}
+          {alerts.length > 0 && (
+            <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  🚨 Alertas para asamblea ({alerts.length})
+                </h3>
+                <div className="flex gap-2 text-[10px]">
+                  <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-red-300">
+                    {alerts.filter((a) => a.level === "critica").length} críticas
+                  </span>
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-300">
+                    {alerts.filter((a) => a.level === "advertencia").length} advertencias
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {alerts.map((a) => (
+                  <div
+                    key={a.id}
+                    className={`rounded-lg border px-3 py-2.5 ${
+                      a.level === "critica"
+                        ? "border-red-500/25 bg-red-500/[0.07]"
+                        : "border-amber-500/25 bg-amber-500/[0.06]"
+                    }`}
+                  >
+                    <p className={`text-xs font-semibold ${a.level === "critica" ? "text-red-200" : "text-amber-200"}`}>
+                      {a.icon} {a.title}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-300">{a.evidence}</p>
+                    <p className="mt-1 text-[11px] italic text-slate-500">→ {a.recommendation}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
             <KpiCard label="Avance real" value={pct(dashboard.kpis.progressEarned)} tone="emerald" />
