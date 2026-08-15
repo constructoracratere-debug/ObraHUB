@@ -181,15 +181,15 @@ const suggestions = [
 
 const trustBadges = [
   "Especializado en Colombia",
-  "Basado en NSR-10",
+  "Basado en normativa oficial",
   "Respuestas con referencias",
   "Diseñado para profesionales",
 ];
 
 const features = [
   {
-    title: "Consultar NSR-10",
-    description: "Acceso directo al Reglamento Colombiano de Construcción Sismo Resistente.",
+    title: "Consultar normativa oficial",
+    description: "NSR-10, RETIE, RAS, NTC y más — respuestas con citas por página.",
     icon: (
       <path
         strokeLinecap="round"
@@ -530,6 +530,18 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const activeFolder = folderPath.length > 0 ? folderPath[folderPath.length - 1] : null;
   const showHero = messages.length === 0 && !activeProjectSlug;
   const selectorDocs = documents.filter((d) => d.country === selectorCountry);
+
+  // Scope label for the normativa UI — reflects what the user actually
+  // selected (or the whole library) instead of a hardcoded "NSR-10".
+  const activeScopeLabel =
+    selectedDocumentIds.length === 0
+      ? "biblioteca completa"
+      : documents.filter((d) => selectedDocumentIds.includes(d.id)).length > 2
+        ? `${selectedDocumentIds.length} normas seleccionadas`
+        : documents
+            .filter((d) => selectedDocumentIds.includes(d.id))
+            .map((d) => d.name.split(" - ")[0].split("(")[0].trim())
+            .join(" · ") || "biblioteca completa";
 
   // Tool Launcher: a project is selected but no tool is active yet.
   const showToolLauncher =
@@ -2338,7 +2350,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:150ms]" />
                             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400 [animation-delay:300ms]" />
                           </span>
-                          Consultando NSR-10…
+                          Consultando {activeScopeLabel}…
                         </span>
                       </div>
                     </div>
@@ -2371,7 +2383,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                       sendMessage(input);
                     }
                   }}
-                  placeholder="Pregunte sobre NSR-10, estructuras, concreto, mampostería, geotecnia, diseño sísmico y construcción..."
+                  placeholder="Pregunte sobre normativa, estructuras, concreto, mampostería, geotecnia, diseño sísmico y construcción..."
                   disabled={isLoading}
                   className="max-h-36 min-h-[54px] flex-1 resize-none bg-transparent px-4 py-3.5 text-base text-slate-200 placeholder:text-slate-500 focus:outline-none disabled:opacity-50 sm:px-5 sm:text-sm"
                 />

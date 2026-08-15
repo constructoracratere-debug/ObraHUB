@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { findProjectBySlug } from "@/lib/projects";
-import { saveBudget, listBudgets, setBudgetItemTask } from "@/lib/project-controls";
+import { saveBudget, listBudgets, setBudgetItemTask, getBudgetDetail } from "@/lib/project-controls";
 import type { APUBudget } from "@/lib/budget";
 
 type RouteContext = {
@@ -23,6 +23,46 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const project = await findProjectBySlug(supabase, slug);
     if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
+    const id = new URL(request.url).searchParams.get("id");
+    if (id) {
+      const detail = await getBudgetDetail(supabase, id);
+      if (!detail) return NextResponse.json({ error: "Budget not found" }, { status: 404 });
+      // Rebuild the APUBudget shape so the Costos UI can render the full
+      // summary (line breakdowns live only in the original AI response).
+      const chapters = new Map<string, Array<Record<string, unknown>>>();
+      for (const it of detail.items) {
+        const list = chapters.get(it.chapter) ?? [];
+        list.push({
+          codigo: it.codigo,
+          descripcion: it.descripcion,
+          unidad: it.unidad,
+          cantidad: it.cantidad,
+          materiales: [],
+          manoObra: [],
+          equipos: [],
+          costoDirecto: it.costoDirecto,
+          aiu: { administracion: 0, imprevistos: 0, utilidad: 0 },
+          precioUnitarioTotal: it.precioUnitarioTotal,
+          subtotal: it.subtotal,
+        });
+        chapters.set(it.chapter, list);
+      }
+      return NextResponse.json({
+        budget: {
+          titulo: detail.title,
+          capitulos: Array.from(chapters.entries()).map(([nombre, items]) => ({ nombre, items })),
+          resumen: {
+            costosDirectos: detail.costosDirectos,
+            aiuTotal: 22,
+            valorAIU: Math.max(0, detail.total / 1.19 - detail.costosDirectos),
+            subtotalConAIU: detail.total / 1.19,
+            iva: 19,
+            valorIVA: detail.total - detail.total / 1.19,
+            total: detail.total,
+          },
+        },
+      });
+    }
     const budgets = await listBudgets(supabase, project.id);
     return NextResponse.json({ budgets });
   } catch (error) {

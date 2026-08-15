@@ -41,6 +41,21 @@ export function CostosTool({
     return () => { cancelled = true; };
   }, [projectSlug, savedId]);
 
+  async function handleOpenSaved(id: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/budgets?id=${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error al abrir");
+      setBudget(data.budget as APUBudget);
+      setSavedId(id);
+      setExpandedItems(new Set());
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al abrir el presupuesto");
+    }
+  }
+
   async function handleSaveBudget() {
     if (!projectSlug || !budget || isSaving) return;
     setIsSaving(true);
@@ -283,9 +298,12 @@ export function CostosTool({
           </h3>
           <div className="space-y-2">
             {savedBudgets.map((b) => (
-              <div
+              <button
+                type="button"
                 key={b.id}
-                className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
+                onClick={() => void handleOpenSaved(b.id)}
+                title="Abrir presupuesto guardado"
+                className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition hover:border-blue-500/30 hover:bg-blue-500/[0.06] ${
                   b.id === savedId
                     ? "border-emerald-500/30 bg-emerald-500/[0.06]"
                     : "border-white/[0.05] bg-white/[0.02]"

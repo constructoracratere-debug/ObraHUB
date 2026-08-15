@@ -93,6 +93,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [reason, setReason] = useState<string | null>(null);
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [showLinks, setShowLinks] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(true);
 
   const load = useCallback(
     async (id?: string) => {
@@ -225,9 +226,14 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
           {alerts.length > 0 && (
             <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => setAlertsOpen((o) => !o)}
+                  className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400 transition hover:text-slate-200"
+                >
+                  <span className={`inline-block transition-transform ${alertsOpen ? "rotate-0" : "-rotate-90"}`}>▾</span>
                   🚨 Alertas para asamblea ({alerts.length})
-                </h3>
+                </button>
                 <div className="flex gap-2 text-[10px]">
                   <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-red-300">
                     {alerts.filter((a) => a.level === "critica").length} críticas
@@ -237,6 +243,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                   </span>
                 </div>
               </div>
+              {alertsOpen && (
               <div className="space-y-2">
                 {alerts.map((a) => (
                   <div
@@ -255,6 +262,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                   </div>
                 ))}
               </div>
+              )}
             </section>
           )}
 
