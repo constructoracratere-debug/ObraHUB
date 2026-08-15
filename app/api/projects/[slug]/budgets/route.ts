@@ -37,9 +37,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
           descripcion: it.descripcion,
           unidad: it.unidad,
           cantidad: it.cantidad,
-          materiales: [],
-          manoObra: [],
-          equipos: [],
+          materiales: (it.detalle?.materiales ?? []) as unknown[],
+          manoObra: (it.detalle?.manoObra ?? []) as unknown[],
+          equipos: (it.detalle?.equipos ?? []) as unknown[],
           costoDirecto: it.costoDirecto,
           aiu: { administracion: 0, imprevistos: 0, utilidad: 0 },
           precioUnitarioTotal: it.precioUnitarioTotal,
@@ -68,6 +68,41 @@ export async function GET(request: NextRequest, context: RouteContext) {
   } catch (error) {
     console.error("GET budgets error:", error);
     return NextResponse.json({ error: "Failed to load budgets" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/projects/[slug]/budgets?id=<budgetId> — delete a saved budget
+ * (cascades to its items; the owner-only check mirrors the list query).
+ */
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+    const { slug } = await context.params;
+    const project = await findProjectBySlug(supabase, slug);
+    if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+
+    const id = new URL(request.url).searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+    const { error } = await supabase
+      .from("budgets")
+      .delete()
+      .eq("id", id)
+      .eq("project_id", project.id);
+    if (error) {
+      console.error("DELETE budget error:", error.message);
+      return NextResponse.json({ error: "No se pudo eliminar el presupuesto" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("DELETE budgets error:", error);
+    return NextResponse.json({ error: "Failed to delete budget" }, { status: 500 });
   }
 }
 

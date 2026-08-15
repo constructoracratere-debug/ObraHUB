@@ -1,7 +1,7 @@
 // Conversor genérico Markdown → .docx para los informes de Admon 3
 // Uso: node scripts/md2docx.cjs <input.md> <output.docx>
 const {
-  Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
+  Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun,
   Table, TableRow, TableCell, WidthType, BorderStyle, Footer, PageNumber,
 } = require("docx");
 const fs = require("fs");
@@ -36,6 +36,11 @@ function mdToBlocks(md) {
       while (i < lines.length && lines[i].startsWith("|")) { tbl.push(lines[i]); i++; }
       blocks.push({ type: "table", rows: tbl });
       continue;
+    }
+    const imgm = line.match(/^!\[([^\]]*)\]\(([^)]+)\)\s*$/);
+    if (imgm) {
+      blocks.push({ type: "img", alt: imgm[1], src: imgm[2] });
+      i++; continue;
     }
     if (/^#{1,3}\s/.test(line)) {
       const level = line.match(/^(#+)/)[1].length;
@@ -117,6 +122,39 @@ function build(mdPath, docxPath, title) {
     // portada = todo antes del primer h1 (títulos de portada en el md)
     const inPortada = idx < firstH1;
     switch (b.type) {
+      case "img": {
+        const abs = b.src.startsWith(".") ? require("path").resolve(require("path").dirname(mdPath), b.src) : b.src;
+        try {
+          const data = fs.readFileSync(abs);
+          const sizeOf = (buf) => {
+            // minimal PNG dimension reader
+            if (buf.length > 24 && buf[1] === 0x50) return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+            return { w: 1280, h: 720 };
+          };
+          const dim = sizeOf(data);
+          const maxW = 560; // px ~ page width at 96dpi minus margins
+          const scale = Math.min(1, maxW / dim.w);
+          children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 120, after: 60 },
+            children: [new ImageRun({
+              type: "png",
+              data,
+              transformation: { width: Math.round(dim.w * scale * 96 / 96), height: Math.round(dim.h * scale * 96 / 96) },
+            })],
+          }));
+          if (b.alt) {
+            children.push(new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 160 },
+              children: [new TextRun({ text: b.alt, italics: true, size: 18, color: "64748B" })],
+            }));
+          }
+        } catch (e) {
+          children.push(new Paragraph({ children: [new TextRun({ text: `[imagen no encontrada: ${b.src}]`, italics: true, color: "B91C1C" })] }));
+        }
+        break;
+      }
       case "h1":
         children.push(new Paragraph({
           heading: HeadingLevel.HEADING_1,

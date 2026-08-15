@@ -73,6 +73,14 @@ REGLAS ESTRICTAS:
 4. Las cantidades de materiales/mano de obra deben ser realistas por unidad de trabajo (rendimientos estándar colombianos).
 5. Aplica AIU estándar: Administración (13%), Imprevistos (3%), Utilidad (6%) = 22% total sobre el costo directo.
 6. Aplica IVA del 19% sobre (costo directo + AIU).
+7. DETALLE DE REFERENCIA MUNDIAL (estándar Glodon/CostX/PlanSwift/Procore):
+   a. Cada línea de material/mano de obra/equipo DEBE llevar el campo source: la referencia del precio (ej. "Base SISDOCES ObraHub 2026", "Análisis sectorial Camacol", "Rendimiento NSR-10 A.6") — nunca precios sin fuente.
+   b. Muestra el RENDIMIENTO implícito en cada análisis (ej. m³ de mortero por m² de muro, horas-hombre por m³ de concreto vaciado) — el lector debe poder auditar la cantidad derivada.
+   c. Incluye porcentaje de DESPERDICIO/merma estándar del material en la cantidad (ladrillo 5%, cerámica 8%, pintura 5%, tubería 7%) y anotarlo en el nombre de la línea cuando aplique (ej. "incl. 5% desperdicio").
+   d. Capítulos numerados con codificación tipo RUE/APU colombiano (1. PRELIMINARES, 2. CIMENTACIÓN, 3. ESTRUCTURA, …) y códigos de ítem jerárquicos (2.1, 2.1.1).
+   e. Cuando el ítem sea estructural, referencia el capítulo/título NSR-10 aplicable (ej. "Ref. NSR-10 C.14.3" para confiabilidad) en la descripción.
+   f. Considera transporte y acarreo interno de materiales como línea explícita cuando el volumen lo justifique.
+   g. Incluye al final del resumen un ESCENARIO (optimista/conservador) con ±% justificado por volatilidad de insumos (cemento/acero).
 7. Organiza los ítems en CAPÍTULOS (Preliminares, Cimentación, Estructura, Mampostería, Acabados, Instalaciones, etc.).
 8. El subtotal de cada línea (qty × unitPrice) debe ser matemáticamente correcto.
 9. TRACEABILIDAD DE FUENTES: Cada línea debe incluir en "source" el nombre EXACTO del ítem de la base de datos y su código. Ejemplo: "source": "Base ObraHub: Cemento gris structural (MAT-001) — ref. 2025".

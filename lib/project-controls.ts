@@ -39,6 +39,7 @@ export type SavedBudgetDetail = SavedBudgetSummary & {
     subtotal: number;
     cantidadEjecutada: number;
     taskId: string | null;
+    detalle: { materiales: unknown[]; manoObra: unknown[]; equipos: unknown[] } | null;
   }>;
 };
 
@@ -93,6 +94,12 @@ export async function saveBudget(
 
 function itemToRow(budgetId: string, chapter: string, item: APUItem, sort: number) {
   return {
+    // Full line breakdown so a reopened budget is IDENTICAL to the generated one.
+    detalle: {
+      materiales: Array.isArray(item.materiales) ? item.materiales : [],
+      manoObra: Array.isArray(item.manoObra) ? item.manoObra : [],
+      equipos: Array.isArray(item.equipos) ? item.equipos : [],
+    },
     budget_id: budgetId,
     chapter,
     codigo: item.codigo ?? "",
@@ -168,6 +175,7 @@ export async function getBudgetDetail(
       subtotal: Number(i.subtotal ?? 0),
       cantidadEjecutada: Number(i.cantidad_ejecutada ?? 0),
       taskId: i.task_id ?? null,
+      detalle: (i.detalle ?? null) as SavedBudgetDetail["items"][number]["detalle"],
     })),
   };
 }

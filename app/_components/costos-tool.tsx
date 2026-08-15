@@ -7,10 +7,13 @@ import { formatCOP } from "@/lib/prices";
 export function CostosTool({
   initialPrompt,
   projectSlug,
+  onGenerateSchedule,
 }: {
   initialPrompt?: string;
   /** Project slug — when set, budgets can be saved to (and listed from) it. */
   projectSlug?: string;
+  /** Jump to Seguimiento with this context pre-filled (Gantt generation). */
+  onGenerateSchedule?: (contextPrompt: string) => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [budget, setBudget] = useState<APUBudget | null>(null);
@@ -40,6 +43,46 @@ export function CostosTool({
       .catch(() => { /* optional */ });
     return () => { cancelled = true; };
   }, [projectSlug, savedId]);
+
+  async function handleDeleteSaved(id: string, title: string) {
+    if (!projectSlug) return;
+    if (!window.confirm(`¿Eliminar el presupuesto "${title}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/budgets?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al eliminar");
+      setSavedBudgets((arr) => arr.filter((b) => b.id !== id));
+      if (savedId === id) setSavedId(null);
+    } catch {
+      setError("No se pudo eliminar el presupuesto");
+    }
+  }
+
+  function countItems(b: APUBudget | null): number {
+    return (b?.capitulos ?? []).reduce((n, c) => n + (c.items?.length ?? 0), 0);
+  }
+
+  /** Gantt bridge: comprehensive budgets go straight to the schedule;
+   *  thin ones (few items) get a heads-up first — they may be a partial
+   *  scope rather than a whole project. */
+  function handleGenerateGantt() {
+    if (!budget || !onGenerateSchedule) return;
+    const items = countItems(budget);
+    const chapters = budget.capitulos.length;
+    const isGlobal = items >= 8 && chapters >= 3;
+    if (!isGlobal) {
+      const ok = window.confirm(
+        `Este presupuesto tiene ${items} ítem(s) en ${chapters} capítulo(s) — parece un alcance parcial, no un proyecto completo.\n\n¿Deseas generar el cronograma de todas formas?`,
+      );
+      if (!ok) return;
+    }
+    const lines: string[] = [`Presupuesto: ${budget.titulo}`, `Total: ${budget.resumen.total.toLocaleString("es-CO")} COP`, "Capítulos e ítems:"];
+    for (const c of budget.capitulos) {
+      lines.push(`- ${c.nombre}:`);
+      for (const it of c.items) lines.push(`  · ${it.descripcion} — ${it.cantidad} ${it.unidad}`);
+    }
+    lines.push("", "Genera el cronograma de obra (Gantt) con tareas, dependencias e hitos a partir de estos capítulos e ítems, con secuencia constructiva colombiana y duraciones realistas.");
+    onGenerateSchedule(lines.join("\n"));
+  }
 
   async function handleOpenSaved(id: string) {
     if (!projectSlug) return;
@@ -201,6 +244,15 @@ export function CostosTool({
               💾 {isSaving ? "Guardando…" : "Guardar en el proyecto"}
             </button>
           )}
+          {budget && onGenerateSchedule && (
+            <button
+              type="button"
+              onClick={handleGenerateGantt}
+              className="inline-flex items-center gap-2 rounded-xl border border-purple-500/20 bg-purple-500/10 px-4 py-2.5 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20"
+            >
+              📅 Generar cronograma (Gantt)
+            </button>
+          )}
           {budget && savedId && (
             <span className="text-xs text-emerald-400">✓ Presupuesto guardado</span>
           )}
@@ -318,6 +370,14 @@ export function CostosTool({
                 </div>
                 <span className="shrink-0 font-mono text-xs text-amber-300">{formatCOP(b.total)}</span>
                 <span className="shrink-0 text-[10px] text-slate-500">abrir ↗</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); void handleDeleteSaved(b.id, b.title); }}
+                  className="shrink-0 rounded p-1 text-slate-600 transition hover:text-red-400"
+                  title="Eliminar presupuesto"
+                >
+                  🗑
+                </button>
               </button>
             ))}
           </div>

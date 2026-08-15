@@ -2358,6 +2358,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 <CostosTool
                   initialPrompt={pendingBudgetPrompt ?? undefined}
                   projectSlug={activeProjectSlug ?? undefined}
+                  onGenerateSchedule={activeProjectSlug ? (ctx) => {
+                    setPendingScheduleContext(ctx);
+                    setActiveTool("seguimiento");
+                  } : undefined}
                 />
               ) : activeTool === "seguimiento" ? (
                 activeProjectSlug ? (
