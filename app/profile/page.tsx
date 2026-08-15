@@ -27,7 +27,7 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, profession_type, company, phone")
+    .select("full_name, profession_type, company, phone, created_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -56,7 +56,7 @@ export default async function ProfilePage() {
         <div className="rounded-2xl border border-white/[0.08] bg-[#0a1120]/80 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
           <h1 className="text-2xl font-semibold tracking-tight text-white">Tu perfil</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Estos datos nos ayudan a personalizar tus consultas técnicas.
+            Tu identidad profesional dentro del ecosistema ObraHub.
           </p>
 
           <div className="mt-6 flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
@@ -72,6 +72,8 @@ export default async function ProfilePage() {
           </div>
 
           <ProfileForm
+          email={user.email ?? ""}
+          memberSince={profile?.created_at ?? new Date().toISOString()}
             initial={{
               full_name: profile?.full_name ?? "",
               profession_type: profile?.profession_type ?? "",
