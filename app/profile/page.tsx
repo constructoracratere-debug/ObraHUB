@@ -27,9 +27,18 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, profession_type, company, phone, created_at")
+    .select("full_name, profession_type, company, phone, created_at, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
+
+  // Signed URL for the avatar photo (short-lived; page re-renders on visit).
+  let avatarUrl: string | null = null;
+  if (profile?.avatar_url) {
+    const { data: signed } = await supabase.storage
+      .from("project-files")
+      .createSignedUrl(profile.avatar_url, 3600);
+    avatarUrl = signed?.signedUrl ?? null;
+  }
 
   return (
     <div className="relative min-h-dvh overflow-hidden bg-[#050b14] text-slate-200">
@@ -73,6 +82,7 @@ export default async function ProfilePage() {
 
           <ProfileForm
           email={user.email ?? ""}
+          avatarUrl={avatarUrl}
           memberSince={profile?.created_at ?? new Date().toISOString()}
             initial={{
               full_name: profile?.full_name ?? "",

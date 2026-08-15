@@ -14,11 +14,13 @@ export function ProfileForm({
   professions,
   email,
   memberSince,
+  avatarUrl,
 }: {
   initial: ProfileData;
   professions: string[];
   email: string;
   memberSince: string;
+  avatarUrl: string | null;
 }) {
   const hasProfile = Boolean(initial.full_name?.trim() || initial.profession_type?.trim());
   const [mode, setMode] = useState<"view" | "edit">(hasProfile ? "view" : "edit");
@@ -28,6 +30,27 @@ export function ProfileForm({
   const [company, setCompany] = useState(initial.company);
   const [phone, setPhone] = useState(initial.phone);
   const [isSaving, setIsSaving] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(avatarUrl);
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true); setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/profile/avatar", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error al subir la foto");
+      setAvatarSrc(URL.createObjectURL(file));
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al subir la foto");
+    } finally {
+      setIsUploading(false);
+    }
+  }
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,9 +103,20 @@ export function ProfileForm({
       <div className="mt-6">
         {/* Avatar + identidad */}
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-2xl font-bold text-white shadow-lg shadow-blue-900/40 ring-1 ring-blue-400/30">
-            {initials}
-          </div>
+          <label className="relative block h-20 w-20 shrink-0 cursor-pointer" title="Cambiar foto de perfil">
+            {avatarSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarSrc} alt="Foto de perfil" className="h-20 w-20 rounded-2xl object-cover ring-1 ring-blue-400/30" />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-2xl font-bold text-white shadow-lg shadow-blue-900/40 ring-1 ring-blue-400/30">
+                {initials}
+              </div>
+            )}
+            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] text-white shadow">
+              {isUploading ? "…" : "📷"}
+            </span>
+            <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={isUploading} />
+          </label>
           <div className="min-w-0">
             <h2 className="truncate text-xl font-semibold text-white">{displayName}</h2>
             {professionType && (
