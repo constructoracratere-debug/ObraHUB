@@ -96,6 +96,10 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [alertsOpen, setAlertsOpen] = useState(true);
   const [isReport, setIsReport] = useState(false);
 
+  function handleExportProject() {
+    window.open(`/api/projects/${encodeURIComponent(projectSlug)}/export`, "_blank");
+  }
+
   const load = useCallback(
     async (id?: string) => {
       setIsLoading(true);
