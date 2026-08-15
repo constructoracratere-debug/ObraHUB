@@ -109,23 +109,15 @@ const TOOLS: ToolDef[] = [
   {
     id: "storage",
     title: "Documentos",
-    description: "Organiza planos, contratos y archivos del proyecto en carpetas.",
+    description: "Planos, contratos y modelos BIM (IFC/Revit/DWG) del proyecto.",
     icon: "📁",
     available: true,
     gradient: "from-blue-500/15 to-blue-600/5",
   },
   {
-    id: "normativa",
-    title: "Consultor Normativo",
-    description: "Consulta la NSR-10, RETIE y normativas con respuestas citadas.",
-    icon: "⚖️",
-    available: true,
-    gradient: "from-emerald-500/15 to-emerald-600/5",
-  },
-  {
     id: "costos",
     title: "Costos y Presupuestos",
-    description: "Genera presupuestos de obra con IA y expórtalos a hoja de cálculo.",
+    description: "Genera presupuestos APU con IA y guárdalos en el proyecto.",
     icon: "💰",
     available: true,
     gradient: "from-amber-500/15 to-amber-600/5",
@@ -133,7 +125,7 @@ const TOOLS: ToolDef[] = [
   {
     id: "seguimiento",
     title: "Seguimiento de Obra",
-    description: "Cronograma dinámico (Gantt) con tareas, dependencias y avance.",
+    description: "Cronograma Gantt con tareas, dependencias y avance.",
     icon: "📊",
     available: true,
     gradient: "from-purple-500/15 to-purple-600/5",
@@ -141,7 +133,7 @@ const TOOLS: ToolDef[] = [
   {
     id: "bitacora",
     title: "Bitácora Diaria",
-    description: "Registro diario de obra: clima, personal, avance por tarea y novedades.",
+    description: "Registro diario de obra: clima, personal y avance por tarea.",
     icon: "📔",
     available: true,
     gradient: "from-rose-500/15 to-rose-600/5",
@@ -149,10 +141,18 @@ const TOOLS: ToolDef[] = [
   {
     id: "control",
     title: "Control de Obra",
-    description: "Curva S, valor ganado (SPI/CPI) y vínculo presupuesto ↔ cronograma.",
+    description: "Curva S, SPI/CPI, alertas e informe de asamblea semanal.",
     icon: "📈",
     available: true,
     gradient: "from-teal-500/15 to-teal-600/5",
+  },
+  {
+    id: "normativa",
+    title: "Consultor Normativo",
+    description: "NSR-10, RETIE, RAS y más — respuestas con citas por página.",
+    icon: "⚖️",
+    available: true,
+    gradient: "from-emerald-500/15 to-emerald-600/5",
   },
 ];
 
