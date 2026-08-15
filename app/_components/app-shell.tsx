@@ -934,6 +934,88 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   }
 
   // Upload files to the active folder (by folderId).
+  // ZIP project import: recreates the client's existing folder tree.
+  const zipInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleImportZip(zipFile: File) {
+    if (!activeProjectSlug || isUploading) return;
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const JSZip = (await import("jszip")).default;
+      setUploadProgress("Leyendo ZIP…");
+      const zip = await JSZip.loadAsync(zipFile);
+      const entries = Object.values(zip.files).filter(
+        (e) => !e.dir && !e.name.split("/").some((seg) => seg.startsWith("__MACOSX") || seg.startsWith(".")),
+      );
+      if (entries.length === 0) throw new Error("El ZIP no contiene archivos");
+
+      const supabase = createClient();
+      const pathCache = new Map<string, string>();
+      const ensureFolder = async (dirPath: string): Promise<string> => {
+        const key = dirPath || "/";
+        const cached = pathCache.get(key);
+        if (cached) return cached;
+        const res = await fetch(`/api/projects/${encodeURIComponent(activeProjectSlug)}/folders/ensure`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: dirPath }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.folderId) {
+          throw new Error(typeof data.error === "string" ? data.error : "Error al crear carpetas");
+        }
+        pathCache.set(key, data.folderId);
+        return data.folderId as string;
+      };
+
+      let done = 0;
+      const failures: string[] = [];
+      for (const entry of entries) {
+        done++;
+        const idx = entry.name.lastIndexOf("/");
+        const dir = idx > 0 ? entry.name.slice(0, idx) : "";
+        const name = idx > 0 ? entry.name.slice(idx + 1) : entry.name;
+        try {
+          setUploadProgress(`Importando ${done}/${entries.length}: ${name}`);
+          const folderId = await ensureFolder(dir);
+          const blob = await entry.async("blob");
+          const file = new File([blob], name, { type: blob.type || "application/octet-stream" });
+          if (file.size <= 4 * 1024 * 1024) {
+            const form = new FormData();
+            form.append("files", file);
+            const res = await fetch(`/api/folders/${folderId}/files`, { method: "POST", body: form });
+            if (!res.ok) throw new Error("subida falló");
+          } else {
+            const ticketRes = await fetch(`/api/folders/${folderId}/files/prepare?name=${encodeURIComponent(name)}`);
+            const ticket = await ticketRes.json();
+            if (!ticketRes.ok || !ticket.storagePath) throw new Error("prepare falló");
+            const { uploadFileResumable } = await import("@/lib/storage-upload");
+            await uploadFileResumable(supabase, { file, storagePath: ticket.storagePath });
+            await fetch(`/api/folders/${folderId}/files/register`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, storagePath: ticket.storagePath, mimeType: file.type || null, sizeBytes: file.size }),
+            });
+          }
+        } catch {
+          failures.push(name);
+        }
+      }
+      if (activeFolderId) await loadFolderContents(activeFolderId);
+      else await loadProjectFolders(activeProjectSlug);
+      if (failures.length > 0) {
+        setUploadError(`Importados ${entries.length - failures.length}/${entries.length}. Fallaron: ${failures.slice(0, 3).join(", ")}${failures.length > 3 ? "…" : ""}`);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Error al importar el ZIP");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(null);
+      if (zipInputRef.current) zipInputRef.current.value = "";
+    }
+  }
+
   async function handleUploadFiles(selectedFiles: FileList | File[]) {
     const fid = activeFolderId;
     if (!fid || isUploading) return;
@@ -2268,6 +2350,29 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                         <p className="mt-1 text-xs text-slate-500">
                           PDF, DWG, DXF, IFC, XLSX, imágenes · IFC hasta 100 MB · Revit (.rvt) hasta 300 MB
                         </p>
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => zipInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 disabled:opacity-50"
+                          >
+                            📂 Importar proyecto (ZIP)
+                          </button>
+                          <span className="text-[10px] text-slate-500">
+                            Trae tu proyecto ya trabajado — se recrea la estructura de carpetas completa
+                          </span>
+                        </div>
+                        <input
+                          ref={zipInputRef}
+                          type="file"
+                          accept=".zip"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) void handleImportZip(f);
+                          }}
+                        />
                       </label>
 
                       {isUploading && uploadProgress && (

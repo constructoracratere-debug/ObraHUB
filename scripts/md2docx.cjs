@@ -123,7 +123,7 @@ function build(mdPath, docxPath, title) {
     const inPortada = idx < firstH1;
     switch (b.type) {
       case "img": {
-        const abs = b.src.startsWith(".") ? require("path").resolve(require("path").dirname(mdPath), b.src) : b.src;
+        const abs = require("path").isAbsolute(b.src) ? b.src : require("path").resolve(require("path").dirname(mdPath), b.src);
         try {
           const data = fs.readFileSync(abs);
           const sizeOf = (buf) => {
