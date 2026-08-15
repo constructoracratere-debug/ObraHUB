@@ -94,6 +94,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [showLinks, setShowLinks] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(true);
+  const [isReport, setIsReport] = useState(false);
 
   const load = useCallback(
     async (id?: string) => {
@@ -163,6 +164,29 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   }
 
   const linkedCount = useMemo(() => items.filter((i) => i.taskId).length, [items]);
+
+  async function handleWeeklyReport() {
+    if (isReport) return;
+    setIsReport(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/weekly-report`);
+      if (!res.ok) throw new Error("Error al generar el informe");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Informe_Asamblea_${new Date().toISOString().slice(0, 10)}.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al generar el informe");
+    } finally {
+      setIsReport(false);
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 pb-8">
