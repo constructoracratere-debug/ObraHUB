@@ -442,6 +442,49 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [activeTool, setActiveTool] = useState<ToolId | null>(null);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const [files, setFiles] = useState<ProjectFile[]>([]);
+  // Project members (collaboration)
+  const [members, setMembers] = useState<Array<{ userId: string; email: string; role: string }>>([]);
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberRole, setMemberRole] = useState("editor");
+  const [memberBusy, setMemberBusy] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
+
+  async function loadMembers(slug: string) {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(slug)}/members`);
+      const data = await res.json();
+      setMembers(res.ok ? (data.members ?? []) : []);
+    } catch { setMembers([]); }
+  }
+
+  async function handleInviteMember() {
+    if (!activeProjectSlug || !memberEmail.trim() || memberBusy) return;
+    setMemberBusy(true); setMemberError(null);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(activeProjectSlug)}/members`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: memberEmail.trim(), role: memberRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error al invitar");
+      setMemberEmail("");
+      await loadMembers(activeProjectSlug);
+    } catch (err) {
+      setMemberError(err instanceof Error ? err.message : "Error al invitar");
+    } finally { setMemberBusy(false); }
+  }
+
+  async function handleRemoveMember(userId: string) {
+    if (!activeProjectSlug) return;
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(activeProjectSlug)}/members?userId=${userId}`, { method: "DELETE" });
+      setMembers((m) => m.filter((x) => x.userId !== userId));
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    if (activeProjectSlug) void loadMembers(activeProjectSlug);
+  }, [activeProjectSlug]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -1908,6 +1951,52 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                     <p className="mt-2 text-sm text-slate-500">
                       Selecciona una herramienta para empezar a trabajar en el proyecto.
                     </p>
+                  </div>
+
+                  <div className="mb-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-400/80">
+                      👥 Miembros del proyecto
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <input
+                        type="email"
+                        value={memberEmail}
+                        onChange={(e) => setMemberEmail(e.target.value)}
+                        placeholder="correo@ejemplo.com (debe tener cuenta ObraHub)"
+                        className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none"
+                      />
+                      <select
+                        value={memberRole}
+                        onChange={(e) => setMemberRole(e.target.value)}
+                        className="rounded-lg border border-white/[0.1] bg-[#050b14] px-2 py-2 text-xs text-slate-200 focus:outline-none"
+                      >
+                        <option value="viewer">Solo ver</option>
+                        <option value="editor">Editar</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => void handleInviteMember()}
+                        disabled={memberBusy || !memberEmail.trim()}
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+                      >
+                        {memberBusy ? "Invitando…" : "Invitar"}
+                      </button>
+                    </div>
+                    {memberError && <p className="mt-2 text-[11px] text-red-400">{memberError}</p>}
+                    {members.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {members.map((m) => (
+                          <span key={m.userId} className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] text-slate-300">
+                            {m.email}
+                            <span className="text-[9px] uppercase tracking-wide text-blue-300">{m.role}</span>
+                            <button type="button" onClick={() => void handleRemoveMember(m.userId)} className="text-slate-600 hover:text-red-400" title="Quitar">✕</button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[11px] text-slate-600">Sin invitados — comparte el proyecto con tu equipo invitándolos por correo.</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
