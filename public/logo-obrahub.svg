@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" fill="none">
+  <!-- ObraHub logotipo: bloque isométrico + circuito BIM -->
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <!-- Isométrico: cara superior -->
+  <path d="M30 8 L52 19 L30 30 L8 19 Z" fill="url(#g1)"/>
+  <!-- Cara izquierda -->
+  <path d="M8 19 L30 30 L30 54 L8 43 Z" fill="#1E3A8A"/>
+  <!-- Cara derecha -->
+  <path d="M52 19 L30 30 L30 54 L52 43 Z" fill="#0EA5E9" opacity="0.85"/>
+  <!-- Nodo BIM: puntos de datos en las aristas -->
+  <circle cx="30" cy="8" r="3" fill="#F8FAFC"/>
+  <circle cx="8" cy="19" r="3" fill="#F8FAFC"/>
+  <circle cx="52" cy="19" r="3" fill="#F8FAFC"/>
+  <!-- Wordmark -->
+  <text x="64" y="30" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="800" fill="#F8FAFC" letter-spacing="1">Obra<span fill="#38BDF8">Hub</span></text>
+  <text x="65" y="46" font-family="Segoe UI, Arial, sans-serif" font-size="10.5" fill="#94A3B8" letter-spacing="3.2">CONSTRUCTION OS · COLOMBIA</text>
+</svg>
