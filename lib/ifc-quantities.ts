@@ -506,7 +506,12 @@ export function buildBudgetContextFromIFC(summary: IfcQuantitySummary): string {
 
   lines.push("");
   lines.push(
-    "Generar el presupuesto APU completo usando estas cantidades exactas del modelo BIM como base.",
+    "Generar el presupuesto APU completo usando estas cantidades exactas del modelo BIM como base. " +
+    "REQUISITOS por cada item: (1) cantidades exactas del modelo; (2) desglose completo de materiales con unidad, rendimiento y fuente del precio; " +
+    "(3) desglose de mano de obra con rendimiento (horas-hombre por unidad); (4) desglose de EQUIPOS Y HERRAMIENTAS con descripcion de cada uno " +
+    "(ej. 'Mezcladora 1balsa 350L - alquiler/dia', 'Vibrador de inmersion 2HP - alquiler/dia', 'Andamio modular - m2 montado', " +
+    "'Herramienta menor 5% sobre mano de obra - llanas, boquilleras, niveles, pulidora') incluyendo alquiler, combustible y desgaste donde aplique; " +
+    "(5) costo directo por unidad base (por m2, m3, ml o unidad) claramente indicado.",
   );
   return lines.join("\n");
 }
