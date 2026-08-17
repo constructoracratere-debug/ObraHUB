@@ -126,6 +126,65 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
     } finally { setRfiBusy(false); }
   }
 
+  // Línea base (baseline)
+  const [baselines, setBaselines] = useState<Array<{ id: string; label: string; created_at: string }>>([]);
+  const [baseSel, setBaseSel] = useState<string>("");
+  const [baseSnap, setBaseSnap] = useState<Array<{ taskId: string; name: string; start: string; end: string }>>([]);
+  const [baseLabel, setBaseLabel] = useState("");
+  const [baseBusy, setBaseBusy] = useState(false);
+
+  async function loadBaselines(slug: string) {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(slug)}/baselines`);
+      const data = await res.json();
+      if (res.ok) {
+        setBaselines(data.baselines ?? []);
+        if ((data.baselines ?? []).length > 0 && !baseSel) setBaseSel(data.baselines[0].id);
+      } else setBaselines([]);
+    } catch { setBaselines([]); }
+  }
+
+  async function loadBaseSnapshot(id: string) {
+    if (!id) { setBaseSnap([]); return; }
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/baselines?id=${id}`);
+      const data = await res.json();
+      setBaseSnap(res.ok && data.baseline ? (data.baseline.snapshot ?? []) : []);
+    } catch { setBaseSnap([]); }
+  }
+
+  async function handleFreezeBaseline() {
+    if (baseBusy) return;
+    setBaseBusy(true);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/baselines`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: baseLabel.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setBaseLabel("");
+      await loadBaselines(projectSlug);
+      if (data.baseline?.id) { setBaseSel(data.baseline.id); await loadBaseSnapshot(data.baseline.id); }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al congelar línea base");
+    } finally { setBaseBusy(false); }
+  }
+
+  /** Variance (days) of current vs baseline end dates, matched by taskId. */
+  function baseVariance(): Array<{ name: string; base: string; now: string; delta: number }> {
+    const byId = new Map(baseSnap.map((b) => [b.taskId, b]));
+    return dashboard?.tasks
+      .map((t) => {
+        const b = byId.get(t.id);
+        if (!b) return null;
+        const delta = Math.round((Date.parse(`${t.endDate}T00:00:00`) - Date.parse(`${b.end}T00:00:00`)) / 86400000);
+        return { name: t.name, base: b.end, now: t.endDate, delta };
+      })
+      .filter((x): x is { name: string; base: string; now: string; delta: number } => x !== null)
+      .sort((a, b) => b.delta - a.delta) ?? [];
+  }
+
   async function handlePatchRfi(id: string, patch: { status?: string; response?: string }) {
     try {
       await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/rfis`, {
@@ -154,6 +213,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
         setDashboard(data.dashboard ?? null);
         setAlerts(data.alerts ?? []);
         void loadRfis(projectSlug);
+        void loadBaselines(projectSlug);
         setItems(data.items ?? []);
         setReason(data.dashboard ? null : (data.reason ?? null));
         if (data.tasksCount != null) {
@@ -210,6 +270,12 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   }
 
   const linkedCount = useMemo(() => items.filter((i) => i.taskId).length, [items]);
+
+  useEffect(() => {
+    if (baseSel) void loadBaseSnapshot(baseSel);
+  }, [baseSel]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const variance = useMemo(() => (dashboard && baseSnap.length > 0 ? baseVariance() : []), [dashboard, baseSnap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleWeeklyReport() {
     if (isReport) return;
@@ -381,6 +447,61 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
               </div>
             </div>
             <SCurve dashboard={dashboard} />
+          </section>
+
+          {/* Línea base del cronograma */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  📐 Línea base del cronograma
+                </h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  Congela el cronograma contractual y compara contra los cambios reales.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {baselines.length > 0 && (
+                  <select
+                    value={baseSel}
+                    onChange={(e) => setBaseSel(e.target.value)}
+                    className="rounded-lg border border-white/[0.1] bg-[#050b14] px-2 py-1.5 text-xs text-slate-200 focus:outline-none"
+                  >
+                    {baselines.map((b) => (
+                      <option key={b.id} value={b.id}>{b.label} · {new Date(b.created_at).toLocaleDateString("es-CO")}</option>
+                    ))}
+                  </select>
+                )}
+                <input
+                  type="text" value={baseLabel} onChange={(e) => setBaseLabel(e.target.value)}
+                  placeholder="Etiqueta (ej. Contrato firmado)"
+                  className="w-44 rounded-lg border border-white/[0.1] bg-[#050b14] px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none"
+                />
+                <button
+                  type="button" onClick={() => void handleFreezeBaseline()} disabled={baseBusy}
+                  className="rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-teal-500 disabled:opacity-50"
+                >
+                  {baseBusy ? "…" : "❄️ Congelar actual"}
+                </button>
+              </div>
+            </div>
+            {variance.length > 0 ? (
+              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                {variance.slice(0, 12).map((v, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-1.5">
+                    <span className="min-w-0 truncate text-xs text-slate-200">{v.name}</span>
+                    <span className="shrink-0 font-mono text-[10px] text-slate-500">{v.base} → {v.now}</span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${v.delta > 0 ? "bg-red-500/15 text-red-300" : v.delta < 0 ? "bg-sky-500/15 text-sky-300" : "bg-emerald-500/15 text-emerald-300"}`}>
+                      {v.delta > 0 ? `+${v.delta}d` : v.delta === 0 ? "en línea" : `${v.delta}d`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-600">
+                {baselines.length === 0 ? "Sin línea base — congela el cronograma contractual para detectar desviaciones reales." : "Esta línea base no coincide con las tareas actuales."}
+              </p>
+            )}
           </section>
 
           {/* RFIs / No conformidades */}
