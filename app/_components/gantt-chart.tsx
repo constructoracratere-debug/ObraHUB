@@ -89,14 +89,72 @@ const TYPE_STYLES: Record<GanttTaskType, { bg: string; bar: string; label: strin
  * - Dependency arrows
  * - Colombian-standard layout
  */
+/**
+ * Critical path (CPM): tasks with zero float via forward/backward passes
+ * over the dependency graph. Critical ids drive the red highlighting.
+ */
+function computeCriticalIds(tasks: GanttTask[]): Set<string> {
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const duration = (t: GanttTask) => Math.max(1, Math.round((t.end.getTime() - t.start.getTime()) / 86400000));
+  const deps = (t: GanttTask) => (t.dependencies ?? []).filter((d) => byId.has(d));
+
+  // Topological order (Kahn).
+  const indeg = new Map(tasks.map((t) => [t.id, deps(t).length]));
+  const dependents = new Map<string, string[]>();
+  for (const t of tasks) for (const d of deps(t)) dependents.set(d, [...(dependents.get(d) ?? []), t.id]);
+  const queue = tasks.filter((t) => indeg.get(t.id) === 0).map((t) => t.id);
+  const order: string[] = [];
+  while (queue.length > 0) {
+    const id = queue.shift() as string;
+    order.push(id);
+    for (const next of dependents.get(id) ?? []) {
+      indeg.set(next, (indeg.get(next) ?? 1) - 1);
+      if (indeg.get(next) === 0) queue.push(next);
+    }
+  }
+  if (order.length !== tasks.length) return new Set(); // cycle guard — no CP
+
+  // Forward pass: ES/EF.
+  const ES = new Map<string, number>();
+  const EF = new Map<string, number>();
+  for (const id of order) {
+    const t = byId.get(id) as GanttTask;
+    const es = Math.max(0, ...deps(t).map((d) => (EF.get(d) ?? 0) + 1));
+    ES.set(id, es);
+    EF.set(id, es + duration(t) - 1);
+  }
+  const projectEnd = Math.max(0, ...order.map((id) => EF.get(id) ?? 0));
+
+  // Backward pass: LF/LS → float.
+  const LF = new Map<string, number>();
+  const LS = new Map<string, number>();
+  for (const id of [...order].reverse()) {
+    const t = byId.get(id) as GanttTask;
+    const succ = (dependents.get(id) ?? []).map((sid) => LS.get(sid) ?? projectEnd + 1);
+    const lf = succ.length === 0 ? projectEnd : Math.min(...succ) - 1;
+    LF.set(id, lf);
+    LS.set(id, lf - duration(t) + 1);
+  }
+  const critical = new Set<string>();
+  for (const t of tasks) {
+    if ((t.dependencies ?? []).length === 0 && (dependents.get(t.id) ?? []).length === 0) continue; // isolated
+    const float = (LS.get(t.id) ?? 0) - (ES.get(t.id) ?? 0);
+    if (float <= 0) critical.add(t.id);
+  }
+  return critical;
+}
+
 export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }: GanttChartProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
+  const [showCritical, setShowCritical] = useState(true);
+  const criticalIds = useMemo(() => computeCriticalIds(tasks), [tasks]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Responsive task column width — narrower on phones, wider on tablets/desktops
   const [labelColWidth, setLabelColWidth] = useState(280);
+  // (legend rendered in the header controls)
   useEffect(() => {
     const update = () => setLabelColWidth(window.innerWidth < 640 ? 140 : window.innerWidth < 1024 ? 200 : 280);
     update();
@@ -365,6 +423,18 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={() => setShowCritical((v) => !v)}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+              showCritical && criticalIds.size > 0
+                ? "bg-red-500/15 text-red-300 ring-1 ring-red-500/30"
+                : "text-slate-500 hover:text-white"
+            }`}
+            title="Ruta crítica (CPM): tareas sin holgura — un día de atraso atrasa la obra"
+          >
+            🟥 Ruta crítica{criticalIds.size > 0 ? ` (${criticalIds.size})` : ""}
+          </button>
+          <button
+            type="button"
             onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
             className="flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.03] text-sm text-slate-400 hover:bg-white/[0.08] hover:text-white"
             title="Alejar"
@@ -447,6 +517,7 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
           {/* Task rows */}
           {visibleTasks.map((task) => {
             const style = TYPE_STYLES[task.type];
+            const isCritical = showCritical && criticalIds.has(task.id) && task.type !== "milestone";
             const startOffset = diffDays(timelineStart, task.start);
             const duration = Math.max(1, diffDays(task.start, task.end));
             const leftPx = startOffset * dayWidth;
@@ -523,7 +594,7 @@ export function GanttChart({ tasks, onTaskChange, selectedTaskId, onTaskSelect }
                     </div>
                   ) : (
                     <div
-                      className={`absolute top-1/2 z-10 -translate-y-1/2 overflow-hidden rounded-md shadow-md ${style.bar} ${
+                      className={`absolute top-1/2 z-10 -translate-y-1/2 overflow-hidden rounded-md shadow-md ${isCritical ? "bg-gradient-to-r from-red-600 to-red-500 ring-1 ring-red-400/60" : style.bar} ${
                         task.type === "summary" ? "ring-1 ring-blue-300/30" : ""
                       } ${selectedTaskId === task.id ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-[#0a1120]" : ""}`}
                       style={{
