@@ -41,7 +41,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           manoObra: (it.detalle?.manoObra ?? []) as unknown[],
           equipos: (it.detalle?.equipos ?? []) as unknown[],
           costoDirecto: it.costoDirecto,
-          aiu: { administracion: 0, imprevistos: 0, utilidad: 0 },
+          aiu: it.detalle?.aiu ?? { administracion: 0, imprevistos: 0, utilidad: 0 },
+          escenarios: (it.detalle?.escenarios ?? []) as unknown[],
           precioUnitarioTotal: it.precioUnitarioTotal,
           subtotal: it.subtotal,
         });

@@ -437,7 +437,7 @@ function APUItemRow({
 
           {/* AIU breakdown */}
           <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-white/[0.04] pt-3 text-xs text-slate-500">
-            <span>Costo Directo: <strong className="text-slate-300">{formatCOP(item.costoDirecto)}</strong></span>
+            <span>Costo Directo: <strong className="text-slate-300">{formatCOP(item.costoDirecto)}</strong>{item.unidad ? <span className="text-slate-500"> / {item.unidad}</span> : null}</span>
             <span>Adm. ({item.aiu.administracion}%): <strong className="text-slate-300">{formatCOP(item.costoDirecto * item.aiu.administracion / 100)}</strong></span>
             <span>Impr. ({item.aiu.imprevistos}%): <strong className="text-slate-300">{formatCOP(item.costoDirecto * item.aiu.imprevistos / 100)}</strong></span>
             <span>Util. ({item.aiu.utilidad}%): <strong className="text-slate-300">{formatCOP(item.costoDirecto * item.aiu.utilidad / 100)}</strong></span>
