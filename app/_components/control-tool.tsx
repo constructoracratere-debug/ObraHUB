@@ -94,6 +94,47 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [showLinks, setShowLinks] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(true);
+  // RFIs / No conformidades
+  const [rfis, setRfis] = useState<Array<{ id: string; code: string; title: string; reference: string; assignee: string; due_date: string | null; status: string; response: string }>>([]);
+  const [rfiTitle, setRfiTitle] = useState("");
+  const [rfiAssignee, setRfiAssignee] = useState("");
+  const [rfiDue, setRfiDue] = useState("");
+  const [rfiBusy, setRfiBusy] = useState(false);
+
+  async function loadRfis(slug: string) {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(slug)}/rfis`);
+      const data = await res.json();
+      setRfis(res.ok ? (data.rfis ?? []) : []);
+    } catch { setRfis([]); }
+  }
+
+  async function handleCreateRfi() {
+    if (!projectSlug || !rfiTitle.trim() || rfiBusy) return;
+    setRfiBusy(true);
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/rfis`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: rfiTitle.trim(), assignee: rfiAssignee.trim(), dueDate: rfiDue || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      setRfiTitle(""); setRfiAssignee(""); setRfiDue("");
+      await loadRfis(projectSlug);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al crear RFI");
+    } finally { setRfiBusy(false); }
+  }
+
+  async function handlePatchRfi(id: string, patch: { status?: string; response?: string }) {
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/rfis`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...patch }),
+      });
+      await loadRfis(projectSlug);
+    } catch { /* ignore */ }
+  }
   const [isReport, setIsReport] = useState(false);
 
   function handleExportProject() {
@@ -112,6 +153,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
         setBudgets(data.budgets ?? []);
         setDashboard(data.dashboard ?? null);
         setAlerts(data.alerts ?? []);
+        void loadRfis(projectSlug);
         setItems(data.items ?? []);
         setReason(data.dashboard ? null : (data.reason ?? null));
         if (data.tasksCount != null) {
@@ -339,6 +381,78 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
               </div>
             </div>
             <SCurve dashboard={dashboard} />
+          </section>
+
+          {/* RFIs / No conformidades */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  📋 RFIs y No conformidades ({rfis.filter((r) => r.status !== "cerrada").length} abiertas)
+                </h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">Preguntas de obra con responsable y vencimiento — incluidas en el informe de asamblea.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="text" value={rfiTitle} onChange={(e) => setRfiTitle(e.target.value)}
+                placeholder="Ej. Confirmar nivel de acabado fachada norte"
+                className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-teal-500/40 focus:outline-none"
+              />
+              <input
+                type="text" value={rfiAssignee} onChange={(e) => setRfiAssignee(e.target.value)}
+                placeholder="Responsable"
+                className="w-36 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-teal-500/40 focus:outline-none"
+              />
+              <input
+                type="date" value={rfiDue} onChange={(e) => setRfiDue(e.target.value)}
+                className="rounded-lg border border-white/[0.1] bg-[#050b14] px-2 py-2 text-xs text-slate-300 focus:border-teal-500/40 focus:outline-none"
+              />
+              <button
+                type="button" onClick={() => void handleCreateRfi()} disabled={rfiBusy || !rfiTitle.trim()}
+                className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-500 disabled:opacity-50"
+              >
+                {rfiBusy ? "…" : "+ RFI"}
+              </button>
+            </div>
+            {rfis.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {rfis.slice(0, 12).map((r) => {
+                  const overdue = r.status === "abierta" && r.due_date && r.due_date < new Date().toISOString().slice(0, 10);
+                  const st = r.status === "cerrada" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                    : r.status === "respondida" ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
+                    : overdue ? "border-red-500/40 bg-red-500/15 text-red-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300";
+                  return (
+                    <div key={r.id} className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs text-slate-200">
+                            <span className="mr-2 font-mono text-[10px] text-slate-500">{r.code}</span>{r.title}
+                          </p>
+                          <p className="text-[10px] text-slate-600">
+                            {r.assignee || "Sin responsable"}{r.due_date ? ` · vence ${r.due_date}` : ""}{r.response ? " · respondida" : ""}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${st}`}>
+                          {overdue && r.status === "abierta" ? "VENCIDA" : r.status}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {r.status !== "respondida" && r.status !== "cerrada" && (
+                          <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "respondida", response: r.response || "Respuesta registrada en obra" })} className="rounded border border-sky-500/30 px-2 py-1 text-[10px] text-sky-300 hover:bg-sky-500/10">↩ Responder</button>
+                        )}
+                        {r.status !== "cerrada" && (
+                          <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "cerrada" })} className="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10">✓ Cerrar</button>
+                        )}
+                        {r.status === "cerrada" && (
+                          <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "abierta" })} className="rounded border border-white/[0.1] px-2 py-1 text-[10px] text-slate-400 hover:bg-white/[0.05]">↺ Reabrir</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* Budget ↔ task links */}

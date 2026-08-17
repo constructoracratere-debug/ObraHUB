@@ -198,6 +198,38 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       s5.addText("Sin alertas activas — obra dentro de parámetros.", { x: 0.6, y: 3, fontSize: 14, color: GOOD, bold: true });
     }
 
+    // --- S6 RFIs abiertas (solo si hay)
+    const { data: rfiRows } = await supabase
+      .from("project_rfis")
+      .select("code, title, assignee, due_date, status")
+      .eq("project_id", project.id)
+      .neq("status", "cerrada")
+      .order("created_at", { ascending: false });
+    const openRfis = (rfiRows ?? []) as Array<Record<string, any>>;
+    if (openRfis.length > 0) {
+      const sR = pptx.addSlide();
+      sR.background = { color: "F8FAFC" };
+      sR.addText(`RFIs y No conformidades abiertas (${openRfis.length})`, { x: 0.6, y: 0.4, fontSize: 26, bold: true, color: "0F172A" });
+      sR.addTable(
+        [
+          ["Código", "Título", "Responsable", "Vence", "Estado"].map((t) => ({
+            text: t, options: { bold: true, color: "FFFFFF", fill: { color: "0F172A" } },
+          })),
+          ...openRfis.slice(0, 10).map((r) => {
+            const overdue = r.status === "abierta" && r.due_date && String(r.due_date).slice(0, 10) < iso(now);
+            return [
+              { text: r.code ?? "", options: { bold: true } },
+              { text: String(r.title ?? "").slice(0, 55) },
+              { text: r.assignee || "—" },
+              { text: r.due_date ? String(r.due_date).slice(0, 10) : "—" },
+              { text: overdue ? "VENCIDA" : (r.status ?? "").toUpperCase(), options: { bold: true, color: "FFFFFF", fill: { color: overdue ? BAD : r.status === "respondida" ? ACCENT : WARN } } },
+            ];
+          }),
+        ],
+        { x: 0.6, y: 1.2, w: 12.1, fontSize: 11.5, color: "0F172A", border: { pt: 1, color: "E2E8F0" }, rowH: 0.45 },
+      );
+    }
+
     // --- S6 Bitácora de la semana
     const s6 = pptx.addSlide();
     s6.background = { color: "F8FAFC" };
