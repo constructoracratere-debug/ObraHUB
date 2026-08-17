@@ -411,6 +411,24 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeProjectSlug, setActiveProjectSlug] = useState<string | null>(null);
+
+  // Portfolio health cards (Home dashboard).
+  const [portfolio, setPortfolio] = useState<Array<{
+    slug: string; name: string; progress: number; spi: number | null;
+    alerts: number; critical: number; totalBudget: number | null;
+    tasksTotal: number; nextMilestone: { name: string; date: string } | null;
+    daysSinceBitacora: number | null;
+  }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/portfolio")
+      .then((r) => (r.ok ? r.json() : { cards: [] }))
+      .then((d) => { if (!cancelled) setPortfolio(d.cards ?? []); })
+      .catch(() => { /* decorative */ });
+    return () => { cancelled = true; };
+  }, [activeProjectSlug]); // refresh when returning from a project
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [showCreateProject, setShowCreateProject] = useState(false);
@@ -1934,7 +1952,49 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                       El asistente técnico para profesionales de la construcción en Colombia
                     </div>
 
-                    <h1 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+                    {portfolio.length > 0 && (
+            <div className="mb-12">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-400/80">
+                Tus proyectos — salud de un vistazo
+              </p>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {portfolio.map((c) => {
+                  const R = 26, C = 2 * Math.PI * R;
+                  const off = C * (1 - Math.min(100, Math.max(0, c.progress)) / 100);
+                  const spiCls = c.spi == null ? "text-slate-400" : c.spi >= 1 ? "text-emerald-300" : c.spi >= 0.9 ? "text-amber-300" : "text-red-300";
+                  const ring = c.progress >= 70 ? "#34d399" : c.progress >= 30 ? "#38bdf8" : "#64748b";
+                  return (
+                    <button
+                      key={c.slug}
+                      type="button"
+                      onClick={() => openProject(c.slug)}
+                      className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-left transition hover:border-blue-500/30 hover:bg-blue-500/[0.04]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg viewBox="0 0 64 64" className="h-16 w-16 shrink-0 -rotate-90">
+                          <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
+                          <circle cx="32" cy="32" r={R} fill="none" stroke={ring} strokeWidth="6" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={off} />
+                        </svg>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-white group-hover:text-blue-200">{c.name}</p>
+                          <p className={`mt-0.5 text-lg font-bold ${spiCls}`}>{c.progress}%{c.spi != null && <span className="ml-2 text-xs">SPI {c.spi}</span>}</p>
+                          <p className="text-[10px] text-slate-500">{c.tasksTotal} tareas{c.daysSinceBitacora != null ? ` · bitácora hace ${c.daysSinceBitacora}d` : " · sin bitácora"}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {c.critical > 0 && <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-300">🔴 {c.critical} críticas</span>}
+                        {c.alerts > c.critical && <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">🟡 {c.alerts - c.critical}</span>}
+                        {c.nextMilestone && <span className="truncate rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">🗓 {c.nextMilestone.date}</span>}
+                        {c.alerts === 0 && !c.nextMilestone && <span className="text-[10px] text-slate-600">Sin alertas</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <h1 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
                       IA para Ingeniería, Arquitectura y Construcción en Colombia
                     </h1>
                     <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-lg">
