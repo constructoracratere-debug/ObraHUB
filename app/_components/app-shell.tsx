@@ -2181,6 +2181,27 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                       >
                         Crear carpeta personalizada
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => zipInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20 disabled:opacity-50"
+                      >
+                        📂 Importar proyecto (ZIP)
+                      </button>
+                      <span className="mt-1 block text-[10px] text-slate-500">
+                        Trae tu proyecto ya trabajado — se recrea la estructura de carpetas completa
+                      </span>
+                      <input
+                        ref={zipInputRef}
+                        type="file"
+                        accept=".zip"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void handleImportZip(f);
+                        }}
+                      />
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
