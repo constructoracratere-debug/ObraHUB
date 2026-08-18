@@ -101,6 +101,9 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [rfiAssignee, setRfiAssignee] = useState("");
   const [rfiDue, setRfiDue] = useState("");
   const [rfiBusy, setRfiBusy] = useState(false);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [rfiNotify, setRfiNotify] = useState(false);
+  const [rfiNotifyEmail, setRfiNotifyEmail] = useState("");
 
   async function loadRfis(slug: string) {
     try {
@@ -116,10 +119,12 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
     try {
       const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/rfis`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: rfiTitle.trim(), assignee: rfiAssignee.trim(), dueDate: rfiDue || null }),
+        body: JSON.stringify({ title: rfiTitle.trim(), assignee: rfiAssignee.trim(), dueDate: rfiDue || null, notify: rfiNotify, notifyEmail: rfiNotifyEmail.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
+      if (data.notify === "failed") setError("RFI creado, pero el correo no pudo enviarse (Resend free-tier solo entrega al correo del dueño — verifica un dominio en resend.com/domains)");
+      if (data.notify === "sent") setSavedMsg("📧 Notificación enviada al responsable");
       setRfiTitle(""); setRfiAssignee(""); setRfiDue("");
       await loadRfis(projectSlug);
     } catch (err) {
@@ -202,8 +207,8 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   }
 
   const load = useCallback(
-    async (id?: string) => {
-      setIsLoading(true);
+    async (id?: string, opts?: { light?: boolean }) => {
+      if (!opts?.light) setIsLoading(true);
       setError(null);
       try {
         const qs = id ? `?budgetId=${encodeURIComponent(id)}` : "";
@@ -234,7 +239,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al cargar");
       } finally {
-        setIsLoading(false);
+        if (!opts?.light) setIsLoading(false);
       }
     },
     [projectSlug],
@@ -266,7 +271,8 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
         throw new Error(typeof data.error === "string" ? data.error : "Error al vincular");
       }
       setItems((arr) => arr.map((i) => (i.id === itemId ? { ...i, taskId: taskId || null } : i)));
-      await load(budgetId || undefined);
+      // Refresh silencioso: recalcula KPIs/curva SIN congelar la vista.
+      await load(budgetId || undefined, { light: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al vincular");
     } finally {
@@ -540,6 +546,20 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
               >
                 {rfiBusy ? "…" : "+ RFI"}
               </button>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <input type="checkbox" checked={rfiNotify} onChange={(e) => setRfiNotify(e.target.checked)} className="accent-teal-500" />
+                📧 Notificar por correo
+              </label>
+              {rfiNotify && (
+                <input
+                  type="email" value={rfiNotifyEmail} onChange={(e) => setRfiNotifyEmail(e.target.value)}
+                  placeholder="correo del responsable"
+                  className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-2.5 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none"
+                />
+              )}
+              {savedMsg && <span className="text-emerald-400">{savedMsg}</span>}
             </div>
             {rfis.length > 0 && (
               <div className="mt-3 space-y-1.5">

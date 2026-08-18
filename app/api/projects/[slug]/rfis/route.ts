@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { Resend } from "resend";
 import { findProjectBySlug } from "@/lib/projects";
 
 type RouteContext = { params: Promise<{ slug: string }> };
@@ -61,6 +62,37 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq("project_id", project.id);
     const code = `RFI-${String(Number(count ?? 0) + 1).padStart(3, "0")}`;
 
+    // Notificación opcional por correo al responsable.
+    let notify: "sent" | "skipped" | "failed" | null = null;
+    const wantsNotify = body?.notify === true;
+    const to = typeof body?.notifyEmail === "string" ? body.notifyEmail.trim() : "";
+    if (wantsNotify && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      try {
+        const resend = new Resend(process.env.RESEND_API_KEY ?? "");
+        const projectName = (await supabase.from("projects").select("name").eq("id", project.id).single()).data?.name ?? slug;
+        await resend.emails.send({
+          from: "ObraHub RFIs <onboarding@resend.dev>",
+          to,
+          subject: `📋 ${code} — ${title} (${projectName})`,
+          html: `<div style="font-family:Segoe UI,Arial,sans-serif;max-width:620px;margin:0 auto">
+            <div style="background:#0a1120;color:#fff;padding:18px 22px;border-radius:12px 12px 0 0">
+              <h2 style="margin:0;font-size:16px">📋 Nuevo RFI asignado — ObraHub</h2>
+            </div>
+            <div style="background:#f8fafc;padding:18px;border-radius:0 0 12px 12px">
+              <p style="margin:0 0 8px"><b style="color:#0f172a">${code}</b> · <b style="color:#0f172a">${title}</b></p>
+              <p style="margin:0 0 8px;color:#334155">Proyecto: ${projectName}</p>
+              ${dueDate ? `<p style="margin:0 0 8px;color:#b45309"><b>Vence:</b> ${dueDate}</p>` : ""}
+              <p style="margin:12px 0 0;font-size:12px;color:#64748b">Gestionado en ObraHub · Powered by Cratere S.A.S.</p>
+            </div></div>`,
+        });
+        notify = "sent";
+      } catch {
+        notify = "failed"; // p.ej. Resend free-tier: solo correo del dueño
+      }
+    } else if (wantsNotify) {
+      notify = "skipped";
+    }
+
     const { data: row, error } = await supabase
       .from("project_rfis")
       .insert({
@@ -78,7 +110,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select("id, code, title, body, reference, assignee, due_date, status, response, created_at")
       .single();
     if (error || !row) throw error ?? new Error("No se pudo crear el RFI");
-    return NextResponse.json({ rfi: row }, { status: 201 });
+    return NextResponse.json({ rfi: row, notify }, { status: 201 });
   } catch (error) {
     console.error("POST rfis error:", error);
     return NextResponse.json({ error: "Failed to create RFI" }, { status: 500 });

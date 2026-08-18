@@ -86,7 +86,7 @@ export async function POST(request: Request) {
 
     if (emailError) {
       console.error("Resend send error:", emailError);
-      return NextResponse.json({ error: "No se pudo enviar el correo" }, { status: 500 });
+      return NextResponse.json({ error: "No se pudo enviar el correo — en Resend free-tier solo se entrega al correo del dueño de la cuenta. Verifica tu dominio en resend.com/domains para enviar a cualquier dirección." }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });

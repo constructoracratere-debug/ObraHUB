@@ -39,7 +39,7 @@ export type SavedBudgetDetail = SavedBudgetSummary & {
     subtotal: number;
     cantidadEjecutada: number;
     taskId: string | null;
-    detalle: { materiales: unknown[]; manoObra: unknown[]; equipos: unknown[]; aiu?: { administracion: number; imprevistos: number; utilidad: number }; escenarios?: unknown[] } | null;
+    detalle: { materiales?: unknown[]; manoObra?: unknown[]; equipos?: unknown[]; aiu?: { administracion: number; imprevistos: number; utilidad: number }; escenarios?: unknown[]; full?: unknown } | null;
   }>;
 };
 
@@ -101,6 +101,9 @@ function itemToRow(budgetId: string, chapter: string, item: APUItem, sort: numbe
       equipos: Array.isArray(item.equipos) ? item.equipos : [],
       aiu: item.aiu ?? { administracion: 0, imprevistos: 0, utilidad: 0 },
       escenarios: Array.isArray(item.escenarios) ? item.escenarios : [],
+      // El APUItem íntegro (descripción larga, escenarios, todo) para
+      // que reabrir sea idéntico al generado.
+      full: item,
     },
     budget_id: budgetId,
     chapter,

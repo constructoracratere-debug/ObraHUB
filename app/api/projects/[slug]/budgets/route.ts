@@ -32,6 +32,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const chapters = new Map<string, Array<Record<string, unknown>>>();
       for (const it of detail.items) {
         const list = chapters.get(it.chapter) ?? [];
+        // Si guardamos el APUItem íntegro, restaurarlo tal cual (TO DO recordado).
+        const full = (it.detalle as { full?: Record<string, unknown> } | null)?.full;
+        if (full && typeof full === "object" && Array.isArray(full.materiales)) {
+          list.push(full as Record<string, unknown>);
+          chapters.set(it.chapter, list);
+          continue;
+        }
         list.push({
           codigo: it.codigo,
           descripcion: it.descripcion,
