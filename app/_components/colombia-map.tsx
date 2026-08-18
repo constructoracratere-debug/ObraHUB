@@ -7,6 +7,19 @@
  * listed below the grid (never silently dropped).
  */
 
+/**
+ * Simplified Colombia silhouette (lon, lat) — stylized low-poly outline.
+ * Same normalization as the city dots, so pins land inside the country.
+ */
+const BORDER: Array<[number, number]> = [
+  [-71.7, 12.4], [-72.9, 11.5], [-74.2, 11.2], [-74.8, 10.9], [-75.5, 10.4],
+  [-75.9, 8.7], [-76.9, 8.1], [-77.4, 7.2], [-77.9, 7.0], [-77.2, 6.0],
+  [-77.9, 4.0], [-77.2, 3.9], [-78.8, 1.8], [-79.0, 1.0], [-78.3, 0.1],
+  [-76.6, 0.2], [-75.6, -0.1], [-70.0, -1.0], [-69.9, -4.2], [-69.5, 0.0],
+  [-67.5, 1.2], [-67.0, 2.0], [-67.0, 2.5], [-67.4, 4.0], [-67.9, 6.0],
+  [-67.3, 7.7], [-72.2, 8.6],
+];
+
 const CITIES: Record<string, [number, number]> = {
   bogota: [4.71, -74.07],
   medellin: [6.24, -75.58],
@@ -56,10 +69,10 @@ export function ColombiaMap({
 
   const W = 760;
   const H = 460;
-  const LAT0 = 13.5;
-  const LAT1 = -4.5;
-  const LON0 = -80;
-  const LON1 = -66.5;
+  const LAT0 = 12.9;
+  const LAT1 = -4.7;
+  const LON0 = -79.6;
+  const LON1 = -66.8;
   const px = (lon: number) => 40 + ((lon - LON0) / (LON1 - LON0)) * (W - 80);
   const py = (lat: number) => 30 + ((LAT0 - lat) / (LAT0 - LAT1)) * (H - 70);
 
@@ -83,6 +96,13 @@ export function ColombiaMap({
             </pattern>
           </defs>
           <rect width={W} height={H} fill="url(#obrapp-grid)" rx="12" />
+          <polygon
+            points={BORDER.map(([lon, lat]) => `${px(lon)},${py(lat)}`).join(" ")}
+            fill="rgba(14,165,233,0.06)"
+            stroke="rgba(56,189,248,0.35)"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
           <text x={W / 2} y={24} textAnchor="middle" fill="rgba(148,163,184,0.5)" fontSize="11" letterSpacing="3">
             COLOMBIA — DISTRIBUCIÓN GEOGRÁFICA DE OBRAS
           </text>
