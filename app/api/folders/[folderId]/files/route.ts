@@ -92,7 +92,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         );
       }
 
-      const storagePath = `${user.id}/${folder.project_id}/${folderId}/${Date.now()}-${file.name}`;
+      // Supabase Storage rejects non-ASCII/special chars (em-dashes, tildes…)
+      const safeName = file.name
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-zA-Z0-9 ._()-]/g, "_");
+      const storagePath = `${user.id}/${folder.project_id}/${folderId}/${Date.now()}-${safeName}`;
       const arrayBuffer = await file.arrayBuffer();
 
       const { error: uploadError } = await supabase
