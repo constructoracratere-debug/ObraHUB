@@ -18,6 +18,7 @@ import {
 } from "@/lib/files";
 import { CostosTool } from "@/app/_components/costos-tool";
 import { ColombiaMap } from "@/app/_components/colombia-map";
+const AmericasMap = dynamic(() => import("@/app/_components/americas-map").then((m) => m.AmericasMap), { ssr: false });
 // Code-split the Gantt tool — its bundle (with the chart renderer) only loads
 // when the user opens the Seguimiento card. Keeps login/snappy.
 // when the user opens the Seguimiento tool — can never break login.
@@ -2173,7 +2174,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             </div>
           )}
 
-          <ColombiaMap cards={portfolio} />
+          <AmericasMap cards={portfolio} onOpen={(slug) => openProject(slug)} />
 
           <h1 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
                       IA para ingeniería y construcción
