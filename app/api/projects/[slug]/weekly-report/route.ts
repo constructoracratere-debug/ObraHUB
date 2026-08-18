@@ -99,6 +99,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     });
 
     const pptx = new pptxgen();
+  // Every slide gets a subtle plan watermark (free-tier monetization hook).
+  const brandedSlide = (dark = false) => {
+    const sl = pptx.addSlide();
+    sl.addText("ObraHub · Plan Gratuito", {
+      x: 2.2, y: 3.4, w: 9, h: 0.8, fontSize: 26, bold: true,
+      color: dark ? "14213D" : "E2E8F0", transparency: 78, rotate: -18, align: "center",
+    });
+    return sl;
+  };
     pptx.defineLayout({ name: "W", width: 13.33, height: 7.5 });
     pptx.layout = "W";
     pptx.author = "ObraHub";
@@ -106,6 +115,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     // --- S1 Portada
     const s1 = pptx.addSlide();
+    s1.addText('ObraHub · Plan Gratuito', { x: 2.2, y: 3.4, w: 9, h: 0.8, fontSize: 26, bold: true, color: s1 === s1 ? '14213D' : 'E2E8F0', transparency: 78, rotate: -18, align: 'center' });
     s1.background = { color: DARK };
     s1.addText("OBRahub".toUpperCase(), { x: 0.6, y: 0.5, w: 3, fontSize: 16, bold: true, color: ACCENT });
     s1.addText(projectName, { x: 0.6, y: 2.4, w: 12, fontSize: 40, bold: true, color: "FFFFFF" });
@@ -116,6 +126,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     // --- S2 Resumen ejecutivo
     const s2 = pptx.addSlide();
+    s2.addText('ObraHub · Plan Gratuito', { x: 2.2, y: 3.4, w: 9, h: 0.8, fontSize: 26, bold: true, color: s2 === s1 ? '14213D' : 'E2E8F0', transparency: 78, rotate: -18, align: 'center' });
     s2.background = { color: "F8FAFC" };
     s2.addText("Resumen ejecutivo", { x: 0.6, y: 0.4, fontSize: 26, bold: true, color: "0F172A" });
     const k = d.kpis;
@@ -140,6 +151,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     // --- S3 Curva S
     const s3 = pptx.addSlide();
+    s3.addText('ObraHub · Plan Gratuito', { x: 2.2, y: 3.4, w: 9, h: 0.8, fontSize: 26, bold: true, color: s3 === s1 ? '14213D' : 'E2E8F0', transparency: 78, rotate: -18, align: 'center' });
     s3.background = { color: "F8FAFC" };
     s3.addText("Curva S — avance físico (%)", { x: 0.6, y: 0.4, fontSize: 26, bold: true, color: "0F172A" });
     if (d.series.length > 1) {
@@ -160,6 +172,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     // --- S4 Semáforo de tareas
     const s4 = pptx.addSlide();
+    s4.addText('ObraHub · Plan Gratuito', { x: 2.2, y: 3.4, w: 9, h: 0.8, fontSize: 26, bold: true, color: s4 === s1 ? '14213D' : 'E2E8F0', transparency: 78, rotate: -18, align: 'center' });
     s4.background = { color: "F8FAFC" };
     s4.addText("Estado de tareas", { x: 0.6, y: 0.4, fontSize: 26, bold: true, color: "0F172A" });
     const stCls: Record<string, string> = { atrasada: BAD, en_punto: GOOD, adelantada: ACCENT, no_iniciada: "64748B" };
@@ -179,6 +192,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     // --- S5 Alertas
     const s5 = pptx.addSlide();
+    s5.addText('ObraHub · Plan Gratuito', { x: 2.2, y: 3.4, w: 9, h: 0.8, fontSize: 26, bold: true, color: s5 === s1 ? '14213D' : 'E2E8F0', transparency: 78, rotate: -18, align: 'center' });
     s5.background = { color: "F8FAFC" };
     s5.addText(`Alertas para la asamblea (${alerts.length})`, { x: 0.6, y: 0.4, fontSize: 26, bold: true, color: "0F172A" });
     if (alerts.length > 0) {
@@ -208,6 +222,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const openRfis = (rfiRows ?? []) as Array<Record<string, any>>;
     if (openRfis.length > 0) {
       const sR = pptx.addSlide();
+    sR.addText('ObraHub · Plan Gratuito', { x: 2.2, y: 3.4, w: 9, h: 0.8, fontSize: 26, bold: true, color: sR === s1 ? '14213D' : 'E2E8F0', transparency: 78, rotate: -18, align: 'center' });
       sR.background = { color: "F8FAFC" };
       sR.addText(`RFIs y No conformidades abiertas (${openRfis.length})`, { x: 0.6, y: 0.4, fontSize: 26, bold: true, color: "0F172A" });
       sR.addTable(
@@ -232,6 +247,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     // --- S6 Bitácora de la semana
     const s6 = pptx.addSlide();
+    s6.addText('ObraHub · Plan Gratuito', { x: 2.2, y: 3.4, w: 9, h: 0.8, fontSize: 26, bold: true, color: s6 === s1 ? '14213D' : 'E2E8F0', transparency: 78, rotate: -18, align: 'center' });
     s6.background = { color: "F8FAFC" };
     s6.addText(`Bitácora de la semana (${weekEntries.length} día(s))`, { x: 0.6, y: 0.4, fontSize: 26, bold: true, color: "0F172A" });
     if (weekEntries.length > 0) {

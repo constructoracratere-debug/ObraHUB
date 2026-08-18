@@ -421,6 +421,59 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   }>>([]);
   const [continuePoint, setContinuePoint] = useState<{ slug: string; tool: ToolId; label: string } | null>(null);
   const [bellOpen, setBellOpen] = useState(false);
+  const [demoBusy, setDemoBusy] = useState(false);
+
+  /** Seeds a full demo project (tasks + budget + links + 3 días de bitácora)
+   *  using the existing APIs — the 30-second onboarding "wow". */
+  async function seedDemoProject() {
+    if (demoBusy) return;
+    setDemoBusy(true);
+    try {
+      const pr = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Demo — Edificio Los Alisos" }) });
+      const slug = (await pr.json()).project?.slug;
+      if (!slug) throw new Error();
+      const taskDefs: Array<[string, string, string, number]> = [
+        ["Preliminares y localización", "2026-08-01", "2026-08-08", 100],
+        ["Excavación y movimiento de tierras", "2026-08-08", "2026-08-18", 62],
+        ["Zapatas y cimentación", "2026-08-15", "2026-09-05", 18],
+        ["Estructura en concreto P1", "2026-09-01", "2026-10-15", 0],
+        ["Mampostería y acabados", "2026-10-01", "2026-12-10", 0],
+      ];
+      const tr = await fetch(`/api/projects/${slug}/tasks`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: taskDefs.map(([name, startDate, endDate, progress]) => ({ name, startDate, endDate, progress: Number(progress) })) }) });
+      const tasks = (await tr.json()).tasks ?? [];
+      const budget = { titulo: "Demo — Presupuesto Obra Gris", capitulos: [
+        { nombre: "1. Preliminares", items: [ { codigo: "1.1", descripcion: "Localización y replanteo", unidad: "m2", cantidad: 420, materiales: [], manoObra: [], equipos: [], costoDirecto: 2100, aiu: { administracion: 13, imprevistos: 3, utilidad: 6 }, precioUnitarioTotal: 2562, subtotal: 1076040 } ] },
+        { nombre: "2. Cimentación", items: [
+          { codigo: "2.1", descripcion: "Excavación zanjas a máquina", unidad: "m3", cantidad: 380, materiales: [], manoObra: [], equipos: [], costoDirecto: 14500, aiu: { administracion: 13, imprevistos: 3, utilidad: 6 }, precioUnitarioTotal: 17690, subtotal: 6722200 },
+          { codigo: "2.2", descripcion: "Concreto 3000 psi zapatas", unidad: "m3", cantidad: 95, materiales: [], manoObra: [], equipos: [], costoDirecto: 410000, aiu: { administracion: 13, imprevistos: 3, utilidad: 6 }, precioUnitarioTotal: 500200, subtotal: 47519000 } ] },
+        { nombre: "3. Estructura", items: [ { codigo: "3.1", descripcion: "Columnas y vigas 3000 psi", unidad: "m3", cantidad: 110, materiales: [], manoObra: [], equipos: [], costoDirecto: 430000, aiu: { administracion: 13, imprevistos: 3, utilidad: 6 }, precioUnitarioTotal: 524600, subtotal: 57706000 } ] } ],
+        resumen: { costosDirectos: 113017240, aiuTotal: 22, valorAIU: 24863793, subtotalConAIU: 137881033, iva: 19, valorIVA: 26197396, total: 164078429 } };
+      const br = await fetch(`/api/projects/${slug}/budgets`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ budget, source: "manual" }) });
+      const budgetId = (await br.json()).id;
+      // link items → tasks
+      const cr = await fetch(`/api/projects/${slug}/control`);
+      const items = (await cr.json()).items ?? [];
+      const linkPairs = [[0, 0], [1, 1], [2, 2], [3, 3]];
+      for (const [ii, ti] of linkPairs) {
+        if (items[ii] && tasks[ti]) {
+          await fetch(`/api/projects/${slug}/budgets`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemId: items[ii].id, taskId: tasks[ti].id }) });
+        }
+      }
+      // 3 días de bitácora
+      const days: Array<[string, string, number, number, number[][]]> = [["2026-08-12", "soleado", 0, 12, [[1, 40]]], ["2026-08-13", "nublado", 1, 11, [[1, 52], [2, 5]]], ["2026-08-14", "lluvia", 4, 8, [[1, 62], [2, 18]]]];
+      for (const [entryDate, weather, rainHours, workersTotal, prog] of days) {
+        await fetch(`/api/projects/${slug}/bitacora`, { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entryDate, weather, rainHours: Number(rainHours), workersTotal: Number(workersTotal), workersDetail: { Oficial: Math.ceil(Number(workersTotal) / 3), Ayudante: Number(workersTotal) - Math.ceil(Number(workersTotal) / 3) }, equipment: { Retroexcavadora: 1 }, observations: "Jornada de obra — proyecto demo", incidents: "", delays: Number(rainHours) > 2 ? "Lluvia fuerte en la tarde" : "", taskProgress: (prog as number[][]).map(([ti, progress]) => ({ taskId: tasks[ti].id, progress: Number(progress) })) }) });
+      }
+      void budgetId;
+      openProject(slug);
+      setActiveTool(null);
+      await fetch("/api/portfolio").then(() => window.location.reload());
+    } catch {
+      setError("No se pudo crear el demo — inténtalo de nuevo");
+    } finally { setDemoBusy(false); }
+  }
   const alertProjects = portfolio.filter((c) => c.alerts > 0).sort((a, b) => b.critical - a.critical);
   const totalCritical = portfolio.reduce((n, c) => n + c.critical, 0);
 
@@ -2044,6 +2097,20 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                   </button>
                 )}
               </div>
+              {portfolio.length === 0 && !isLoadingProjects && (
+                <div className="mt-4 rounded-2xl border border-blue-500/25 bg-blue-500/[0.06] p-5 text-left">
+                  <p className="text-sm font-semibold text-white">🌱 Crea tu proyecto demo en 1 clic</p>
+                  <p className="mt-1 text-xs text-slate-400">Un edificio completo con cronograma, presupuesto ($164M), bitácora de 3 días, Curva S y alertas — para explorar ObraHub antes de subir tu obra real.</p>
+                  <button
+                    type="button"
+                    onClick={() => void seedDemoProject()}
+                    disabled={demoBusy}
+                    className="mt-3 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+                  >
+                    {demoBusy ? "Creando demo… (10s)" : "🌱 Crear proyecto demo"}
+                  </button>
+                </div>
+              )}
               {portfolioSummary && portfolioSummary.projects > 0 && (
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {[
