@@ -132,6 +132,49 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
     } finally { setRfiBusy(false); }
   }
 
+  // Punch list + change orders
+  const [punch, setPunch] = useState<Array<{ id: string; code: string; title: string; location: string; status: string }>>([]);
+  const [plTitle, setPlTitle] = useState("");
+  const [plLocation, setPlLocation] = useState("");
+  const [cos, setCos] = useState<Array<{ id: string; code: string; title: string; impact_total: number; schedule_days: number; status: string }>>([]);
+  const [coTitle, setCoTitle] = useState("");
+  const [coAmount, setCoAmount] = useState("");
+  const [coDays, setCoDays] = useState("");
+  const [busy2, setBusy2] = useState(false);
+
+  async function loadPunch(slug: string) {
+    try { const r = await fetch(`/api/projects/${encodeURIComponent(slug)}/punch`); const d = await r.json(); setPunch(r.ok ? (d.items ?? []) : []); } catch { setPunch([]); }
+  }
+  async function loadCos(slug: string) {
+    try { const r = await fetch(`/api/projects/${encodeURIComponent(slug)}/change-orders`); const d = await r.json(); setCos(r.ok ? (d.items ?? []) : []); } catch { setCos([]); }
+  }
+  async function addPunch() {
+    if (!plTitle.trim() || busy2) return; setBusy2(true);
+    try {
+      const r = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/punch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: plTitle.trim(), location: plLocation.trim() }) });
+      if (!r.ok) throw new Error();
+      setPlTitle(""); setPlLocation(""); await loadPunch(projectSlug);
+    } catch { setError("Error al crear defecto"); } finally { setBusy2(false); }
+  }
+  async function patchPunch(id: string, status: string) {
+    await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/punch`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await loadPunch(projectSlug);
+  }
+  async function addCo() {
+    if (!coTitle.trim() || busy2) return; setBusy2(true);
+    try {
+      const amount = Number(coAmount) || 0;
+      const r = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/change-orders`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: coTitle.trim(), reason: "Cambio de alcance", items: amount > 0 ? [{ descripcion: coTitle.trim(), unidad: "gl", cantidad: 1, precioUnitario: amount, subtotal: amount }] : [], scheduleDays: Number(coDays) || 0 }) });
+      if (!r.ok) throw new Error();
+      setCoTitle(""); setCoAmount(""); setCoDays(""); await loadCos(projectSlug);
+    } catch { setError("Error al crear orden de cambio"); } finally { setBusy2(false); }
+  }
+  async function decideCo(id: string, status: string) {
+    await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/change-orders`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    await loadCos(projectSlug);
+  }
+
   // Línea base (baseline)
   const [baselines, setBaselines] = useState<Array<{ id: string; label: string; created_at: string }>>([]);
   const [baseSel, setBaseSel] = useState<string>("");
@@ -220,6 +263,8 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
         setAlerts(data.alerts ?? []);
         void loadRfis(projectSlug);
         void loadBaselines(projectSlug);
+        void loadPunch(projectSlug);
+        void loadCos(projectSlug);
         fetch(`/api/projects/${encodeURIComponent(projectSlug)}/activity`)
           .then((r) => (r.ok ? r.json() : { activity: [] }))
           .then((d) => setActivity(d.activity ?? []))
@@ -716,6 +761,74 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                 </p>
               )}
             </div>
+          </section>
+
+          {/* Punch list */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Punch List ({punch.filter((x) => x.status !== "cerrada").length} abiertas)
+            </h3>
+            <p className="mb-3 text-[11px] text-slate-500">Defectos y pendientes de obra con ubicacion y responsable.</p>
+            <div className="flex flex-wrap gap-2">
+              <input value={plTitle} onChange={(e) => setPlTitle(e.target.value)} placeholder="Ej. Grieta en panete, apto 302"
+                className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none" />
+              <input value={plLocation} onChange={(e) => setPlLocation(e.target.value)} placeholder="Plano/ubicacion"
+                className="w-40 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none" />
+              <button type="button" onClick={() => void addPunch()} disabled={busy2 || !plTitle.trim()}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-50">+ Defecto</button>
+            </div>
+            {punch.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {punch.slice(0, 8).map((x) => (
+                  <div key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-1.5">
+                    <span className="min-w-0 truncate text-xs text-slate-200"><span className="mr-2 font-mono text-[10px] text-slate-500">{x.code}</span>{x.title}{x.location ? " - " + x.location : ""}</span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <span className={"rounded-full px-2 py-0.5 text-[10px] font-semibold " + (x.status === "cerrada" ? "bg-emerald-500/15 text-emerald-300" : x.status === "verificada" ? "bg-sky-500/15 text-sky-300" : "bg-amber-500/15 text-amber-300")}>{x.status}</span>
+                      {x.status === "abierta" && <button type="button" onClick={() => void patchPunch(x.id, "verificada")} className="rounded border border-sky-500/30 px-1.5 py-0.5 text-[10px] text-sky-300">verificar</button>}
+                      {x.status !== "cerrada" && <button type="button" onClick={() => void patchPunch(x.id, "cerrada")} className="rounded border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">cerrar</button>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Ordenes de cambio */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Ordenes de cambio ({cos.filter((x) => x.status === "pendiente").length} pendientes)
+            </h3>
+            <p className="mb-3 text-[11px] text-slate-500">Impactos de alcance sobre presupuesto y plazo, con aprobacion.</p>
+            <div className="flex flex-wrap gap-2">
+              <input value={coTitle} onChange={(e) => setCoTitle(e.target.value)} placeholder="Ej. Adicion muro cortina lobby"
+                className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none" />
+              <input value={coAmount} onChange={(e) => setCoAmount(e.target.value)} placeholder="Impacto $ COP" type="number"
+                className="w-36 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none" />
+              <input value={coDays} onChange={(e) => setCoDays(e.target.value)} placeholder="dias" type="number"
+                className="w-20 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none" />
+              <button type="button" onClick={() => void addCo()} disabled={busy2 || !coTitle.trim()}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-amber-500 disabled:opacity-50">+ OC</button>
+            </div>
+            {cos.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {cos.slice(0, 8).map((x) => (
+                  <div key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-1.5">
+                    <span className="min-w-0 truncate text-xs text-slate-200">
+                      <span className="mr-2 font-mono text-[10px] text-slate-500">{x.code}</span>{x.title}
+                      {x.impact_total > 0 && <span className="ml-2 text-amber-300">+${(x.impact_total / 1e6).toFixed(1)}M</span>}
+                      {x.schedule_days > 0 && <span className="ml-2 text-sky-300">+{x.schedule_days}d</span>}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <span className={"rounded-full px-2 py-0.5 text-[10px] font-semibold " + (x.status === "aprobada" ? "bg-emerald-500/15 text-emerald-300" : x.status === "rechazada" ? "bg-red-500/15 text-red-300" : "bg-amber-500/15 text-amber-300")}>{x.status}</span>
+                      {x.status === "pendiente" && <>
+                        <button type="button" onClick={() => void decideCo(x.id, "aprobada")} className="rounded border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">aprobar</button>
+                        <button type="button" onClick={() => void decideCo(x.id, "rechazada")} className="rounded border border-red-500/30 px-1.5 py-0.5 text-[10px] text-red-300">rechazar</button>
+                      </>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Actividad reciente */}
