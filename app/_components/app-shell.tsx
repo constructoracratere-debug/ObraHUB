@@ -181,10 +181,12 @@ const suggestions = [
 ];
 
 const trustBadges = [
-  "Especializado en Colombia",
-  "Basado en normativa oficial",
-  "Respuestas con referencias",
-  "Diseñado para profesionales",
+  "🧊 BIM 3D · 4D · 5D",
+  "💰 APU con IA",
+  "📔 Bitácora legal",
+  "📈 Curva S y alertas",
+  "📊 Informe de asamblea",
+  "⚖️ NSR-10 con citas",
 ];
 
 const features = [
@@ -2069,7 +2071,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                           d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008z"
                         />
                       </Icon>
-                      El asistente técnico para profesionales de la construcción en Colombia
+                      Construction OS · Hecho en Colombia para la obra colombiana
                     </div>
 
                     {portfolio.length > 0 && (
@@ -2170,7 +2172,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
           <ColombiaMap cards={portfolio} />
 
           <h1 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
-                      IA para Ingeniería, Arquitectura y Construcción en Colombia
+                      Toda tu obra.
+En un solo lugar.
                     </h1>
                     <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-lg">
                       Consulta la NSR-10, normativa técnica, especificaciones constructivas y criterios de
@@ -2230,7 +2233,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                       Consultas frecuentes
                     </h2>
                     <p className="mb-5 text-lg font-medium text-white">
-                      Comience con una pregunta técnica
+                      O consulta la normativa en segundos — con citas por página
                     </p>
                     <div className="grid gap-2.5 sm:grid-cols-2">
                       {suggestions.map((suggestion) => (
