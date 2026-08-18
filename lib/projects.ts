@@ -9,8 +9,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 export type Project = {
+  id: string;
   name: string;
   slug: string;
+  city: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -43,14 +45,18 @@ function slugify(name: string): string {
 
 /** Maps a Supabase projects row to the public Project shape (camelCase). */
 function toProject(row: {
+  id: string;
   name: string;
   slug: string;
+  city?: string | null;
   created_at: string;
   updated_at: string;
 }): Project {
   return {
+    id: row.id,
     name: row.name,
     slug: row.slug,
+    city: row.city ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

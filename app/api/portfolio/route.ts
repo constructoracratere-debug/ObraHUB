@@ -25,7 +25,7 @@ export async function GET() {
       .select("project_id, name, progress, spi, alerts, critical, tasks_total, total_budget, next_milestone_name, next_milestone_date, last_bitacora_date")
       .order("updated_at", { ascending: false })
       .limit(500);
-    const healthByProject = new Map(((rows ?? []) as Array<Record<string, any>>).map((r) => [r.project_id, r]));
+        const healthByProject = new Map(((rows ?? []) as Array<Record<string, any>>).map((r) => [r.project_id, r]));
 
     const cards = (projects ?? []).map((pRaw) => {
       const p = pRaw as unknown as { id?: string; name: string; slug: string; city?: string | null };
