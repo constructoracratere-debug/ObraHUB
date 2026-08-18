@@ -86,7 +86,14 @@ export async function POST(request: Request) {
 
     if (emailError) {
       console.error("Resend send error:", emailError);
-      return NextResponse.json({ error: "No se pudo enviar el correo — en Resend free-tier solo se entrega al correo del dueño de la cuenta. Verifica tu dominio en resend.com/domains para enviar a cualquier dirección." }, { status: 500 });
+      // Fallback: Supabase's built-in OTP email delivers to ANY address
+      // (rate-limited on the free plan) while a domain gets verified.
+      const otp = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+      if (otp.error) {
+        console.error("Supabase OTP fallback error:", otp.error.message);
+        return NextResponse.json({ error: "No se pudo enviar el correo — Resend free-tier solo entrega al dueño y el fallback de Supabase alcanzó su límite por hora. Verifica tu dominio en resend.com/domains." }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, via: "supabase" });
     }
 
     return NextResponse.json({ ok: true });

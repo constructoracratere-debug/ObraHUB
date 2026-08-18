@@ -61,6 +61,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Solicita un código primero" }, { status: 400 });
     }
 
+    // Fallback: código de 6 dígitos enviado por el correo propio de
+    // Supabase (cuando Resend no puede entregar). Verifica el OTP y
+    // establece la sesión directamente.
+    const codeMismatch =
+      !record || record.code !== code || record.consumed || Date.now() > new Date(record.expires_at).getTime();
+    if (codeMismatch) {
+      const ssrTry = await createClient();
+      const { data: otpData, error: otpError } = await ssrTry.auth.verifyOtp({ email, token: code, type: "email" });
+      if (!otpError && otpData.session) {
+        return NextResponse.json({ ok: true, via: "supabase-otp" });
+      }
+    }
+
     if (record.consumed) {
       return NextResponse.json({ error: "El código ya fue usado. Solicita uno nuevo." }, { status: 400 });
     }
