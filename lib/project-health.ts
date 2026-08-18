@@ -54,7 +54,7 @@ export async function refreshProjectHealth(
       .eq("id", projectId)
       .maybeSingle();
 
-    await supabase.from("project_health").upsert(
+    const { error: upErr } = await supabase.from("project_health").upsert(
       {
         project_id: projectId,
         name: (proj as Record<string, any> | null)?.name ?? "",
@@ -71,6 +71,7 @@ export async function refreshProjectHealth(
       },
       { onConflict: "project_id" },
     );
+    if (upErr) throw new Error(`health upsert: ${upErr.message}`);
   } catch (e) {
     console.error("refreshProjectHealth:", e); // best-effort
   }
