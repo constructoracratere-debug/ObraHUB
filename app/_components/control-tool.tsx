@@ -96,13 +96,14 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [alertsOpen, setAlertsOpen] = useState(true);
   const [activity, setActivity] = useState<Array<{ id: string; kind: string; description: string; createdAt: string }>>([]);
   // RFIs / No conformidades
-  const [rfis, setRfis] = useState<Array<{ id: string; code: string; title: string; reference: string; assignee: string; due_date: string | null; status: string; response: string }>>([]);
+  const [rfis, setRfis] = useState<Array<{ id: string; code: string; title: string; reference: string; assignee: string; due_date: string | null; status: string; response: string; kind?: string }>>([]);
   const [rfiTitle, setRfiTitle] = useState("");
   const [rfiAssignee, setRfiAssignee] = useState("");
   const [rfiDue, setRfiDue] = useState("");
   const [rfiBusy, setRfiBusy] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [rfiNotify, setRfiNotify] = useState(false);
+  const [rfiKind, setRfiKind] = useState<"rfi" | "submittal">("rfi");
   const [rfiNotifyEmail, setRfiNotifyEmail] = useState("");
 
   async function loadRfis(slug: string) {
@@ -119,7 +120,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
     try {
       const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/rfis`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: rfiTitle.trim(), assignee: rfiAssignee.trim(), dueDate: rfiDue || null, notify: rfiNotify, notifyEmail: rfiNotifyEmail.trim() }),
+        body: JSON.stringify({ title: rfiTitle.trim(), assignee: rfiAssignee.trim(), dueDate: rfiDue || null, kind: rfiKind, notify: rfiNotify, notifyEmail: rfiNotifyEmail.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error");
@@ -565,15 +566,23 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  📋 RFIs y No conformidades ({rfis.filter((r) => r.status !== "cerrada").length} abiertas)
+                  📋 {rfiKind === "rfi" ? `RFIs y No conformidades (${rfis.filter((r) => r.kind !== "submittal" && r.status !== "cerrada").length} abiertas)` : `Submittals (${rfis.filter((r) => r.kind === "submittal" && r.status !== "cerrada").length} pendientes)`}
                 </h3>
                 <p className="mt-0.5 text-[11px] text-slate-500">Preguntas de obra con responsable y vencimiento — incluidas en el informe de asamblea.</p>
               </div>
             </div>
+            <div className="mb-3 flex gap-1 rounded-lg bg-white/[0.03] p-0.5">
+              {(["rfi", "submittal"] as const).map((k) => (
+                <button key={k} type="button" onClick={() => setRfiKind(k)}
+                  className={"rounded-md px-3 py-1 text-[11px] font-semibold transition " + (rfiKind === k ? "bg-teal-600 text-white" : "text-slate-400 hover:text-white")}>
+                  {k === "rfi" ? "📋 RFIs" : "📑 Submittals"}
+                </button>
+              ))}
+            </div>
             <div className="flex flex-wrap gap-2">
               <input
                 type="text" value={rfiTitle} onChange={(e) => setRfiTitle(e.target.value)}
-                placeholder="Ej. Confirmar nivel de acabado fachada norte"
+                placeholder={rfiKind === "rfi" ? "Ej. Confirmar nivel de acabado fachada norte" : "Ej. Shop drawings estructura — lote 2 para revisión"}
                 className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-teal-500/40 focus:outline-none"
               />
               <input
@@ -589,7 +598,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                 type="button" onClick={() => void handleCreateRfi()} disabled={rfiBusy || !rfiTitle.trim()}
                 className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-500 disabled:opacity-50"
               >
-                {rfiBusy ? "…" : "+ RFI"}
+                {rfiBusy ? "…" : rfiKind === "rfi" ? "+ RFI" : "+ Submittal"}
               </button>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
@@ -608,9 +617,9 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
             </div>
             {rfis.length > 0 && (
               <div className="mt-3 space-y-1.5">
-                {rfis.slice(0, 12).map((r) => {
+                {rfis.filter((r) => (r.kind ?? "rfi") === rfiKind).slice(0, 12).map((r) => {
                   const overdue = r.status === "abierta" && r.due_date && r.due_date < new Date().toISOString().slice(0, 10);
-                  const st = r.status === "cerrada" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  const st = r.status === "cerrada" || r.status === "aprobada" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                     : r.status === "respondida" ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
                     : overdue ? "border-red-500/40 bg-red-500/15 text-red-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300";
                   return (
@@ -629,14 +638,31 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                         </span>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {r.status !== "respondida" && r.status !== "cerrada" && (
-                          <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "respondida", response: r.response || "Respuesta registrada en obra" })} className="rounded border border-sky-500/30 px-2 py-1 text-[10px] text-sky-300 hover:bg-sky-500/10">↩ Responder</button>
-                        )}
-                        {r.status !== "cerrada" && (
-                          <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "cerrada" })} className="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10">✓ Cerrar</button>
-                        )}
-                        {r.status === "cerrada" && (
-                          <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "abierta" })} className="rounded border border-white/[0.1] px-2 py-1 text-[10px] text-slate-400 hover:bg-white/[0.05]">↺ Reabrir</button>
+                        {(r.kind ?? "rfi") === "rfi" ? (
+                          <>
+                            {r.status !== "respondida" && r.status !== "cerrada" && (
+                              <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "respondida", response: r.response || "Respuesta registrada en obra" })} className="rounded border border-sky-500/30 px-2 py-1 text-[10px] text-sky-300 hover:bg-sky-500/10">↩ Responder</button>
+                            )}
+                            {r.status !== "cerrada" && (
+                              <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "cerrada" })} className="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10">✓ Cerrar</button>
+                            )}
+                            {r.status === "cerrada" && (
+                              <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "abierta" })} className="rounded border border-white/[0.1] px-2 py-1 text-[10px] text-slate-400 hover:bg-white/[0.05]">↺ Reabrir</button>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {r.status !== "aprobada" && r.status !== "rechazada" && (
+                              <>
+                                <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "aprobada" })} className="rounded border border-emerald-500/30 px-2 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10">✓ Aprobar</button>
+                                <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "aprobada_con_observaciones", response: r.response || "Aprobado con observaciones — ver comentarios" })} className="rounded border border-amber-500/30 px-2 py-1 text-[10px] text-amber-300 hover:bg-amber-500/10">⚠ Aprobar c/obs</button>
+                                <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "rechazada" })} className="rounded border border-red-500/30 px-2 py-1 text-[10px] text-red-300 hover:bg-red-500/10">✕ Rechazar</button>
+                              </>
+                            )}
+                            {(r.status === "aprobada" || r.status === "rechazada") && (
+                              <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "abierta" })} className="rounded border border-white/[0.1] px-2 py-1 text-[10px] text-slate-400 hover:bg-white/[0.05]">↺ Reabrir</button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
