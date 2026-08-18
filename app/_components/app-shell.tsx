@@ -419,6 +419,16 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     tasksTotal: number; nextMilestone: { name: string; date: string } | null;
     daysSinceBitacora: number | null;
   }>>([]);
+  const [continuePoint, setContinuePoint] = useState<{ slug: string; tool: ToolId; label: string } | null>(null);
+
+  useEffect(() => {
+    const raw = localStorage.getItem("obrapp-continue");
+    if (!raw || !raw.includes("|")) return;
+    const [slug, tool] = raw.split("|") as [string, ToolId];
+    const label = TOOLS.find((t) => t.id === tool)?.title ?? tool;
+    setContinuePoint({ slug, tool, label });
+  }, [portfolio.length]); // refresh when projects load
+
   const [portfolioSummary, setPortfolioSummary] = useState<{
     projects: number; avgSpi: number | null; critical: number; alerts: number; bacTotal: number; stale: number;
   } | null>(null);
@@ -803,6 +813,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   function openTool(tool: ToolId) {
     setActiveTool(tool);
     localStorage.setItem(ACTIVE_TOOL_KEY, tool);
+    if (activeProjectSlug) localStorage.setItem("obrapp-continue", `${activeProjectSlug}|${tool}`);
     setActiveFolderSlug(null);
     localStorage.removeItem(ACTIVE_FOLDER_KEY);
     setMessages([]);
@@ -1964,6 +1975,29 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-400/80">
                 Tus proyectos — salud de un vistazo
               </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {continuePoint && (
+                  <button
+                    type="button"
+                    onClick={() => { openProject(continuePoint.slug); openTool(continuePoint.tool); }}
+                    className="rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-xs font-semibold text-blue-200 transition hover:bg-blue-500/20"
+                  >
+                    ↩ Continuar: {continuePoint.label}
+                  </button>
+                )}
+                {portfolio.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = continuePoint?.slug ?? portfolio[0]?.slug;
+                      if (target) { openProject(target); openTool("bitacora"); }
+                    }}
+                    className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-rose-950/40 transition hover:bg-rose-500"
+                  >
+                    📔 Registrar bitácora de hoy
+                  </button>
+                )}
+              </div>
               {portfolioSummary && portfolioSummary.projects > 0 && (
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {[
