@@ -154,7 +154,7 @@ export async function getBudgetDetail(
 
   const { data: items, error: itemsError } = await supabase
     .from("budget_items")
-    .select("id, chapter, codigo, descripcion, unidad, cantidad, costo_directo, precio_unitario_total, subtotal, cantidad_ejecutada, task_id")
+    .select("id, chapter, codigo, descripcion, unidad, cantidad, costo_directo, precio_unitario_total, subtotal, cantidad_ejecutada, task_id, detalle")
     .eq("budget_id", budgetId)
     .order("sort_order", { ascending: true });
   if (itemsError) throw itemsError;
