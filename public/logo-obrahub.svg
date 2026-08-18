@@ -18,5 +18,5 @@
   <circle cx="52" cy="19" r="3" fill="#F8FAFC"/>
   <!-- Wordmark -->
   <text x="64" y="30" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="800" fill="#F8FAFC" letter-spacing="1">Obra<span fill="#38BDF8">Hub</span></text>
-  <text x="65" y="46" font-family="Segoe UI, Arial, sans-serif" font-size="10.5" fill="#94A3B8" letter-spacing="3.2">CONSTRUCTION OS · COLOMBIA</text>
+  <text x="65" y="46" font-family="Segoe UI, Arial, sans-serif" font-size="10.5" fill="#94A3B8" letter-spacing="3.2">CONSTRUCTION OS · LATAM</text>
 </svg>

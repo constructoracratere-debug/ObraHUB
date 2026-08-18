@@ -44,7 +44,7 @@ export default function LandingPage() {
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(56,189,248,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.04)_1px,transparent_1px)] bg-[size:56px_56px]" />
         <div className="relative mx-auto max-w-4xl px-6 pb-20 pt-16 text-center sm:pt-24">
           <span className="inline-flex items-center gap-2 rounded-full border border-blue-500/25 bg-blue-500/10 px-4 py-1.5 text-xs font-medium text-blue-300">
-            🇨🇴 Hecho en Colombia · para la obra colombiana
+            🇨🇴 Hecho en Colombia · diseñado para la construcción en LATAM
           </span>
           <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
             Toda tu obra.
@@ -52,8 +52,8 @@ export default function LandingPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-400">
             BIM, presupuestos APU con IA, cronograma, bitácora diaria y control con Curva S —
-            del modelo 3D al informe de asamblea del viernes. Sin implantación, sin instalar nada,
-            sin tarjeta de crédito.
+            del modelo 3D al informe de asamblea del viernes. Normativa local por país
+            (NSR-10 hoy, más por venir). Sin implantación, sin tarjeta de crédito.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
             <a href="/login" className="rounded-xl bg-blue-600 px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-900/40 transition hover:bg-blue-500">
