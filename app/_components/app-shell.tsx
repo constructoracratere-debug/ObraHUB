@@ -420,6 +420,9 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     daysSinceBitacora: number | null;
   }>>([]);
   const [continuePoint, setContinuePoint] = useState<{ slug: string; tool: ToolId; label: string } | null>(null);
+  const [bellOpen, setBellOpen] = useState(false);
+  const alertProjects = portfolio.filter((c) => c.alerts > 0).sort((a, b) => b.critical - a.critical);
+  const totalCritical = portfolio.reduce((n, c) => n + c.critical, 0);
 
   useEffect(() => {
     const raw = localStorage.getItem("obrapp-continue");
@@ -1935,6 +1938,49 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 )}
               </button>
             )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setBellOpen((o) => !o)}
+                className="relative rounded-full border border-white/[0.1] bg-white/[0.03] px-2.5 py-1.5 text-sm transition hover:bg-white/[0.07]"
+                title="Alertas de tus proyectos"
+              >
+                🔔
+                {alertProjects.length > 0 && (
+                  <span className={`absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white ${totalCritical > 0 ? "bg-red-500" : "bg-amber-500"}`}>
+                    {alertProjects.length}
+                  </span>
+                )}
+              </button>
+              {bellOpen && (
+                <div className="absolute right-0 top-10 z-50 w-72 rounded-xl border border-white/[0.1] bg-[#0a1120]/98 p-3 shadow-2xl backdrop-blur">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Alertas de proyectos</p>
+                    <button type="button" onClick={() => setBellOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+                  </div>
+                  {alertProjects.length === 0 ? (
+                    <p className="py-3 text-center text-[11px] text-slate-500">Sin alertas — todo bajo control ✅</p>
+                  ) : (
+                    <div className="max-h-64 space-y-1 overflow-y-auto">
+                      {alertProjects.slice(0, 8).map((c) => (
+                        <button
+                          key={c.slug}
+                          type="button"
+                          onClick={() => { openProject(c.slug); openTool("control"); setBellOpen(false); }}
+                          className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-2.5 py-2 text-left transition hover:border-blue-500/30 hover:bg-blue-500/[0.06]"
+                        >
+                          <span className="min-w-0 truncate text-xs text-slate-200">{c.name}</span>
+                          <span className="flex shrink-0 gap-1">
+                            {c.critical > 0 && <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-300">🔴 {c.critical}</span>}
+                            {c.alerts - c.critical > 0 && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">🟡 {c.alerts - c.critical}</span>}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <span className="hidden items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400 sm:inline-flex">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
