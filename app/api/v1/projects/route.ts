@@ -29,7 +29,12 @@ export async function GET(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
-  const projects = (await listProjects(userClient)).filter((p) => p.id === keyRow.user_id ? false : true);
+  const { data: projects } = await userClient
+    .from("projects")
+    .select("id, name, slug, city")
+    .eq("user_id", keyRow.user_id)
+    .order("updated_at", { ascending: false })
+    .limit(500);
   const ids = (projects ?? []).map((p) => p.id);
   const { data: health } = ids.length
     ? await userClient.from("project_health").select("project_id, name, progress, spi, alerts, critical, next_milestone_date").in("project_id", ids)
