@@ -30,7 +30,16 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(typeof data.error === "string" ? data.error : "No se pudo enviar el código");
+        // No bloquear: avanzar al paso del código de todas formas — el
+        // código pudo generarse aunque el correo no se entregara (p.ej.
+        // código inyectado por el administrador o el fallback de Supabase).
+        setStep("code");
+        setTimeout(() => codeInputRef.current?.focus(), 50);
+        setError(
+          (typeof data.error === "string" ? data.error : "No se pudo enviar el código") +
+            " — si tienes tu código, escríbelo de todas formas.",
+        );
+        return;
       }
 
       setStep("code");
