@@ -60,7 +60,7 @@ function toProject(row: {
 export async function listProjects(supabase: SupabaseClient): Promise<Project[]> {
   const { data, error } = await supabase
     .from("projects")
-    .select("name, slug, created_at, updated_at")
+    .select("name, slug, city, created_at, updated_at")
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -105,6 +105,7 @@ export async function createProject(
   supabase: SupabaseClient,
   name: string,
   templateFolders?: string[],
+  city?: string,
 ): Promise<Project> {
   const trimmed = name.trim();
   if (!trimmed) {
@@ -130,8 +131,8 @@ export async function createProject(
 
   const { data, error } = await supabase
     .from("projects")
-    .insert({ name: trimmed, slug, user_id: userData.user.id })
-    .select("name, slug, created_at, updated_at")
+    .insert({ name: trimmed, slug, user_id: userData.user.id, city: city?.trim() || null })
+    .select("name, slug, city, created_at, updated_at")
     .single();
 
   if (error) {

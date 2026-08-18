@@ -28,7 +28,7 @@ export async function GET() {
     const healthByProject = new Map(((rows ?? []) as Array<Record<string, any>>).map((r) => [r.project_id, r]));
 
     const cards = (projects ?? []).map((pRaw) => {
-      const p = pRaw as unknown as { id?: string; name: string; slug: string };
+      const p = pRaw as unknown as { id?: string; name: string; slug: string; city?: string | null };
       const h = p.id ? healthByProject.get(p.id) : undefined;
       const today = new Date().toISOString().slice(0, 10);
       const daysSince = h?.last_bitacora_date
@@ -37,6 +37,7 @@ export async function GET() {
       return {
         slug: p.slug,
         name: p.name,
+        city: p.city ?? null,
         progress: Number(h?.progress ?? 0),
         spi: h?.spi != null ? Number(h.spi) : null,
         alerts: Number(h?.alerts ?? 0),

@@ -17,6 +17,7 @@ import {
   type ProjectFile,
 } from "@/lib/files";
 import { CostosTool } from "@/app/_components/costos-tool";
+import { ColombiaMap } from "@/app/_components/colombia-map";
 // Code-split the Gantt tool — its bundle (with the chart renderer) only loads
 // when the user opens the Seguimiento card. Keeps login/snappy.
 // when the user opens the Seguimiento tool — can never break login.
@@ -417,7 +418,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     slug: string; name: string; progress: number; spi: number | null;
     alerts: number; critical: number; totalBudget: number | null;
     tasksTotal: number; nextMilestone: { name: string; date: string } | null;
-    daysSinceBitacora: number | null;
+    daysSinceBitacora: number | null; city: string | null;
   }>>([]);
   const [continuePoint, setContinuePoint] = useState<{ slug: string; tool: ToolId; label: string } | null>(null);
   const [bellOpen, setBellOpen] = useState(false);
@@ -506,6 +507,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectCity, setNewProjectCity] = useState("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [selectedTemplateFolders, setSelectedTemplateFolders] = useState<string[]>([
     ...FOLDER_TEMPLATE,
@@ -796,7 +798,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify({ city: newProjectCity.trim() || undefined,
           name,
           templateFolders: selectedTemplateFolders,
         }),
@@ -811,6 +813,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       const project = data.project as Project;
       setProjects((prev) => [project, ...prev]);
       setNewProjectName("");
+      setNewProjectCity("");
       setSelectedTemplateFolders([...FOLDER_TEMPLATE]);
       setShowCreateProject(false);
       openProject(project.slug);
@@ -2164,6 +2167,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             </div>
           )}
 
+          <ColombiaMap cards={portfolio} />
+
           <h1 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
                       IA para Ingeniería, Arquitectura y Construcción en Colombia
                     </h1>
@@ -3010,6 +3015,16 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 );
               })}
             </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400">Ciudad (para el mapa de obras)</label>
+              <input
+                type="text"
+                value={newProjectCity}
+                onChange={(e) => setNewProjectCity(e.target.value)}
+                placeholder="Ej. Bogotá"
+                className="w-full rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:border-blue-500/40 focus:outline-none"
+              />
+            </div>
 
             {projectError && (
               <p className="mt-3 text-sm text-red-400">{projectError}</p>
@@ -3020,6 +3035,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 onClick={() => {
                   setShowCreateProject(false);
                   setNewProjectName("");
+      setNewProjectCity("");
                   setProjectError(null);
                 }}
                 disabled={isCreatingProject}
