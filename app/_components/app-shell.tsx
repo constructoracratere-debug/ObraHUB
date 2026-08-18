@@ -2176,8 +2176,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
           <ColombiaMap cards={portfolio} />
 
           <h1 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
-                      Toda tu obra.
-En un solo lugar.
+                      IA para ingeniería y construcción
+en Latinoamérica
                     </h1>
                     <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-lg">
                       Consulta la NSR-10, normativa técnica, especificaciones constructivas y criterios de

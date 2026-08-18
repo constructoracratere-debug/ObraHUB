@@ -47,13 +47,11 @@ export default function LandingPage() {
             🇨🇴 Hecho en Colombia · diseñado para la construcción en LATAM
           </span>
           <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
-            Toda tu obra.
-            <span className="block bg-gradient-to-r from-sky-400 to-blue-600 bg-clip-text text-transparent">En un solo lugar.</span>
+            IA para ingeniería y construcción
+            <span className="block bg-gradient-to-r from-sky-400 to-blue-600 bg-clip-text text-transparent">en Latinoamérica.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-400">
-            BIM, presupuestos APU con IA, cronograma, bitácora diaria y control con Curva S —
-            del modelo 3D al informe de asamblea del viernes. Normativa local por país
-            (NSR-10 hoy, más por venir). Sin implantación, sin tarjeta de crédito.
+            Toda tu obra en un solo lugar: BIM, presupuestos APU con IA, cronograma, bitácora diaria y control con Curva S — del modelo 3D al informe de asamblea del viernes. Normativa local por país (NSR-10 hoy, más por venir). Sin implantación, sin tarjeta de crédito.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
             <a href="/login" className="rounded-xl bg-blue-600 px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-900/40 transition hover:bg-blue-500">
