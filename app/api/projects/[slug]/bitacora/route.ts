@@ -42,6 +42,9 @@ function parseEntry(body: Record<string, unknown>): BitacoraEntryInput | null {
     incidents: typeof body.incidents === "string" ? body.incidents : "",
     delays: typeof body.delays === "string" ? body.delays : "",
     taskProgress,
+    photos: Array.isArray(body.photos)
+      ? (body.photos as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 30)
+      : [],
   };
 }
 
@@ -78,6 +81,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     if (date && DATE_RE.test(date)) {
       const entry = await getBitacoraEntry(supabase, project.id, date);
+      // Signed URLs so the client can render evidence photos.
+      if (entry && (entry.photos ?? []).length > 0) {
+        const urls: string[] = [];
+        for (const path of entry.photos ?? []) {
+          const { data } = await supabase.storage.from("project-files").createSignedUrl(path, 3600);
+          urls.push(data?.signedUrl ?? "");
+        }
+        entry.photoUrls = urls.filter(Boolean);
+      }
       return NextResponse.json({ entry });
     }
     if (from && to && DATE_RE.test(from) && DATE_RE.test(to)) {
@@ -128,6 +140,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       projectId: project.id,
       ownerId: user.id,
       entry,
+    });
+    const { logActivity } = await import("@/lib/project-controls");
+    void logActivity(supabase, {
+      projectId: project.id,
+      userId: user.id,
+      kind: "bitacora",
+      description: `Bitácora ${entry.entryDate} registrada (${entry.taskProgress.length} tareas, ${(entry.photos ?? []).length} fotos)`,
     });
     return NextResponse.json({ ok: true });
   } catch (error) {

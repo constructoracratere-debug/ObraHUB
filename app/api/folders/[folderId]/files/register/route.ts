@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logActivity } from "@/lib/project-controls";
 import { createClient } from "@/lib/supabase/server";
 import {
   MAX_FILE_BYTES,
@@ -112,6 +113,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
+    void logActivity(supabase, {
+      projectId: folder.project_id as string,
+      userId: user.id,
+      kind: "file",
+      description: `Archivo subido: ${row.name}`,
+    });
     return NextResponse.json({ uploaded: [{ id: row.id, name: row.name }] }, { status: 201 });
   } catch (error) {
     console.error("POST register file error:", error);

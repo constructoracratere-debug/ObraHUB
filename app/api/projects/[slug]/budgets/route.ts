@@ -189,6 +189,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       prompt: typeof body.prompt === "string" ? body.prompt : undefined,
       source: body.source === "ifc" || body.source === "manual" ? body.source : "ai",
     });
+    const { logActivity } = await import("@/lib/project-controls");
+    void logActivity(supabase, {
+      projectId: project.id,
+      userId: user.id,
+      kind: "budget",
+      description: `Presupuesto guardado: ${budget.titulo} ($${Math.round(budget.resumen?.total ?? 0).toLocaleString("es-CO")})`,
+    });
     return NextResponse.json({ id }, { status: 201 });
   } catch (error) {
     console.error("POST budgets error:", error);

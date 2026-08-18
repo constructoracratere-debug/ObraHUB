@@ -196,6 +196,46 @@ export async function setBudgetItemTask(
 }
 
 // --------------------------------------------------------------------------
+// Activity timeline
+// --------------------------------------------------------------------------
+
+/** Fire-and-forget activity log entry (never blocks the main operation). */
+export async function logActivity(
+  supabase: SupabaseClient,
+  params: { projectId: string; userId: string; kind: "file" | "budget" | "task" | "bitacora" | "rfi" | "member" | "baseline" | "link"; description: string },
+): Promise<void> {
+  try {
+    await supabase.from("project_activity").insert({
+      project_id: params.projectId,
+      user_id: params.userId,
+      kind: params.kind,
+      description: params.description.slice(0, 200),
+    });
+  } catch { /* timeline is best-effort */ }
+}
+
+/** Latest activity for the project feed. */
+export async function listActivity(
+  supabase: SupabaseClient,
+  projectId: string,
+  limit = 30,
+): Promise<Array<{ id: string; kind: string; description: string; createdAt: string }>> {
+  const { data, error } = await supabase
+    .from("project_activity")
+    .select("id, kind, description, created_at")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((r: Record<string, any>) => ({
+    id: r.id,
+    kind: r.kind,
+    description: r.description,
+    createdAt: r.created_at,
+  }));
+}
+
+// --------------------------------------------------------------------------
 // Bitácora
 // --------------------------------------------------------------------------
 
@@ -212,6 +252,7 @@ export type BitacoraEntryInput = {
   incidents: string;
   delays: string;
   taskProgress: Array<{ taskId: string; progress: number; note?: string }>;
+  photos?: string[];
 };
 
 export type BitacoraEntryView = {
@@ -226,6 +267,8 @@ export type BitacoraEntryView = {
   incidents: string;
   delays: string;
   taskProgress: Array<{ taskId: string; progress: number; note: string }>;
+  photos: string[];
+  photoUrls?: string[];
   updatedAt: string;
 };
 
@@ -258,6 +301,7 @@ export async function upsertBitacoraEntry(
         observations: entry.observations ?? "",
         incidents: entry.incidents ?? "",
         delays: entry.delays ?? "",
+        photos: (entry.photos ?? []).filter((x) => typeof x === "string").slice(0, 30),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "project_id,entry_date" },
@@ -371,6 +415,7 @@ function rowToView(row: Record<string, any>, progress: Array<Record<string, any>
       progress: Number(p.progress ?? 0),
       note: p.note ?? "",
     })),
+    photos: (row.photos ?? []) as string[],
     updatedAt: row.updated_at ?? row.created_at,
   };
 }

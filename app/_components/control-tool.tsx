@@ -94,6 +94,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [showLinks, setShowLinks] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(true);
+  const [activity, setActivity] = useState<Array<{ id: string; kind: string; description: string; createdAt: string }>>([]);
   // RFIs / No conformidades
   const [rfis, setRfis] = useState<Array<{ id: string; code: string; title: string; reference: string; assignee: string; due_date: string | null; status: string; response: string }>>([]);
   const [rfiTitle, setRfiTitle] = useState("");
@@ -214,6 +215,10 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
         setAlerts(data.alerts ?? []);
         void loadRfis(projectSlug);
         void loadBaselines(projectSlug);
+        fetch(`/api/projects/${encodeURIComponent(projectSlug)}/activity`)
+          .then((r) => (r.ok ? r.json() : { activity: [] }))
+          .then((d) => setActivity(d.activity ?? []))
+          .catch(() => setActivity([]));
         setItems(data.items ?? []);
         setReason(data.dashboard ? null : (data.reason ?? null));
         if (data.tasksCount != null) {
@@ -692,6 +697,26 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
               )}
             </div>
           </section>
+
+          {/* Actividad reciente */}
+          {activity.length > 0 && (
+            <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                🕘 Actividad reciente
+              </h3>
+              <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+                {activity.slice(0, 20).map((a) => (
+                  <div key={a.id} className="flex items-baseline justify-between gap-2 border-b border-white/[0.03] py-1 last:border-0">
+                    <span className="min-w-0 truncate text-[11px] text-slate-300">
+                      <span className="mr-1.5">{{ file: "📎", budget: "💰", task: "📊", bitacora: "📔", rfi: "📋", member: "👥", baseline: "📐", link: "🔗" }[a.kind] ?? "•"}</span>
+                      {a.description}
+                    </span>
+                    <span className="shrink-0 text-[9px] text-slate-600">{new Date(a.createdAt).toLocaleString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <p className="text-center text-[10px] text-slate-600">
             Fuente: bitácora diaria ({dashboard.daysWithEntries} día(s) registrados) · presupuesto guardado ·

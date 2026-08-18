@@ -63,6 +63,9 @@ export function BitacoraTool({ projectSlug }: { projectSlug: string }) {
   const [workersDetail, setWorkersDetail] = useState<Array<{ trade: string; count: string }>>([]);
   const [equipment, setEquipment] = useState<Array<{ name: string; count: string }>>([]);
   const [observations, setObservations] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [incidents, setIncidents] = useState("");
   const [delays, setDelays] = useState("");
   const [progressByTask, setProgressByTask] = useState<Record<string, string>>({});
@@ -105,6 +108,8 @@ export function BitacoraTool({ projectSlug }: { projectSlug: string }) {
         setObservations(entry.observations ?? "");
         setIncidents(entry.incidents ?? "");
         setDelays(entry.delays ?? "");
+        setPhotos(entry.photos ?? []);
+        setPhotoPreviews(entry.photoUrls ?? []);
         const pp: Record<string, string> = {};
         for (const p of entry.taskProgress ?? []) pp[p.taskId] = String(p.progress);
         setProgressByTask(pp);
@@ -119,6 +124,8 @@ export function BitacoraTool({ projectSlug }: { projectSlug: string }) {
         setObservations("");
         setIncidents("");
         setDelays("");
+        setPhotos([]);
+        setPhotoPreviews([]);
         setProgressByTask({});
         setSavedAt(null);
       }
@@ -152,6 +159,26 @@ export function BitacoraTool({ projectSlug }: { projectSlug: string }) {
     return () => { cancelled = true; };
   }, [loadTasks, loadDay, loadWeekStrip, selectedDate]);
 
+  async function handleAddPhotos(list: FileList | null) {
+    if (!list || list.length === 0 || isUploadingPhotos) return;
+    setIsUploadingPhotos(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("date", selectedDate);
+      for (const f of Array.from(list).slice(0, 10)) form.append("files", f);
+      const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/bitacora/photos`, { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Error al subir fotos");
+      setPhotos((p) => [...p, ...(data.paths ?? [])]);
+      setPhotoPreviews((p) => [...p, ...Array.from(list).slice(0, 10).map((f) => URL.createObjectURL(f))]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al subir fotos");
+    } finally {
+      setIsUploadingPhotos(false);
+    }
+  }
+
   async function handleSave() {
     setIsSaving(true);
     setError(null);
@@ -174,6 +201,7 @@ export function BitacoraTool({ projectSlug }: { projectSlug: string }) {
         observations,
         incidents,
         delays,
+        photos,
         taskProgress: Object.entries(progressByTask)
           .filter(([, v]) => v !== "" && v != null)
           .map(([taskId, v]) => ({ taskId, progress: Number(v) })),
@@ -473,6 +501,33 @@ export function BitacoraTool({ projectSlug }: { projectSlug: string }) {
                   );
                 })}
               </div>
+            )}
+          </section>
+
+          {/* Evidence photos */}
+          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                📷 Evidencia fotográfica ({photos.length})
+              </h3>
+              <label className="cursor-pointer rounded-lg border border-dashed border-white/[0.15] px-3 py-1.5 text-[11px] text-slate-400 transition hover:bg-white/[0.04]">
+                {isUploadingPhotos ? "Subiendo…" : "+ Añadir fotos"}
+                <input
+                  type="file" accept="image/*" multiple className="hidden"
+                  onChange={(e) => void handleAddPhotos(e.target.files)}
+                  disabled={isUploadingPhotos}
+                />
+              </label>
+            </div>
+            {photoPreviews.length > 0 ? (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {photoPreviews.map((url, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} src={url} alt={`Evidencia ${i + 1}`} className="h-24 w-32 shrink-0 rounded-lg border border-white/[0.08] object-cover" />
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-600">Las fotos del día quedan adjuntas a la bitácora — evidencia para asambleas e interventoría (máx. 8 MB c/u).</p>
             )}
           </section>
 
