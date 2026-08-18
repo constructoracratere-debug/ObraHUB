@@ -970,11 +970,22 @@ export function GanttTool({
                     className="w-full rounded-lg border border-white/[0.08] bg-[#050b14] px-3 py-2 text-sm text-slate-200 focus:border-amber-500/40 focus:outline-none"
                   />
                 </div>
-                {selectedTask.type !== "summary" && (
+                {selectedTask.type !== "milestone" && (
                   <div className="sm:col-span-2">
-                    <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                      Progreso: {Math.round(selectedTask.progress * 100)}%
-                    </label>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        {selectedTask.type === "summary" ? "Progreso del capítulo" : "Progreso"}: {Math.round(selectedTask.progress * 100)}%
+                      </label>
+                      {selectedTask.type === "summary" && (
+                        <button
+                          type="button"
+                          onClick={() => void handleUpdateSelectedTask({ progress: 1 })}
+                          className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+                        >
+                          ✓ Marcar completado
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="range"
                       min={0}
