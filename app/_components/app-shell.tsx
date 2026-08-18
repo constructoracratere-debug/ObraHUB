@@ -1776,6 +1776,10 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 Cerrar sesión
               </button>
             )}
+              <p className="px-2 pb-2 pt-1 text-[9px] leading-tight text-slate-600">
+                Powered by <span className="font-semibold text-slate-500">Cratere S.A.S.</span>
+                <span className="block">ObraHub · ObraGo — familia de productos</span>
+              </p>
           </div>
         </div>
 

@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
                 ${rowsHtml}
               </table>
               <p style="margin:14px 0 0;font-size:12px;color:#64748b">Entra a ObraHub → 📈 Control de Obra para la evidencia y recomendación de cada alerta.</p>
+              <p style="margin:8px 0 0;font-size:11px;color:#94a3b8">Powered by <b>Cratere S.A.S.</b> — ObraHub · ObraGo</p>
             </div>
           </div>`,
       });

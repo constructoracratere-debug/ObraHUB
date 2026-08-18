@@ -120,6 +120,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     s1.addText("OBRahub".toUpperCase(), { x: 0.6, y: 0.5, w: 3, fontSize: 16, bold: true, color: ACCENT });
     s1.addText(projectName, { x: 0.6, y: 2.4, w: 12, fontSize: 40, bold: true, color: "FFFFFF" });
     s1.addText("Informe Semanal de Asamblea", { x: 0.6, y: 3.5, w: 12, fontSize: 22, color: "CBD5E1" });
+    s1.addText(`Powered by Cratere S.A.S. · ObraHub`, { x: 0.6, y: 6.55, w: 12, fontSize: 10, color: "64748B" });
     s1.addText(`Semana del ${from} al ${to}  ·  Generado ${iso(now)}`, {
       x: 0.6, y: 4.2, w: 12, fontSize: 13, color: "64748B",
     });

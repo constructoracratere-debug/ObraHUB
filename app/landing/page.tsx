@@ -127,7 +127,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-white/[0.06] px-6 py-10">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 text-xs text-slate-600">
-          <span>© 2026 ObraHub · Constructora Crateré S.A.S.</span>
+          <span>© 2026 <strong className="text-slate-400">Powered by Cratere S.A.S.</strong> — ObraHub y ObraGo son productos de la familia Cratere</span>
           <span>Diego Orlando Pineda Escobar — Tec. Constr. Arq. (UGC) · Ing. Constructor (ITC Méx.) · Constructor y Gestor en Arquitectura (UNICOLMAYOR)</span>
           <span>constructoracratere@gmail.com</span>
         </div>

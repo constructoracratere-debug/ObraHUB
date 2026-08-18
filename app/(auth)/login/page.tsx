@@ -211,7 +211,7 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-600">
-          ObraHub · Asistente NSR-10 para Colombia
+          Powered by Cratere S.A.S. · ObraHub — Construction OS para LATAM
         </p>
       </div>
     </div>
