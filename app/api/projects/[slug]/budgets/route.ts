@@ -189,6 +189,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       prompt: typeof body.prompt === "string" ? body.prompt : undefined,
       source: body.source === "ifc" || body.source === "manual" ? body.source : "ai",
     });
+    const { refreshProjectHealth } = await import("@/lib/project-health");
+    await refreshProjectHealth(supabase, project.id);
     const { logActivity } = await import("@/lib/project-controls");
     void logActivity(supabase, {
       projectId: project.id,

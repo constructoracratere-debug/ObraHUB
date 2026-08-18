@@ -419,12 +419,19 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     tasksTotal: number; nextMilestone: { name: string; date: string } | null;
     daysSinceBitacora: number | null;
   }>>([]);
+  const [portfolioSummary, setPortfolioSummary] = useState<{
+    projects: number; avgSpi: number | null; critical: number; alerts: number; bacTotal: number; stale: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/portfolio")
       .then((r) => (r.ok ? r.json() : { cards: [] }))
-      .then((d) => { if (!cancelled) setPortfolio(d.cards ?? []); })
+      .then((d) => {
+        if (cancelled) return;
+        setPortfolio(d.cards ?? []);
+        setPortfolioSummary(d.summary ?? null);
+      })
       .catch(() => { /* decorative */ });
     return () => { cancelled = true; };
   }, [activeProjectSlug]); // refresh when returning from a project
@@ -1957,6 +1964,22 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-400/80">
                 Tus proyectos — salud de un vistazo
               </p>
+              {portfolioSummary && portfolioSummary.projects > 0 && (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                  {[
+                    ["Proyectos activos", String(portfolioSummary.projects), "text-white"],
+                    ["SPI promedio", portfolioSummary.avgSpi != null ? portfolioSummary.avgSpi.toFixed(2) : "—", portfolioSummary.avgSpi == null ? "text-slate-300" : portfolioSummary.avgSpi >= 1 ? "text-emerald-300" : portfolioSummary.avgSpi >= 0.9 ? "text-amber-300" : "text-red-300"],
+                    ["Alertas", `${portfolioSummary.alerts}`, portfolioSummary.critical > 0 ? "text-red-300" : "text-slate-300"],
+                    ["Cartera (BAC)", portfolioSummary.bacTotal > 0 ? `$${(portfolioSummary.bacTotal / 1e6).toFixed(1)}M` : "—", "text-amber-300"],
+                    ["Bitácora ≥3d", `${portfolioSummary.stale}`, portfolioSummary.stale > 0 ? "text-amber-300" : "text-slate-300"],
+                  ].map(([label, value, cls]) => (
+                    <div key={label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+                      <p className="truncate text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
+                      <p className={`mt-0.5 text-lg font-bold ${cls}`}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {portfolio.map((c) => {
                   const R = 26, C = 2 * Math.PI * R;

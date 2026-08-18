@@ -141,6 +141,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ownerId: user.id,
       entry,
     });
+    const { refreshProjectHealth } = await import("@/lib/project-health");
+    await refreshProjectHealth(supabase, project.id);
     const { logActivity } = await import("@/lib/project-controls");
     void logActivity(supabase, {
       projectId: project.id,
