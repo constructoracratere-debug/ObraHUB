@@ -269,6 +269,36 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       s6.addText("Sin registros de bitácora esta semana.", { x: 0.6, y: 3, fontSize: 14, color: WARN, bold: true });
     }
 
+    // --- S7 Evidencia fotografica (firmadas en Storage, embebidas)
+    const photoPaths: string[] = [];
+    for (const e of weekEntries) {
+      const ph = (e as Record<string, any>).photos as string[] | undefined;
+      if (Array.isArray(ph)) photoPaths.push(...ph);
+    }
+    const unique = [...new Set(photoPaths)].slice(0, 4);
+    if (unique.length > 0) {
+      const images: Array<{ data: string; caption: string }> = [];
+      for (const path of unique) {
+        try {
+          const { data: signed } = await supabase.storage.from("project-files").createSignedUrl(path, 600);
+          if (!signed?.signedUrl) continue;
+          const b = Buffer.from(await (await fetch(signed.signedUrl)).arrayBuffer());
+          images.push({ data: b.toString("base64"), caption: path.split("/").pop() ?? "" });
+        } catch { /* una foto fallida no rompe el informe */ }
+      }
+      if (images.length > 0) {
+        const sF = pptx.addSlide();
+        sF.background = { color: "F8FAFC" };
+        sF.addText("Evidencia fotografica de la semana", { x: 0.6, y: 0.4, fontSize: 26, bold: true, color: "0F172A" });
+        const spots: Array<[number, number]> = [[0.6, 1.3], [6.85, 1.3], [0.6, 4.05], [6.85, 4.05]];
+        images.slice(0, 4).forEach((img, i) => {
+          const [x, y] = spots[i];
+          sF.addImage({ data: "image/png;base64," + img.data, x, y, w: 5.9, h: 2.55, sizing: { type: "contain", w: 5.9, h: 2.55 } });
+          sF.addText(img.caption, { x, y: y + 2.6, w: 5.9, fontSize: 9, color: "64748B", align: "center" });
+        });
+      }
+    }
+
     const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
