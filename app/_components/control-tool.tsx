@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { formatCOP } from "@/lib/prices";
 
 /**
@@ -103,7 +103,9 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [rfiBusy, setRfiBusy] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [rfiNotify, setRfiNotify] = useState(false);
-  const [rfiKind, setRfiKind] = useState<"rfi" | "submittal">("rfi");
+  const [rfiKind, setRfiKind] = useState<"rfi" | "submittal" | "bcf">("rfi");
+  const bcfInputRef = useRef<HTMLInputElement>(null);
+  const [bcfBusy, setBcfBusy] = useState(false);
   const [rfiNotifyEmail, setRfiNotifyEmail] = useState("");
 
   async function loadRfis(slug: string) {
@@ -233,6 +235,20 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
       })
       .filter((x): x is { name: string; base: string; now: string; delta: number } => x !== null)
       .sort((a, b) => b.delta - a.delta) ?? [];
+  }
+
+  async function handleImportBcf(file: File) {
+    if (bcfBusy) return; setBcfBusy(true); setError(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const r = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/bcf`, { method: "POST", body: fd });
+      const d = await r.json();
+      if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : "Error");
+      setSavedMsg(`🧊 ${d.imported} issues BCF importados`);
+      await loadRfis(projectSlug);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al importar BCF");
+    } finally { setBcfBusy(false); if (bcfInputRef.current) bcfInputRef.current.value = ""; }
   }
 
   async function handlePatchRfi(id: string, patch: { status?: string; response?: string }) {
@@ -566,19 +582,27 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  📋 {rfiKind === "rfi" ? `RFIs y No conformidades (${rfis.filter((r) => r.kind !== "submittal" && r.status !== "cerrada").length} abiertas)` : `Submittals (${rfis.filter((r) => r.kind === "submittal" && r.status !== "cerrada").length} pendientes)`}
+                  📋 {rfiKind === "rfi" ? `RFIs y No conformidades (${rfis.filter((r) => (r.kind ?? "rfi") === "rfi" && r.status !== "cerrada").length} abiertas)` : rfiKind === "submittal" ? `Submittals (${rfis.filter((r) => r.kind === "submittal" && r.status !== "cerrada").length} pendientes)` : `Issues BCF de coordinación (${rfis.filter((r) => r.kind === "bcf" && r.status !== "cerrada").length} abiertos)`}
                 </h3>
                 <p className="mt-0.5 text-[11px] text-slate-500">Preguntas de obra con responsable y vencimiento — incluidas en el informe de asamblea.</p>
               </div>
             </div>
             <div className="mb-3 flex gap-1 rounded-lg bg-white/[0.03] p-0.5">
-              {(["rfi", "submittal"] as const).map((k) => (
+              {(["rfi", "submittal", "bcf"] as const).map((k) => (
                 <button key={k} type="button" onClick={() => setRfiKind(k)}
                   className={"rounded-md px-3 py-1 text-[11px] font-semibold transition " + (rfiKind === k ? "bg-teal-600 text-white" : "text-slate-400 hover:text-white")}>
-                  {k === "rfi" ? "📋 RFIs" : "📑 Submittals"}
+                  {k === "rfi" ? "📋 RFIs" : k === "submittal" ? "📑 Submittals" : "🧊 BCF"}
                 </button>
               ))}
+              {rfiKind === "bcf" && (
+                <label className="ml-auto cursor-pointer rounded-md border border-dashed border-white/[0.15] px-2.5 py-1 text-[10px] text-slate-400 transition hover:bg-white/[0.04]">
+                  {bcfBusy ? "Importando…" : "📥 Importar .bcf"}
+                  <input ref={bcfInputRef} type="file" accept=".bcf" className="hidden" disabled={bcfBusy}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportBcf(f); }} />
+                </label>
+              )}
             </div>
+{rfiKind !== "bcf" && (
             <div className="flex flex-wrap gap-2">
               <input
                 type="text" value={rfiTitle} onChange={(e) => setRfiTitle(e.target.value)}
@@ -601,6 +625,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                 {rfiBusy ? "…" : rfiKind === "rfi" ? "+ RFI" : "+ Submittal"}
               </button>
             </div>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
               <label className="flex cursor-pointer items-center gap-1.5">
                 <input type="checkbox" checked={rfiNotify} onChange={(e) => setRfiNotify(e.target.checked)} className="accent-teal-500" />
@@ -617,7 +642,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
             </div>
             {rfis.length > 0 && (
               <div className="mt-3 space-y-1.5">
-                {rfis.filter((r) => (r.kind ?? "rfi") === rfiKind).slice(0, 12).map((r) => {
+                {rfis.filter((r) => (r.kind ?? "rfi") === rfiKind || (rfiKind === "rfi" && !r.kind)).slice(0, 12).map((r) => {
                   const overdue = r.status === "abierta" && r.due_date && r.due_date < new Date().toISOString().slice(0, 10);
                   const st = r.status === "cerrada" || r.status === "aprobada" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                     : r.status === "respondida" ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
@@ -638,7 +663,7 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                         </span>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {(r.kind ?? "rfi") === "rfi" ? (
+                        {(r.kind ?? "rfi") !== "submittal" ? (
                           <>
                             {r.status !== "respondida" && r.status !== "cerrada" && (
                               <button type="button" onClick={() => void handlePatchRfi(r.id, { status: "respondida", response: r.response || "Respuesta registrada en obra" })} className="rounded border border-sky-500/30 px-2 py-1 text-[10px] text-sky-300 hover:bg-sky-500/10">↩ Responder</button>
