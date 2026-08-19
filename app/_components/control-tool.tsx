@@ -350,6 +350,12 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
 
   const variance = useMemo(() => (dashboard && baseSnap.length > 0 ? baseVariance() : []), [dashboard, baseSnap]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function handleReportExcel() {
+    window.open(`/api/projects/${encodeURIComponent(projectSlug)}/report-excel`, "_blank");
+  }
+
+
+
   async function handleWeeklyReport() {
     if (isReport) return;
     setIsReport(true);
@@ -401,6 +407,31 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                 ))}
               </select>
             )}
+            <button
+              type="button"
+              onClick={handleReportExcel}
+              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+              title="Excel profesional: portada, KPIs, Gantt pintado, bitácora, presupuesto completo y anexos"
+            >
+              📗 Excel (memoria de obra)
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleWeeklyReport()}
+              disabled={isReport}
+              className="rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-teal-500 disabled:opacity-50"
+              title="PPTX ejecutivo para la asamblea semanal"
+            >
+              {isReport ? "Generando…" : "📊 Informe de asamblea"}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportProject}
+              className="rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-300 transition hover:bg-white/[0.06]"
+              title="ZIP con TODO el proyecto (CSVs)"
+            >
+              ⬇ Exportar proyecto
+            </button>
             <button
               type="button"
               onClick={() => void load(budgetId || undefined)}
