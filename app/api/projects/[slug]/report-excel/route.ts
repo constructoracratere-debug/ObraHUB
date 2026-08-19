@@ -206,6 +206,37 @@ export async function GET(_r: NextRequest, c: RouteContext) {
     for (const x of (punch ?? []) as Array<Record<string, any>>) an.addRow(["Punch", x.code, x.title, x.status, x.location ?? "", ""]);
     for (const x of (cos ?? []) as Array<Record<string, any>>) an.addRow(["Orden de cambio", x.code, x.title, x.status, "", `${fmtCop(Number(x.impact_total ?? 0))}${Number(x.schedule_days ?? 0) > 0 ? ` · +${x.schedule_days}d` : ""}`]);
 
+    // ── Pulido profesional: pestañas con color, paneles fijos,
+    // autofiltros y configuración de impresión (horizontal, ajustado).
+    const sheetPolish: Array<[ExcelJS.Worksheet, string, number]> = [
+      [kpi, "FF0EA5E9", 4],
+      [g, "FF8B5CF6", 4],
+      [b, "FFF43F5E", 9],
+      [pr, "FFF59E0B", 11],
+      [an, "FF10B981", 6],
+    ];
+    for (const [ws, color, freezeCol] of sheetPolish) {
+      ws.properties.tabColor = { argb: color };
+      if (ws.rowCount > 1) {
+        ws.views = [{ state: "frozen", ySplit: 2, xSplit: 0 }];
+        ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: Math.max(2, ws.rowCount), column: freezeCol } };
+      }
+      ws.pageSetup = {
+        orientation: "landscape",
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+      };
+      ws.headerFooter = {
+        oddHeader: '&L&"Segoe UI"Memoria de Obra — ObraHub',
+        oddFooter: "&C&P de &N&R" + new Date().toLocaleDateString("es-CO"),
+      };
+      ws.getRow(2)?.eachCell?.((c) => { c.border = { bottom: { style: "thin", color: { argb: DARK } } }; });
+    }
+    cover.pageSetup = { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 1 };
+    cover.properties.tabColor = { argb: DARK };
+
     const buf = await wb.xlsx.writeBuffer();
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
