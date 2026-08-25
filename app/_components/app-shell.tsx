@@ -2773,7 +2773,17 @@ en Latinoamérica
                 )
               ) : activeTool === "control" ? (
                 activeProjectSlug ? (
-                  <ControlTool projectSlug={activeProjectSlug} />
+                  <ControlTool projectSlug={activeProjectSlug} onOpenInViewer={async (globalIds) => {
+                    // Encuentra el primer archivo IFC del proyecto y ábrelo con highlights
+                    try {
+                      const folders = await (await fetch(`/api/projects/${encodeURIComponent(activeProjectSlug)}/folders`)).json();
+                      for (const f of (folders?.folders ?? [])) {
+                        const files = await (await fetch(`/api/folders/${f.id}/files`)).json();
+                        const ifc = (files?.files ?? []).find((x: { name: string }) => x.name?.toLowerCase().endsWith(".ifc"));
+                        if (ifc) { void openIfcWithHighlights(ifc.id, globalIds); return; }
+                      }
+                    } catch { /* no IFC found */ }
+                  }} />
                 ) : (
                   <div className="py-8 text-center text-sm text-slate-500">
                     Selecciona un proyecto para ver el control de obra.

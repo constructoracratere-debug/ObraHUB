@@ -81,7 +81,7 @@ function idx(n: number | null, digits = 2): string {
   return n == null || !Number.isFinite(n) ? "—" : n.toFixed(digits);
 }
 
-export function ControlTool({ projectSlug }: { projectSlug: string }) {
+export function ControlTool({ projectSlug, onOpenInViewer }: { projectSlug: string; onOpenInViewer?: (globalIds: string[]) => void }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -94,6 +94,23 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [showLinks, setShowLinks] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(true);
+  const [hasIfrFile, setHasIfcFile] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/projects/${encodeURIComponent(projectSlug)}/folders`)
+      .then((r) => (r.ok ? r.json() : { folders: [] }))
+      .then((d) => {
+        const folders = d.folders ?? [];
+        if (folders.length === 0) return setHasIfcFile(false);
+        // Check first folder for IFC files
+        return fetch(`/api/folders/${folders[0].id}/files`)
+          .then((r) => (r.ok ? r.json() : { files: [] }))
+          .then((fd) => {
+            setHasIfcFile((fd.files ?? []).some((f: { name: string }) => f.name?.toLowerCase().endsWith(".ifc")));
+          });
+      })
+      .catch(() => setHasIfcFile(false));
+  }, [projectSlug]);
   const [activity, setActivity] = useState<Array<{ id: string; kind: string; description: string; createdAt: string }>>([]);
   // RFIs / No conformidades
   const [rfis, setRfis] = useState<Array<{ id: string; code: string; title: string; reference: string; assignee: string; due_date: string | null; status: string; response: string; kind?: string }>>([]);
@@ -692,6 +709,16 @@ export function ControlTool({ projectSlug }: { projectSlug: string }) {
                         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${st}`}>
                           {overdue && r.status === "abierta" ? "VENCIDA" : r.status}
                         </span>
+                        {r.kind === "bcf" && hasIfrFile && onOpenInViewer && r.reference && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenInViewer([r.reference])}
+                            className="rounded border border-cyan-500/30 px-1.5 py-0.5 text-[10px] text-cyan-300 hover:bg-cyan-500/10"
+                            title="Resaltar este elemento en el visor 3D"
+                          >
+                            🧊 Ver en 3D
+                          </button>
+                        )}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {(r.kind ?? "rfi") !== "submittal" ? (
