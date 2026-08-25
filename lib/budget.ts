@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getCountry, chargesPrompt } from "@/lib/country-config";
 import type { PriceItem } from "@/lib/prices";
 import { buildPriceContext } from "@/lib/prices";
 
@@ -57,7 +58,14 @@ export type APUBudget = {
   };
 };
 
-const SYSTEM_PROMPT = `Eres un analista de costos y presupuestos de construcción en Colombia.
+function systemPromptFor(country: string): string {
+  const c = getCountry(country);
+  return SYSTEM_PROMPT_BASE.replace("CHARGES_PLACEHOLDER", chargesPrompt(c))
+    + `
+País de referencia: ${c.name} (${c.flag}). Reglamento: ${c.buildingCode.name} — ${c.buildingCode.ref}. Fuente de precios: ${c.priceSource}. Moneda: ${c.currency}.`;
+}
+
+const SYSTEM_PROMPT_BASE = `Eres un analista de costos y presupuestos de construcción en Colombia.
 Tu tarea es generar un ANÁLISIS DE PRECIOS UNITARIOS (APU) profesional, detallado y listo para presentar a entidades gubernamentales y clientes.
 
 REGLAS ESTRICTAS:
@@ -71,8 +79,7 @@ REGLAS ESTRICTAS:
    - HIDROSANITARIO: Tubo PVC por diámetro, codos, tees, reducciones, pegante PVC, llaves, accesorios, sellos, etc.
 3. NUNCA agrupes materiales en una sola línea genérica. Si el trabajo requiere 8 materiales distintos, lista los 8.
 4. Las cantidades de materiales/mano de obra deben ser realistas por unidad de trabajo (rendimientos estándar colombianos).
-5. Aplica AIU estándar: Administración (13%), Imprevistos (3%), Utilidad (6%) = 22% total sobre el costo directo.
-6. Aplica IVA del 19% sobre (costo directo + AIU).
+5. Aplica los cargos e impuestos del país según CHARGES_PLACEHOLDER.
 7. DETALLE DE REFERENCIA MUNDIAL (estándar Glodon/CostX/PlanSwift/Procore):
    a. Cada línea de material/mano de obra/equipo DEBE llevar el campo source: la referencia del precio (ej. "Base SISDOCES ObraHub 2026", "Análisis sectorial Camacol", "Rendimiento NSR-10 A.6") — nunca precios sin fuente.
    b. Muestra el RENDIMIENTO implícito en cada análisis (ej. m³ de mortero por m² de muro, horas-hombre por m³ de concreto vaciado) — el lector debe poder auditar la cantidad derivada.
@@ -135,6 +142,7 @@ DEVUELVE EXCLUSIVAMENTE JSON válido (sin markdown, sin texto adicional) con est
 export async function generateBudget(
   prompt: string,
   prices: PriceItem[],
+  country: string = "colombia",
 ): Promise<APUBudget> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
@@ -145,7 +153,7 @@ export async function generateBudget(
   const completion = await openai.chat.completions.create({
     model: "gpt-4.1-mini",
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPromptFor(country) },
       {
         role: "user",
         content: `PRESUPUESTO SOLICITADO:\n${prompt}\n\n${priceContext}`,

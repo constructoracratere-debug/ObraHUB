@@ -52,6 +52,11 @@ const BitacoraTool = dynamic(() => import("@/app/_components/bitacora-tool").the
 });
 
 // Code-split the control dashboard — S-curve + earned value.
+const NewsTool = dynamic(() => import("@/app/_components/news-tool").then((m) => m.NewsTool), {
+  ssr: false,
+  loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando noticias…</p></div>),
+});
+
 const ControlTool = dynamic(() => import("@/app/_components/control-tool").then((m) => m.ControlTool), {
   ssr: false,
   loading: () => (
@@ -96,7 +101,7 @@ const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
 const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
-type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control";
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "news";
 
 type ToolDef = {
   id: ToolId;
@@ -147,6 +152,14 @@ const TOOLS: ToolDef[] = [
     icon: "📈",
     available: true,
     gradient: "from-teal-500/15 to-teal-600/5",
+  },
+  {
+    id: "news",
+    title: "Noticias LATAM",
+    description: "Precios, licitaciones, normativa, empresas y premios — a diario.",
+    icon: "📰",
+    available: true,
+    gradient: "from-orange-500/15 to-orange-600/5",
   },
   {
     id: "normativa",

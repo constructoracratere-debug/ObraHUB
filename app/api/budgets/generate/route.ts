@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const budget = await generateBudget(prompt, prices);
+    const budget = await generateBudget(prompt, prices, country);
     return NextResponse.json({ budget });
   } catch (error) {
     console.error("Budget generation error:", error);
