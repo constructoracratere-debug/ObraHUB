@@ -104,6 +104,32 @@ export async function POST(request: NextRequest) {
 
     // RAG: search project documents for relevant normative text
     let ragContext = "";
+
+    // ── VIGILANCIA NORMATIVA: inyectar últimas leyes/decretos vigentes ──
+    try {
+      const { data: norms } = await supa
+        .from("normative_updates")
+        .select("norm_type, number, year, title, summary, affects, relevance, published_at")
+        .eq("status", "vigente")
+        .gte("published_at", new Date(Date.now() - 730).toISOString()) // últimos 2 años
+        .order("published_at", { ascending: false })
+        .limit(10);
+      if (norms && norms.length > 0) {
+        ragContext += "\n\n## ⚠️ ACTUALIZACIONES NORMATIVAS VIGENTES (verifica contra estas):\n";
+        for (const n of (norms as Array<Record<string, any>>)) {
+          ragContext += `- ${n.norm_type.toUpperCase()} ${n.number} de ${n.year}: ${n.title.slice(0, 120)}
+`;
+          if (n.summary) ragContext += `  Impacto: ${n.summary.slice(0, 150)}
+`;
+          const affects = Array.isArray(n.affects) ? n.affects : [];
+          for (const a of affects.slice(0, 3)) {
+            ragContext += `  → ${a.change || ""} NSR-10 ${a.nsr_title || ""}: ${a.description || ""}
+`;
+          }
+        }
+        ragContext += String.fromCharCode(10) + "CRÍTICO: Si una de estas normas modifica algo del NSR-10 que estás citando, MENCIONA la ley/decreto que lo cambia. Nunca cites un artículo como vigente si una ley posterior lo deroga o modifica.";
+      }
+    } catch { /* normative context is best-effort */ }
     const searchQuery = text || audioText || "construcción";
     if (projectSlug) {
       try {
