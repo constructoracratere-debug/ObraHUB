@@ -52,6 +52,11 @@ const BitacoraTool = dynamic(() => import("@/app/_components/bitacora-tool").the
 });
 
 // Code-split the control dashboard — S-curve + earned value.
+const VisualConsultant = dynamic(() => import("@/app/_components/visual-consultant").then((m) => m.VisualConsultant), {
+  ssr: false,
+  loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando consultor visual…</p></div>),
+});
+
 const NewsTool = dynamic(() => import("@/app/_components/news-tool").then((m) => m.NewsTool), {
   ssr: false,
   loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando noticias…</p></div>),
@@ -2272,6 +2277,9 @@ en Latinoamérica
                           <span>{suggestion}</span>
                         </button>
                       ))}
+                    </div>
+                    <div className="mt-6">
+                      <VisualConsultant />
                     </div>
                   </section>
                 </div>
