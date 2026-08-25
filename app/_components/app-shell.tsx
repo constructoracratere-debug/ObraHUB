@@ -101,7 +101,7 @@ const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
 const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
-type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "news";
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control";
 
 type ToolDef = {
   id: ToolId;
@@ -152,14 +152,6 @@ const TOOLS: ToolDef[] = [
     icon: "📈",
     available: true,
     gradient: "from-teal-500/15 to-teal-600/5",
-  },
-  {
-    id: "news",
-    title: "Noticias LATAM",
-    description: "Precios, licitaciones, normativa, empresas y premios — a diario.",
-    icon: "📰",
-    available: true,
-    gradient: "from-orange-500/15 to-orange-600/5",
   },
   {
     id: "normativa",
@@ -2188,6 +2180,12 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
           )}
 
           <AmericasMap cards={portfolio} onOpen={(slug) => openProject(slug)} />
+
+          {/* Noticias LATAM — sección del Home, no herramienta */}
+          <div className="mt-10">
+            <NewsTool />
+          </div>
+
 
           <h1 className="mx-auto max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
                       IA para ingeniería y construcción
