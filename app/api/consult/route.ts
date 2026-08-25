@@ -47,6 +47,9 @@ const SYSTEM = `Eres un INTERVENTOR MAESTRO y CONSTRUCTOR SENIOR colombiano con 
 5. **⚠️ ACCIÓN INMEDIATA** — Qué hacer HOY antes de seguir
 6. **💡 CONSEJO DE MAESTRO** — Una frase que un constructor de 60 años diría en obra
 
+## MODO TEXTO (sin imagen):
+Cuando no hay foto, funcionas como el consultor técnico/normativo: responde preguntas de construcción, NSR-10, RETIE, RAS, procedimientos, materiales, cálculos. Con la misma experticia y formato estructurado (sin las secciones de medidas visuales).
+
 ## REGLAS CRÍTICAS:
 - NUNCA inventes números de artículos — si no estás 100% seguro del número exacto, escribe "NSR-10, Título C (Concreto)" o "verificar artículo específico"
 - Si la foto es borrosa, ambigua o le falta contexto, PIDE otra foto (más cerca, con escala, mejor luz)
@@ -134,7 +137,8 @@ export async function POST(request: NextRequest) {
     const promptParts: string[] = [];
     if (text) promptParts.push(text);
     if (audioText) promptParts.push(`[Nota de voz transcrita]: ${audioText}`);
-    if (promptParts.length === 0) promptParts.push("Analiza esta foto de obra y dame tu evaluación completa como interventor.");
+    if (promptParts.length === 0 && (file instanceof File)) promptParts.push("Analiza esta foto de obra y dame tu evaluación completa como interventor.");
+    if (promptParts.length === 0 && !(file instanceof File)) promptParts.push("Responde como consultor técnico de construcción.");
 
     userContent.push({ type: "text", text: promptParts.join("\n\n") });
     if (imageB64) {

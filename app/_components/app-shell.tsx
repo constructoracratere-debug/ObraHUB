@@ -160,11 +160,11 @@ const TOOLS: ToolDef[] = [
   },
   {
     id: "normativa",
-    title: "Consultor Normativo",
-    description: "NSR-10, RETIE, RAS y más — respuestas con citas por página.",
-    icon: "⚖️",
+    title: "Interventor IA",
+    description: "Fotos de obra → análisis experto + NSR-10 · preguntas técnicas · notas de voz.",
+    icon: "👁️",
     available: true,
-    gradient: "from-emerald-500/15 to-emerald-600/5",
+    gradient: "from-cyan-500/15 to-cyan-600/5",
   },
 ];
 

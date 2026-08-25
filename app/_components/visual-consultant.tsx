@@ -39,12 +39,12 @@ export function VisualConsultant({ projectSlug }: { projectSlug?: string }) {
   }
 
   async function handleConsult() {
-    if (!photo || busy) return;
+    if ((!photo && !question.trim()) || busy) return;
     setBusy(true);
     setError(null);
     try {
       const fd = new FormData();
-      fd.append("image", photo);
+      if (photo) fd.append("image", photo);
       fd.append("text", question.trim());
       const res = await fetch("/api/consult", { method: "POST", body: fd });
       const data = await res.json();
@@ -137,13 +137,12 @@ export function VisualConsultant({ projectSlug }: { projectSlug?: string }) {
           onChange={(e) => handlePhoto(e.target.files?.[0] ?? null)}
         />
 
-        {photo && (
-          <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-3">
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               rows={2}
-              placeholder="¿Qué pregunta tienes? (opcional — déjalo vacío para análisis completo)"
+              placeholder="Escribe tu pregunta técnica (NSR-10, materiales, procedimientos…) o sube una foto de obra"
               className={inputCls}
             />
             <button
@@ -152,10 +151,9 @@ export function VisualConsultant({ projectSlug }: { projectSlug?: string }) {
               disabled={busy}
               className="w-full rounded-xl bg-gradient-to-br from-cyan-600 to-cyan-700 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-cyan-950/40 transition hover:from-cyan-500 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy ? "🔍 Analizando foto…" : "👁️ Consultar al interventor"}
+              {busy ? "🔍 Analizando…" : "👁️ Consultar al interventor IA"}
             </button>
           </div>
-        )}
         {error && <p className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">{error}</p>}
       </div>
 
