@@ -11,22 +11,26 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 type Feed = { source: string; url: string; category: string; country: string };
 
 const FEEDS: Feed[] = [
-  // Colombia — sector, precios y gobierno
+  // ===== COLOMBIA — sector, economía, gobierno =====
   { source: "Camacol", url: "https://camacol.co/rss.xml", category: "empresas", country: "colombia" },
-  { source: "DANE — PIB construcción", url: "https://www.dane.gov.co/rss/boletines", category: "precios", country: "colombia" },
-  { source: "Construdata", url: "https://construdata.com/feed", category: "empresas", country: "colombia" },
-  { source: "El Tiempo — Construcción", url: "https://www.eltiempo.com/rss/construccion.xml", category: "general", country: "colombia" },
   { source: "La República — Infraestructura", url: "https://www.larepublica.co/rss/infraestructura", category: "oportunidades", country: "colombia" },
-  { source: "Ministerio de Vivienda", url: "https://www.minvivienda.gov.co/rss/noticias", category: "gobierno", country: "colombia" },
-  { source: "ANI — Concesiones", url: "https://www.ani.gov.co/rss", category: "oportunidades", country: "colombia" },
-  // Regional LATAM
-  { source: "ArchDaily", url: "https://www.archdaily.com/feed", category: "innovacion", country: "latam" },
+  { source: "El Tiempo — Economía", url: "https://www.eltiempo.com/rss/economia.xml", category: "precios", country: "colombia" },
+  { source: "El Tiempo — Colombia", url: "https://www.eltiempo.com/rss/colombia.xml", category: "gobierno", country: "colombia" },
+  { source: "El Tiempo — Bogotá", url: "https://www.eltiempo.com/rss/bogota.xml", category: "gobierno", country: "colombia" },
+  { source: "Asobancaria", url: "https://www.asobancaria.com/rss", category: "precios", country: "colombia" },
+  { source: "Expansión MX — Obras", url: "https://expansion.mx/rss/obras", category: "empresas", country: "mexico" },
+  // ===== LATAM — Arquitectura, BIM, Innovación =====
+  { source: "ArchDaily Global", url: "https://www.archdaily.com/feed", category: "innovacion", country: "latam" },
+  { source: "ArchDaily México", url: "https://www.archdaily.mx/feed", category: "innovacion", country: "mexico" },
+  { source: "ArchDaily Chile", url: "https://www.archdaily.ch/feed", category: "innovacion", country: "latam" },
+  { source: "ArchDaily Colombia", url: "https://www.archdaily.co/feed", category: "innovacion", country: "colombia" },
+  { source: "ArchDaily Perú", url: "https://www.archdaily.pe/feed", category: "innovacion", country: "latam" },
+  { source: "ArchDaily Brasil", url: "https://www.archdaily.com.br/feed", category: "innovacion", country: "latam" },
   { source: "Plataforma Arquitectura", url: "https://www.plataformaarquitectura.cl/feed", category: "innovacion", country: "latam" },
-  { source: "Obras (México)", url: "https://obras.web.mx/rss.xml", category: "general", country: "mexico" },
-  { source: "Obras por Expansión", url: "https://expansion.mx/rss/obras", category: "empresas", country: "mexico" },
-  { source: "IBD — Obras e infraestructura", url: "https://www.ibd.org.ar/rss/noticias", category: "general", country: "latam" },
-  { source: "Planuma", url: "https://www.planuma.com/feed", category: "innovacion", country: "latam" },
-  { source: "Premios Iberoamericanos", url: "https://www.premiosiberoamericanos.com/feed", category: "premios", country: "latam" },
+  { source: "Dezeen — Global Design", url: "https://www.dezeen.com/feed/", category: "innovacion", country: "latam" },
+  { source: "Design Milk — Tech", url: "https://design-milk.com/feed/", category: "innovacion", country: "latam" },
+  // ===== ECONOMÍA LATAM =====
+  { source: "Valora Analitik", url: "https://www.valoraanalitik.com/rss", category: "precios", country: "latam" },
 ];
 
 function tag(xml: string, t: string): string {
