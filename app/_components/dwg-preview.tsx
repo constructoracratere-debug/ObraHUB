@@ -155,6 +155,58 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
     svgElRef.current = svgEl;
     svgEl.setAttribute("width", "100%");
     svgEl.setAttribute("height", "100%");
+
+    // ── Beautify: recolor for dark background with AutoCAD layer palette ──
+    const LAYER_COLORS = [
+      "#00ffff", // cyan (layer 1)
+      "#ff00ff", // magenta (layer 2)
+      "#00ff00", // green (layer 3)
+      "#ff0000", // red (layer 4)
+      "#0000ff", // blue (layer 5)
+      "#ffff00", // yellow (layer 6)
+      "#ff8c00", // orange (layer 7)
+      "#ffffff", // white (layer 8)
+    ];
+    const strokes = svgEl.querySelectorAll("[stroke]");
+    strokes.forEach((el, i) => {
+      const cur = el.getAttribute("stroke") ?? "";
+      if (cur === "none") return;
+      if (cur === "black" || cur === "#000000" || cur === "#000" || cur === "rgb(0,0,0)") {
+        el.setAttribute("stroke", LAYER_COLORS[i % LAYER_COLORS.length]);
+      }
+      // Line weights: give structural elements thicker strokes
+      const tag = el.tagName?.toLowerCase() ?? "";
+      if (tag === "line" || tag === "polyline" || tag === "path") {
+        const curW = parseFloat(el.getAttribute("stroke-width") ?? "1");
+        if (Number.isNaN(curW) || curW < 0.5) {
+          el.setAttribute("stroke-width", "0.8");
+        }
+      }
+    });
+    // Fill elements: white → light
+    const fills = svgEl.querySelectorAll("[fill]");
+    fills.forEach((el) => {
+      const cur = el.getAttribute("fill") ?? "";
+      if (cur === "black" || cur === "#000000" || cur === "#000") {
+        el.setAttribute("fill", "rgba(255,255,255,0.9)");
+      }
+    });
+    // Text: light gray
+    const texts = svgEl.querySelectorAll("text, tspan");
+    texts.forEach((el) => {
+      el.setAttribute("fill", "#e2e8f0");
+      el.setAttribute("stroke", "none");
+    });
+    // Add subtle glow filter for visibility on dark
+    const defs = svgEl.querySelector("defs") ?? svgEl.ownerDocument?.createElementNS("http://www.w3.org/2000/svg", "defs");
+    if (defs && !defs.querySelector("#obrapp-cad-glow")) {
+      defs.id = "obrapp-cad-defs";
+      defs.innerHTML = `<filter id="obrapp-cad-glow" x="-5%" y="-5%" width="110%" height="110%">
+        <feGaussianBlur stdDeviation="0.3" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>`;
+      svgEl.insertBefore(defs, svgEl.firstChild);
+    }
     svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
     svgEl.style.display = "block";
     svgEl.style.width = "100%";
@@ -319,12 +371,18 @@ export function DwgPreview({ url, filename }: DwgPreviewProps) {
         </span>
       )}
 
-      {/* CAD viewport — white background like AutoCAD */}
+      {/* CAD viewport — dark AutoCAD style with grid */}
       {state === "ready" && (
         <div
           ref={wrapRef}
-          className="absolute inset-0 bg-white"
-          style={{ cursor: CROSSHAIR_CURSOR }}
+          className="absolute inset-0"
+          style={{
+            cursor: CROSSHAIR_CURSOR,
+            background: "#1a1a2e",
+            backgroundImage:
+              "linear-gradient(rgba(90,100,140,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(90,100,140,0.15) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
         >
           <div ref={svgHostRef} className="h-full w-full" />
         </div>

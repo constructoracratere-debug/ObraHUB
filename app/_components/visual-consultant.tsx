@@ -22,10 +22,40 @@ export function VisualConsultant({ projectSlug }: { projectSlug?: string }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Consultation[]>([]);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      audioChunksRef.current = [];
+      mr.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+      mr.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setAudioBlob(blob);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setIsRecording(true);
+    } catch {
+      setError("No se pudo acceder al micrófono");
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  }
 
   function handlePhoto(f: File | null) {
     if (!f) return;
@@ -39,12 +69,13 @@ export function VisualConsultant({ projectSlug }: { projectSlug?: string }) {
   }
 
   async function handleConsult() {
-    if ((!photo && !question.trim()) || busy) return;
+    if ((!photo && !question.trim() && !audioBlob) || busy) return;
     setBusy(true);
     setError(null);
     try {
       const fd = new FormData();
-      if (photo) fd.append("image", photo);
+      if (photo) if (photo) fd.append("image", photo);
+      if (audioBlob) fd.append("audio", new File([audioBlob], "note.webm", { type: "audio/webm" }));
       fd.append("text", question.trim());
       const res = await fetch("/api/consult", { method: "POST", body: fd });
       const data = await res.json();
@@ -56,6 +87,7 @@ export function VisualConsultant({ projectSlug }: { projectSlug?: string }) {
       setPhoto(null);
       setPreview(null);
       setQuestion("");
+      setAudioBlob(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al analizar la foto");
     } finally {
@@ -152,6 +184,17 @@ export function VisualConsultant({ projectSlug }: { projectSlug?: string }) {
               className="w-full rounded-xl bg-gradient-to-br from-cyan-600 to-cyan-700 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-cyan-950/40 transition hover:from-cyan-500 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "🔍 Analizando…" : "👁️ Consultar al interventor IA"}
+            </button>
+            <button
+              type="button"
+              onClick={() => (isRecording ? stopRecording() : void startRecording())}
+              className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-3.5 text-sm font-bold transition ${
+                isRecording
+                  ? "border-red-500/50 bg-red-500/15 text-red-300 animate-pulse"
+                  : "border-cyan-500/30 bg-cyan-500/[0.08] text-cyan-300 hover:bg-cyan-500/15"
+              }`}
+            >
+              {isRecording ? "⏹ Detener" : "🎤 Nota de voz"}
             </button>
           </div>
         {error && <p className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">{error}</p>}
