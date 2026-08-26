@@ -37,6 +37,14 @@ const COUNTRY_LABEL: Record<string, string> = {
   latam: "🌎",
 };
 
+// Filtro de frescura — por defecto solo la última semana.
+const RANGES: Array<[string, string]> = [
+  ["1", "🕘 Hoy"],
+  ["7", "📅 7 días"],
+  ["30", "🗓️ 30 días"],
+  ["all", "♾️ Todo"],
+];
+
 function since(iso: string): string {
   const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600000);
   if (h < 1) return "ahora";
@@ -48,6 +56,7 @@ export function NewsTool() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [category, setCategory] = useState("");
   const [country, setCountry] = useState("");
+  const [days, setDays] = useState("7");
   const [q, setQ] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -58,6 +67,7 @@ export function NewsTool() {
       if (category) params.set("category", category);
       if (country) params.set("country", country);
       if (q.trim()) params.set("q", q.trim());
+      params.set("days", days);
       const res = await fetch(`/api/news?${params}`);
       const d = await res.json();
       setItems(res.ok ? (d.items ?? []) : []);
@@ -66,7 +76,7 @@ export function NewsTool() {
     } finally {
       setIsLoading(false);
     }
-  }, [category, country, q]);
+  }, [category, country, q, days]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), q ? 400 : 0);
@@ -76,9 +86,27 @@ export function NewsTool() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 pb-8">
       <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-        <h2 className="text-lg font-semibold text-white">📰 Noticias LATAM de construcción</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-white">📰 Noticias del sector</h2>
+          <div className="flex gap-1.5">
+            {RANGES.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setDays(id)}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  days === id
+                    ? "border-orange-500/50 bg-orange-500/20 text-orange-200"
+                    : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-white"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="text-xs text-slate-500">
-          Precios, licitaciones, normativa, empresas, premios e innovación — actualizado a diario desde las fuentes del sector.
+          Solo noticias relevantes para obra: construcción, materiales, licitaciones, normativa y arquitectura.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -119,9 +147,10 @@ export function NewsTool() {
         <p className="py-10 text-center text-sm text-slate-500">Cargando noticias…</p>
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
-          <p className="text-sm text-slate-400">Sin noticias todavía.</p>
+          <p className="text-sm text-slate-400">Sin noticias en este rango de fechas.</p>
           <p className="mt-1 text-xs text-slate-600">
-            El scraper corre a diario — si la tabla acaba de crearse, dale unos minutos o pídele al admin correr <code>/api/cron/news</code>.
+            Prueba con <button type="button" onClick={() => setDays("30")} className="underline hover:text-slate-400">30 días</button> o{" "}
+            <button type="button" onClick={() => setDays("all")} className="underline hover:text-slate-400">todo el historial</button>.
           </p>
         </div>
       ) : (

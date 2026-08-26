@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * GET /api/news?category=&country=&q=&limit= — LATAM construction news feed
+ * GET /api/news?category=&country=&q=&days=&limit= — LATAM construction news feed
  * (scraped daily by /api/cron/news).
+ * `days` filtra por frescura (default 7 días). `days=all` desactiva el filtro.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,9 @@ export async function GET(request: NextRequest) {
     const category = sp.get("category");
     const country = sp.get("country");
     const q = sp.get("q");
+    const daysParam = sp.get("days");
     const limit = Math.min(60, Number(sp.get("limit") ?? 30));
+    const days = daysParam === "all" ? 0 : Math.min(365, Math.max(1, Number(daysParam ?? 7) || 7));
 
     let query = s
       .from("news_items")
@@ -27,6 +30,9 @@ export async function GET(request: NextRequest) {
     if (category) query = query.eq("category", category);
     if (country) query = query.eq("country", country);
     if (q) query = query.ilike("title", `%${q}%`);
+    if (days > 0) {
+      query = query.gte("published_at", new Date(Date.now() - days * 24 * 3600 * 1000).toISOString());
+    }
 
     const { data, error } = await query;
     if (error) throw error;

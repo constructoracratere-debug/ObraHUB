@@ -6,6 +6,11 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
  * Scheduled daily via vercel.json. Pulls curated feeds (prices, methods,
  * normativa, empresas, gobierno, premios) into news_items; dedupes by link.
  * Public read via RLS (news_public_read).
+ *
+ * Filtro ObraHub: SOLO noticias del sector (construcción, materiales,
+ * infraestructura, arquitectura, vivienda, licitaciones, economía del
+ * sector). Noticias generales (crimen, deportes, farándula, animales)
+ * se descartan antes de guardar.
  */
 
 type Feed = { source: string; url: string; category: string; country: string };
@@ -32,6 +37,42 @@ const FEEDS: Feed[] = [
   // ===== ECONOMÍA LATAM =====
   { source: "Valora Analitik", url: "https://www.valoraanalitik.com/rss", category: "precios", country: "latam" },
 ];
+
+/** Términos que hacen una noticia relevante para construcción/obra. */
+const OBRA_RE = new RegExp(
+  [
+    // español
+    "constru\\w*", "obra[s]?\\b", "vivienda", "infraestruct\\w*", "cemento", "acero",
+    "arena", "grava", "material\\w*", "licitaci\\w*", "contratist\\w*", "constructor\\w*",
+    "arquitect\\w*", "urbanis\\w*", "edificio", "edificaci\\w*", "torre", "metro\\b",
+    "carretera", "puente", "t[uú]nel", "mamposter\\w*", "concreto", "inmobiliar\\w*",
+    "\\bbim\\b", "obra p[uú]blica", "plan parcial", "\\bpot\\b", "licencia",
+    "curadur\\w*", "sismo\\w*", "terremoto", "cimentaci\\w*", "losa", "muro",
+    "prefabricad\\w*", "ferrocarril", "tranv[ií]a", "aeropuerto", "puerto\\b",
+    "represa", "hidroel[eé]ctric\\w*", "v[ií]a expresa", "autopista", "bodega[s]?\\b",
+    "centro comercial", "d[uúplex]", " remodelaci\\w*", "obra civil", "excavaci\\w*",
+    "demolici\\w*", "restauraci[oó]n", "patrimonio", "dise[nñ]o urban",
+    "d[oó]lar", "inflaci\\w*", "\\bipc\\b", "hipotecari\\w*", "tasas de inter[eé]s",
+    "financiaci[oó]n de vivienda", "subsidio de vivienda", "inter[eé]s viculado",
+    // inglés/portugués (ArchDaily, Dezeen)
+    "architect\\w*", "building[s]?\\b", "skyscraper", "timber", "concrete",
+    "housing", "pavilion", "museum", "school building", "tower block",
+    "construction", "engineer\\w*", "renovation", "masterplan", "urban",
+    "edif[ií]cio", "moradia", "habita\\w*", "arquitet\\w*",
+  ].join("|"),
+  "i",
+);
+
+/** Basura explícita que NUNCA entra aunque contenga una palabra del sector. */
+const JUNK_RE =
+  /homicid|asesinat|secuestr|narcot|capturan|robo|robado|hurto|f[uú]tbol|futbolista|deporte|tatuaje|famoso|farándula|celebrid|novela|estrella de|kardashian|perro|gato|cachorro|animal|mascota|loter[ií]|hor[oó]scopo|receta|pel[ií]cula|serie de tv|streaming|xbox|playstation|videojuego|m[uú]sica|concierto|festival|accidente de tr[aá]nsito|tranc[oó]n|pico y placa|medicamento|hospitalizad|muri[oó]|funeral|boda|divorcio|elecci[oó]n presidencial|encuesta electoral|partido pol[ií]tico|debate|candidat\\w* presidencia|congreso.*reforma pensional|reforma pensional|reforma laboral|reforma de salud/i;
+
+/** ¿Esta noticia es del sector para ObraHub? */
+function isObraRelevant(title: string, summary: string): boolean {
+  const t = `${title} ${summary.slice(0, 400)}`;
+  if (JUNK_RE.test(t)) return false;
+  return OBRA_RE.test(t);
+}
 
 function tag(xml: string, t: string): string {
   const m = xml.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`, "i"));
@@ -68,7 +109,9 @@ export async function GET(request: NextRequest) {
   );
 
   let inserted = 0;
+  let filtered = 0;
   const failures: string[] = [];
+  const threeDaysAgo = Date.now() - 3 * 24 * 3600 * 1000;
 
   for (const feed of FEEDS) {
     try {
@@ -87,9 +130,19 @@ export async function GET(request: NextRequest) {
           (it.match(/<link[^>]*href="([^"]+)"/i)?.[1] ?? "");
         if (!title || !link) continue;
         const summary = tag(it, "description") || tag(it, "summary") || tag(it, "content");
-        const img = it.match(/<enclosure[^>]*url="([^"]+\.(?:jpg|png|webp))"/i)?.[1] ?? null;
+        // 🏗️ Filtro ObraHub: solo noticias del sector, recientes (≤3 días).
+        if (!isObraRelevant(title, summary)) {
+          filtered++;
+          continue;
+        }
         const dateStr = tag(it, "pubDate") || tag(it, "updated") || tag(it, "published");
         const ts = dateStr ? new Date(dateStr) : new Date();
+        const tsMs = Number.isNaN(ts.getTime()) ? Date.now() : ts.getTime();
+        if (tsMs < threeDaysAgo) {
+          filtered++;
+          continue;
+        }
+        const img = it.match(/<enclosure[^>]*url="([^"]+\.(?:jpg|png|webp))"/i)?.[1] ?? null;
         rows.push({
           link: link.slice(0, 500),
           title: title.slice(0, 250),
@@ -99,7 +152,7 @@ export async function GET(request: NextRequest) {
           category: classify(title, summary, feed.category),
           country: feed.country,
           image_url: img,
-          published_at: Number.isNaN(ts.getTime()) ? new Date().toISOString() : ts.toISOString(),
+          published_at: new Date(tsMs).toISOString(),
         });
       }
       if (rows.length > 0) {
@@ -113,5 +166,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, feeds: FEEDS.length, inserted, failures });
+  return NextResponse.json({ ok: true, feeds: FEEDS.length, inserted, filtered, failures });
 }
