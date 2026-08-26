@@ -120,11 +120,11 @@ export async function POST(request: NextRequest) {
 
     // ── VIGILANCIA NORMATIVA: marco esencial + últimas leyes/decretos vigentes ──
     try {
-      const base = supa.from("normative_updates")
-        .select("norm_type, number, year, title, summary, affects, relevance, published_at")
-        .eq("status", "vigente");
-      const [{ data: recent }, { data: framework }] = await Promise.all([
-        base
+      const [{ data: recent }, { data: framework }, { data: pending }] = await Promise.all([
+        supa
+          .from("normative_updates")
+          .select("norm_type, number, year, title, summary, relevance, published_at")
+          .eq("status", "vigente")
           .gte("published_at", new Date(Date.now() - 730).toISOString())
           .order("published_at", { ascending: false })
           .limit(8),
@@ -134,7 +134,13 @@ export async function POST(request: NextRequest) {
           .eq("status", "vigente")
           .eq("relevance", "alta")
           .order("published_at", { ascending: false })
-          .limit(8),
+          .limit(14),
+        supa
+          .from("normative_updates")
+          .select("norm_type, number, year, title, summary, published_at")
+          .eq("status", "en_estudio")
+          .order("published_at", { ascending: false })
+          .limit(3),
       ]);
       const seen = new Set<string>();
       const all = [...(recent ?? []), ...(framework ?? [])].filter((n) => {
@@ -150,6 +156,13 @@ export async function POST(request: NextRequest) {
 `;
         }
         ragContext += String.fromCharCode(10) + "CRÍTICO: Si una de estas normas modifica algo del NSR-10 que estás citando, MENCIONA la ley/decreto que lo cambia. Nunca cites un artículo como vigente si una ley posterior lo deroga o modifica. Puedes referenciar este marco normativo como 'normativa vigente registrada en ObraHub'.";
+      }
+      if (pending && pending.length > 0) {
+        ragContext += "\n\n## 📝 PROYECTOS DE LEY EN TRÁMITE (NO citar como vigentes — informar solo si preguntan):\n";
+        for (const n of (pending as Array<Record<string, any>>)) {
+          ragContext += `- ${n.title.slice(0, 130)}${n.summary ? ` — ${n.summary.slice(0, 160)}` : ""}
+`;
+        }
       }
     } catch { /* normative context is best-effort */ }
     const searchQuery = text || audioText || "construcción";
