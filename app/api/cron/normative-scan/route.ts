@@ -98,18 +98,30 @@ export async function GET(request: NextRequest) {
   const failures: string[] = [];
 
   const SOURCES: Array<{ url: string; source: string }> = [
-    // Diario Oficial — leyes y decretos
-    { url: "https://www.preflight.cc/diario-oficial/rss.xml", source: "Diario Oficial" },
-    // Función Pública — normativa nueva
-    { url: "https://www.funcionpublica.gov.co/web/sigep/manifest/normograma/rss", source: "Función Pública" },
-    // MinVivienda — normativa construcción
-    { url: "https://www.preflight.cc/minvivienda/rss.xml", source: "MinVivienda" },
-    // Congreso — leyes aprobadas
-    { url: "https://www.preflight.cc/congreso/leyes/rss.xml", source: "Congreso" },
-    // ICONTEC — NTC nuevas
-    { url: "https://www.preflight.cc/icontec/ntc/rss.xml", source: "ICONTEC" },
-    // Fallback: Camacol (reporta cambios normativos del sector)
+    // ── Fuentes oficiales verificadas (200 OK) ──
+    // MinVivienda — normativa construcción/vivienda
+    { url: "https://www.minvivienda.gov.co/noticias?format=feed&type=rss", source: "MinVivienda" },
+    // MinAmbiente — licencias ambientales, residuos de obra
+    { url: "https://www.minambiente.gov.co/index.php/noticias?format=feed&type=rss", source: "MinAmbiente" },
+    // Servicio Geológico Colombiano — sismicidad y estudios geotécnicos
+    { url: "https://www.sgc.gov.co/rss.xml", source: "SGC" },
+    // SuperServicios — acueducto/alcantarillado/gas (RAS)
+    { url: "https://www.superservicios.gov.co/rss.xml", source: "Superservicios" },
+    // ICONTEC — NTC nuevas (concreto, acero, materiales)
+    { url: "https://www.icontec.org/feed/", source: "ICONTEC" },
+    // Colombia Compra Eficiente — licitaciones públicas de infraestructura
+    { url: "https://www.colombiacompra.gov.co/rss", source: "Colombia Compra" },
+    // Congreso/leyes — El Tiempo política (cubre leyes aprobadas)
+    { url: "https://www.eltiempo.com/rss/politica.xml", source: "Congreso (El Tiempo)" },
+    // Sector construcción — La República vivienda y construcción
+    { url: "https://www.larepublica.co/rss/economia/vivienda-y-construccion", source: "La República" },
+    // Camacol — reporta cambios normativos del sector
     { url: "https://camacol.co/rss.xml", source: "Camacol (normativa)" },
+    // Valora Analitik Colombia — decretos y política económica/construcción
+    { url: "https://www.valoraanalitik.com/colombia/feed/", source: "Valora Analitik" },
+    // ── Mirrors de respaldo (Diario Oficial / Función Pública / Congreso) ──
+    { url: "https://www.preflight.cc/diario-oficial/rss.xml", source: "Diario Oficial" },
+    { url: "https://www.preflight.cc/congreso/leyes/rss.xml", source: "Congreso" },
   ];
 
   for (const src of SOURCES) {

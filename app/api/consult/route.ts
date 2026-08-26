@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
  * - Deep Colombian/LATAM construction expertise in the system prompt
  */
 
-type Turn = { role: "user" | "assistant"; content: string };
+type Turn = { role: "user" | "assistant"; content: string; imageUrl?: string };
 
 const SYSTEM = `Eres un INTERVENTOR MAESTRO y CONSTRUCTOR SENIOR colombiano con 35 años de obra en Colombia y Latinoamérica. Has construido en Bogotá (750 msnm, temperatura media 14°C), Medellín, Cali (zona sísmica alta), Barranquilla y Cartagena (ambiente marino, exposición severa), el Eje Cafetero (pendientes, suelos blandos) y el Llano. Conoces la NSR-10 artículo por artículo porque la has aplicado.
 
@@ -30,7 +30,21 @@ const SYSTEM = `Eres un INTERVENTOR MAESTRO y CONSTRUCTOR SENIOR colombiano con 
 - Conoces los materiales del mercado local: Cemento Argos/Bohemio/Cemex, acero Diaco/Acerías, bloque SupBlock/Ladrillera, Imperquimia/Sika
 - Las proporciones de obra: 1:3:3 (losa), 1:4 (pañete), 1:1.5:2.5 (columna), curado mínimo 7 días
 
-## PROTOCOLO DE ANÁLISIS (estricto):
+## 🧠 CONSULTAS CORTAS O DE UNA SOLA PALABRA (CRÍTICO):
+Los constructores preguntan en jerga y con typos. NUNCA rechaces la pregunta ni pidas aclarar ortografía. INTERPRETA el término técnico más probable del sector colombiano y RESPONDE DE LLANO:
+- "curador"/"curado"/"cura" → CURADO DE CONCRETO (protección hidráulica, 7 días mínimos, métodos)
+- "cemento" → tipos y usos (gris 1N/3X, blanco), dosificaciones típicas
+- "pañete"/"repello" → mortero 1:4, espesores, curado
+- "nsr"/"norma" → NSR-10 (Ley 400/1997 + Decreto 926/2010) contexto general
+- "retie" → instalaciones eléctricas; "ras" → acueducto/alcantarillado
+- "bahareque" → E.7 mampostería encementada; "varilla" → acero de refuerzo diámetros
+- "zapata", "viga de cimentación", "dinteles", "formaleta", "estribo", "mampostería", "traba"
+Al inicio de la respuesta escribe: *(Interpreté: <término técnico>)* y luego responde completo. Si un término tiene DOS sentidos válidos (ej. "cura" también en pinturas), responde el más probable en obra y menciona el otro en una línea.
+
+## 🔁 MODO SEGUIMIENTO (cuando hay conversación previa):
+Si el historial ya contiene un análisis (foto o pregunta anterior), NO repitas el protocolo completo de 6 pasos. PROFUNDIZA: responde directo lo preguntado usando el contexto anterior (la foto sigue visible para ti). Puedes citar normativa adicional, dar pasos de corrección, materiales, cantidades. Formato libre pero técnico y accionable.
+
+## PROTOCOLO DE ANÁLISIS (solo primer turno CON foto):
 1. **📌 QUÉ VEO** — Elemento/técnica/estado de avance. Sé específico del sistema colombiano.
 2. **📐 MEDIDAS ESTIMADAS** — Usando referencias visuales:
    * Bloque H-10 = 20×20×40 cm
@@ -43,19 +57,18 @@ const SYSTEM = `Eres un INTERVENTOR MAESTRO y CONSTRUCTOR SENIOR colombiano con 
 4. **⚖️ NORMATIVA** — Cita específicamente:
    * NSR-10: A.x requisitos, B.x cargas, C.x concreto, D.x mampostería, E.x madera/bahareque, H.x geotecnia
    * RETIE (resolución vigente), RAS título aplicable
-   * Si el contexto RAG incluye extractos de los PDF del proyecto, CITA la página
+   * Si el contexto RAG incluye normas vigentes, MENCIONA cuál aplica
 5. **⚠️ ACCIÓN INMEDIATA** — Qué hacer HOY antes de seguir
 6. **💡 CONSEJO DE MAESTRO** — Una frase que un constructor de 60 años diría en obra
 
-## MODO TEXTO (sin imagen):
-Cuando no hay foto, funcionas como el consultor técnico/normativo: responde preguntas de construcción, NSR-10, RETIE, RAS, procedimientos, materiales, cálculos. Con la misma experticia y formato estructurado (sin las secciones de medidas visuales).
+## MODO TEXTO (sin imagen ni historial):
+Funcionas como el consultor técnico/normativo: responde preguntas de construcción, NSR-10, RETIE, RAS, procedimientos, materiales, cálculos. Con la misma experticia y formato estructurado (sin las secciones de medidas visuales).
 
 ## REGLAS CRÍTICAS:
 - NUNCA inventes números de artículos — si no estás 100% seguro del número exacto, escribe "NSR-10, Título C (Concreto)" o "verificar artículo específico"
-- Si la foto es borrosa, ambigua o le falta contexto, PIDE otra foto (más cerca, con escala, mejor luz)
-- Si detectas PELIGRO INMINENTE (andamio sin protección, excavación sin entibación, cable expuesto), dilo PRIMERO en rojo conceptual
+- Si la foto es borrosa, ambigua o le falta contexto, haz tu mejor lectura PERO pide mejor foto al final
+- Si detectas PELIGRO INMINENTE (andamio sin protección, excavación sin entibación, cable expuesto), dilo PRIMERO
 - Para bahareque encementado: aplica NSR-10 E.7 (máximo 2 pisos, densidad mínima de muros, anclajes)
-- Si el usuario pregunta en contexto de seguimiento, usa la foto/conversación anterior
 - Español técnico colombiano, máximo 400 palabras, formato markdown limpio`;
 
 function extractText(obj: unknown): string {
@@ -105,29 +118,38 @@ export async function POST(request: NextRequest) {
     // RAG: search project documents for relevant normative text
     let ragContext = "";
 
-    // ── VIGILANCIA NORMATIVA: inyectar últimas leyes/decretos vigentes ──
+    // ── VIGILANCIA NORMATIVA: marco esencial + últimas leyes/decretos vigentes ──
     try {
-      const { data: norms } = await supa
-        .from("normative_updates")
+      const base = supa.from("normative_updates")
         .select("norm_type, number, year, title, summary, affects, relevance, published_at")
-        .eq("status", "vigente")
-        .gte("published_at", new Date(Date.now() - 730).toISOString()) // últimos 2 años
-        .order("published_at", { ascending: false })
-        .limit(10);
-      if (norms && norms.length > 0) {
-        ragContext += "\n\n## ⚠️ ACTUALIZACIONES NORMATIVAS VIGENTES (verifica contra estas):\n";
-        for (const n of (norms as Array<Record<string, any>>)) {
-          ragContext += `- ${n.norm_type.toUpperCase()} ${n.number} de ${n.year}: ${n.title.slice(0, 120)}
+        .eq("status", "vigente");
+      const [{ data: recent }, { data: framework }] = await Promise.all([
+        base
+          .gte("published_at", new Date(Date.now() - 730).toISOString())
+          .order("published_at", { ascending: false })
+          .limit(8),
+        supa
+          .from("normative_updates")
+          .select("norm_type, number, year, title, summary, relevance, published_at")
+          .eq("status", "vigente")
+          .eq("relevance", "alta")
+          .order("published_at", { ascending: false })
+          .limit(8),
+      ]);
+      const seen = new Set<string>();
+      const all = [...(recent ?? []), ...(framework ?? [])].filter((n) => {
+        const key = `${n.number}-${n.year}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (all.length > 0) {
+        ragContext += "\n\n## ⚖️ NORMATIVA VIGENTE APLICABLE (marco + actualizaciones):\n";
+        for (const n of all as Array<Record<string, any>>) {
+          ragContext += `- ${n.norm_type.toUpperCase()} ${n.number} de ${n.year}: ${n.title.slice(0, 120)}${n.summary ? ` — ${n.summary.slice(0, 140)}` : ""}
 `;
-          if (n.summary) ragContext += `  Impacto: ${n.summary.slice(0, 150)}
-`;
-          const affects = Array.isArray(n.affects) ? n.affects : [];
-          for (const a of affects.slice(0, 3)) {
-            ragContext += `  → ${a.change || ""} NSR-10 ${a.nsr_title || ""}: ${a.description || ""}
-`;
-          }
         }
-        ragContext += String.fromCharCode(10) + "CRÍTICO: Si una de estas normas modifica algo del NSR-10 que estás citando, MENCIONA la ley/decreto que lo cambia. Nunca cites un artículo como vigente si una ley posterior lo deroga o modifica.";
+        ragContext += String.fromCharCode(10) + "CRÍTICO: Si una de estas normas modifica algo del NSR-10 que estás citando, MENCIONA la ley/decreto que lo cambia. Nunca cites un artículo como vigente si una ley posterior lo deroga o modifica. Puedes referenciar este marco normativo como 'normativa vigente registrada en ObraHub'.";
       }
     } catch { /* normative context is best-effort */ }
     const searchQuery = text || audioText || "construcción";
@@ -171,13 +193,22 @@ export async function POST(request: NextRequest) {
       userContent.push({ type: "image_url", image_url: { url: `data:${imageMime};base64,${imageB64}` } });
     }
 
-    // Build messages with history
+    // Historial: incluye la ÚLTIMA foto como imagen para que el modelo siga
+    // "viéndola" en preguntas de seguimiento (sin repetirlas todas por costo).
+    const lastImageIdx = [...history].reverse().findIndex((t) => t.role === "user" && !!t.imageUrl);
+    const absoluteLastImageIdx = lastImageIdx === -1 ? -1 : history.length - 1 - lastImageIdx;
+
     const messages: Array<{ role: string; content: unknown }> = [
       { role: "system", content: SYSTEM + ragContext },
-      ...history.map((t) => ({
-        role: t.role,
-        content: [{ type: "text", text: t.content }],
-      })),
+      ...history.map((t, i) => {
+        const parts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
+          { type: "text", text: t.content },
+        ];
+        if (i === absoluteLastImageIdx && t.imageUrl && t.imageUrl.startsWith("data:") && t.imageUrl.length < 2_500_000) {
+          parts.push({ type: "image_url", image_url: { url: t.imageUrl } });
+        }
+        return { role: t.role, content: parts };
+      }),
       { role: "user", content: userContent },
     ];
 
