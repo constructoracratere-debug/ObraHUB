@@ -2791,6 +2791,18 @@ en Latinoamérica
                 )
               ) : (
                 <div className="w-full space-y-6 pb-4">
+                  {activeTool === "normativa" && activeProjectSlug && (
+                    <div className="space-y-5">
+                      <VisualConsultant projectSlug={activeProjectSlug} />
+                      <div className="flex items-center gap-3" aria-hidden>
+                        <div className="h-px flex-1 bg-white/[0.06]" />
+                        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-600">
+                          o consulta la biblioteca por texto
+                        </span>
+                        <div className="h-px flex-1 bg-white/[0.06]" />
+                      </div>
+                    </div>
+                  )}
                   {activeProjectSlug && showMemory && (
                     <MemoryPanel
                       memories={memories}

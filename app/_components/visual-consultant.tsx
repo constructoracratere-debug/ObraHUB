@@ -74,7 +74,7 @@ export function VisualConsultant({ projectSlug }: { projectSlug?: string }) {
     setError(null);
     try {
       const fd = new FormData();
-      if (photo) if (photo) fd.append("image", photo);
+      if (photo) fd.append("image", photo);
       if (audioBlob) fd.append("audio", new File([audioBlob], "note.webm", { type: "audio/webm" }));
       fd.append("text", question.trim());
       const res = await fetch("/api/consult", { method: "POST", body: fd });
