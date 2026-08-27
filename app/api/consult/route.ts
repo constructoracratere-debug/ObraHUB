@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
 
+// GPT-4o vision + RAG puede tardar >10s (límite por defecto en Vercel Hobby).
+export const maxDuration = 60;
+
 /**
  * POST /api/consult — Multimodal Construction Expert v2.
  *

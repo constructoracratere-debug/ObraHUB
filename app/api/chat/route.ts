@@ -2,6 +2,11 @@ import OpenAI from "openai";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// Vercel Hobby corta la función a 10s por defecto; gpt-4.1-mini con RAG +
+// historial tarda 7-9s y en el 2º turno (más contexto) superaba el límite →
+// 504 → el usuario no podía seguir preguntando. 60s es el máximo en Hobby.
+export const maxDuration = 60;
+
 const NO_ANSWER_MESSAGE = "No se encontró una respuesta clara en los documentos consultados.";
 
 /**
@@ -403,7 +408,7 @@ export async function POST(request: NextRequest) {
       ? (body.history as Array<{ role?: unknown; content?: unknown }>)
           .filter((t) => (t.role === "user" || t.role === "assistant") && typeof t.content === "string" && t.content.trim())
           .slice(-6)
-          .map((t) => ({ role: t.role === "assistant" ? "assistant" as const : "user" as const, content: String(t.content).slice(0, 2000) }))
+          .map((t) => ({ role: t.role === "assistant" ? "assistant" as const : "user" as const, content: String(t.content).slice(0, 700) }))
       : [];
     const isFollowUp = historyTurns.length > 0;
     const completion = await openai.chat.completions.create({

@@ -1507,12 +1507,25 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               : undefined,
         }),
       });
-      const data = await res.json();
+      let data: Record<string, unknown>;
+      try {
+        data = (await res.json()) as Record<string, unknown>;
+      } catch {
+        // Vercel devuelve HTML plano en 504/502 — res.json() truena si no se protege.
+        throw new Error(
+          res.status === 504 || res.status === 502
+            ? "La respuesta tardó más de lo normal. Vuelve a enviar tu pregunta."
+            : `Error ${res.status} al consultar la biblioteca.`,
+        );
+      }
       if (!res.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Error al enviar el mensaje");
       }
 
-      const assistantContent = data.response;
+      const assistantContent = typeof data.response === "string" ? data.response : "";
+      if (!assistantContent) {
+        throw new Error("La biblioteca respondió vacío. Vuelve a intentar tu pregunta.");
+      }
 
       if (projectSlug) {
         try {
@@ -1522,11 +1535,11 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             savedAssistantMessage ?? { role: "assistant", content: assistantContent },
           ]);
         } catch {
+          // La respuesta SÍ llegó; si falla el guardado no bloqueamos la conversación.
           setMessages((prev) => [
             ...prev,
             { role: "assistant", content: assistantContent },
           ]);
-          throw new Error("La respuesta no se pudo guardar en el proyecto");
         }
       } else {
         setMessages((prev) => [...prev, { role: "assistant", content: assistantContent }]);
@@ -1544,16 +1557,9 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         // localStorage might be full or unavailable — non-critical
       }
     } catch (err) {
+      // La pregunta se queda en pantalla — borrarla hacía parecer que la app
+      // "no dejaba seguir preguntando" tras el primer error.
       setError(err instanceof Error ? err.message : "Error al enviar el mensaje");
-      if (projectSlug) {
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "user" && last.content === message && !last.timestamp) {
-            return prev.slice(0, -1);
-          }
-          return prev;
-        });
-      }
     } finally {
       setIsLoading(false);
     }
