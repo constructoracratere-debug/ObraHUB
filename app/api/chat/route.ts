@@ -327,38 +327,32 @@ export async function POST(request: NextRequest) {
     const contextPages = results.map((r) => r.pageNumber);
 
     if (results.length === 0) {
-      // Sin resultados en la biblioteca → experto normativo con marco vigente
-      // (mantiene el flujo de conversación en vez de un "no encontré" seco).
+      // Sin resultados en la biblioteca → respuesta INSTANTÁNEA con el marco
+      // normativo registrado (sin segunda llamada a LLM: evita timeouts).
       try {
         const { data: norms } = await supabase
           .from("normative_updates")
-          .select("norm_type, number, year, title, summary")
+          .select("norm_type, number, year, title")
           .eq("status", "vigente")
           .order("published_at", { ascending: false })
-          .limit(8);
-        const normsBlock = (norms ?? [])
-          .map((n: Record<string, string>) => `- ${String(n.norm_type).toUpperCase()} ${n.number} de ${n.year}: ${n.title.slice(0, 110)}`)
+          .limit(6);
+        const list = (norms ?? [])
+          .map((n: Record<string, string>) => `• ${String(n.norm_type).toUpperCase()} ${n.number} de ${n.year}: ${n.title.slice(0, 90)}`)
           .join("\n");
-        const openai = getOpenAIClient();
-        const expert = await openai.chat.completions.create({
-          model: "gpt-4.1-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "Eres un interventor maestro colombiano (35 años de obra). La pregunta NO se encontró en la biblioteca PDF del usuario, así que responde con tu conocimiento técnico de la construcción colombiana (NSR-10, RETIE, RAS, SST). " +
-                "NUNCA inventes números de página ni artículos exactos si no estás seguro — referencia por título (ej. 'NSR-10, Título C'). " +
-                (normsBlock ? `Normativa vigente registrada en ObraHub:\n${normsBlock}\n` : "") +
-                "Responde en español técnico, máximo 250 palabras. Si la palabra es jerga (curador→curado de concreto, panete→repello), interpreta y responde de una. Termina sugiriendo: 'Para citas exactas por página, sube el PDF de la norma a tu Biblioteca.'",
-            },
-            { role: "user", content: question },
-          ],
+        const nl = "\n";
+        return NextResponse.json({
+          response:
+            "No encontré esa consulta en los PDF de tu Biblioteca, pero esto es lo que responde el marco normativo registrado en ObraHub:" +
+            nl + nl +
+            (list || "• NSR-10 (Decreto 926 de 2010) y sus modificaciones; RETIE; RAS 2017; SG-SST.") +
+            nl + nl +
+            "💡 Para citas exactas por página, sube el PDF de la norma a tu Biblioteca (Biblioteca → Subir documento) y vuelve a preguntar." +
+            nl +
+            "💡 O pregúntale al 👁️ Interventor IA, que responde con conocimiento técnico del sector.",
+          pages: [],
+          outsideLibrary: true,
         });
-        const answer = expert.choices[0]?.message?.content?.trim();
-        if (answer) {
-          return NextResponse.json({ response: answer, pages: [], outsideLibrary: true });
-        }
-      } catch { /* fallback silencioso al mensaje por defecto */ }
+      } catch { /* sin conexión a BD */ }
       return NextResponse.json({ response: NO_ANSWER_MESSAGE, pages: [] });
     }
 

@@ -638,6 +638,32 @@ export function IfcViewer({
     isolateClass(null);
   }
 
+  /** Enfoca la cámara en un elemento concreto (desde el panel del árbol). */
+  function focusElement(expressID: number) {
+    const mesh = elementToMeshRef.current.get(expressID);
+    const cam = cameraRef.current;
+    const ctrl = controlsRef.current;
+    if (!mesh || !cam || !ctrl) return;
+    clearHighlight();
+    // Resalta y muestra solo el elemento (y reubica la cámara sobre él).
+    for (const m of meshesRef.current) m.visible = false;
+    mesh.visible = true;
+    (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x005530);
+    const box = new THREE.Box3().setFromObject(mesh);
+    if (!box.isEmpty()) {
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z, 0.5);
+      const dist = maxDim * 3;
+      cam.position.set(center.x + dist, center.y + dist * 0.75, center.z + dist);
+      cam.near = Math.max(0.01, maxDim / 100);
+      cam.far = maxDim * 200;
+      cam.updateProjectionMatrix();
+      ctrl.target.copy(center);
+      ctrl.update();
+    }
+  }
+
   /** Clears all emissive highlights. */
   function clearHighlight() {
     for (const m of meshesRef.current) {
@@ -1129,6 +1155,7 @@ export function IfcViewer({
                 onToggleIsolate={() =>
                   isolateClass(selectedClass === group.ifcClass ? null : group.ifcClass)
                 }
+                onFocusElement={focusElement}
               />
             ))}
           </div>
@@ -1264,12 +1291,14 @@ function ClassRow({
   isolated,
   onToggleExpand,
   onToggleIsolate,
+  onFocusElement,
 }: {
   group: IfcClassGroup;
   expanded: boolean;
   isolated: boolean;
   onToggleExpand: () => void;
   onToggleIsolate: () => void;
+  onFocusElement?: (expressID: number) => void;
 }) {
   const qtyStr =
     group.totalArea != null
@@ -1320,9 +1349,15 @@ function ClassRow({
       {expanded && group.elements.length > 0 && (
         <div className="max-h-48 overflow-y-auto border-t border-white/[0.04] px-3 py-1.5">
           {group.elements.slice(0, 100).map((el) => (
-            <div key={el.expressID} className="flex items-center justify-between py-0.5 text-[10px]">
-              <span className="truncate text-slate-500">
-                {el.name || el.guid.slice(0, 12)}
+            <button
+              key={el.expressID}
+              type="button"
+              onClick={() => onFocusElement?.(el.expressID)}
+              title="Ver en el modelo 3D"
+              className="flex w-full items-center justify-between gap-2 rounded px-1 py-0.5 text-[10px] transition hover:bg-cyan-500/10"
+            >
+              <span className="truncate text-left text-slate-400 group-hover:text-cyan-200">
+                🎯 {el.name || el.guid.slice(0, 12)}
               </span>
               <span className="shrink-0 text-slate-600">
                 {el.area != null
@@ -1333,7 +1368,7 @@ function ClassRow({
                       ? `${el.length} ml`
                       : ""}
               </span>
-            </div>
+            </button>
           ))}
           {group.elements.length > 100 && (
             <p className="py-1 text-center text-[10px] text-slate-600">
@@ -1420,11 +1455,34 @@ function flattenIfcValue(v: unknown): string | null {
 function colorForClass(className: string): THREE.Color {
   const c = colorCache.get(className);
   if (c) return c;
-  // Deterministic hue based on string hash.
-  let hash = 0;
-  for (let i = 0; i < className.length; i++) hash = (hash * 31 + className.charCodeAt(i)) | 0;
-  const hue = Math.abs(hash) % 360;
-  const col = new THREE.Color().setHSL(hue / 360, 0.45, 0.55);
+  // Paleta BIM profesional (convención tipo Revit/navisworks).
+  const PALETTE: Record<string, number> = {
+    IFCWALL: 0xd9c8a9, IFCWALLSTANDARDCASE: 0xd9c8a9,       // muros: beige
+    IFCSLAB: 0x8fa8bd,                                        // losas: azul grisáceo
+    IFCCOLUMN: 0xd98b6f,                                      // columnas: terracota
+    IFCBEAM: 0xe3c46a,                                        // vigas: ocre
+    IFCFOOTING: 0xb08d57, IFCPILE: 0xb08d57,                  // cimentación: bronce
+    IFCROOF: 0x9c6b6b,                                        // cubiertas: teja
+    IFCSTAIR: 0xc4a35a, IFCRAMP: 0xc4a35a,                    // escaleras
+    IFCCURTAINWALL: 0x7fc8d8, IFCWINDOW: 0x9fd4e8,            // vidrios: celeste
+    IFCDOOR: 0xa8825a,                                        // puertas: madera
+    IFCMEMBER: 0x9aa5b1, IFcPLATE: 0x9aa5b1, IFCPLATE: 0x9aa5b1,
+    IFCSPACE: 0x7ea86b, IFCBUILDINGELEMENTPROXY: 0xb3b3cc,    // genérico: lavanda
+    IFCCOVERING: 0xc0b28f, IFCRAILING: 0x8f8f8f,
+    IFCFURNISHINGELEMENT: 0xa8a293, IFCFLOWTERMINAL: 0x6fb3c7,
+    IFCFLOWSEGMENT: 0x7ba7c9, IFCDISTRIBUTIONELEMENT: 0x8fd0b0,
+  };
+  const base = className.toUpperCase();
+  let hex: number | undefined;
+  for (const [key, val] of Object.entries(PALETTE)) {
+    if (base.startsWith(key)) { hex = val; break; }
+  }
+  const col = hex !== undefined ? new THREE.Color(hex) : (() => {
+    // Fallback: hash estable pero con tonos apagados agradables.
+    let hash = 0;
+    for (let i = 0; i < className.length; i++) hash = (hash * 31 + className.charCodeAt(i)) | 0;
+    return new THREE.Color().setHSL((Math.abs(hash) % 360) / 360, 0.32, 0.58);
+  })();
   colorCache.set(className, col);
   return col;
 }
@@ -1480,59 +1538,105 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
     camera.position.clone().sub(new THREE.Vector3(0, 0, 0)),
   );
   const target = new THREE.Vector3(0, 0, 0);
-  let isPanning = false;
-  let isRotating = false;
-  let lastX = 0;
-  let lastY = 0;
+  // Estado suavizado (damping): valores actuales persiguen a los objetivos.
+  const cur = { theta: spherical.theta, phi: spherical.phi, radius: spherical.radius };
+  const goal = { ...cur };
+  const goalTarget = target.clone();
+
+  // Multi-touch: mapa de punteros activos para pinch-zoom y pan a 2 dedos.
+  const pointers = new Map<number, { x: number; y: number }>();
+  let pinchDist = 0;
+  let pinchAngle = 0;
+
+  function touchAction(e: Event) {
+    // Evita que el navegador haga scroll/zoom de la página sobre el canvas.
+    (e as TouchEvent).preventDefault?.();
+  }
 
   const onPointerDown = (e: PointerEvent) => {
-    if (e.button === 2 || e.shiftKey) {
-      isPanning = true;
-    } else {
-      isRotating = true;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      domElement.setPointerCapture(e.pointerId);
+    } catch { /* ignore */ }
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+      pinchAngle = Math.atan2(b.y - a.y, b.x - a.x);
     }
-    lastX = e.clientX;
-    lastY = e.clientY;
-    domElement.setPointerCapture(e.pointerId);
   };
+
   const onPointerMove = (e: PointerEvent) => {
-    if (!isRotating && !isPanning) return;
-    const dx = e.clientX - lastX;
-    const dy = e.clientY - lastY;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    if (isRotating) {
-      spherical.theta -= dx * 0.005;
-      spherical.phi -= dy * 0.005;
-      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
-    } else if (isPanning) {
-      const offset = camera.position.clone().sub(target);
-      const panScale = offset.length() * 0.0015;
+    const prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size >= 2) {
+      // Dos dedos: pinch = zoom, rotación del pinch = orbita, movimiento medio = pan.
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
+      if (pinchDist > 0) {
+        goal.radius *= Math.max(0.9, Math.min(1.11, pinchDist / Math.max(1, dist)));
+        goal.radius = Math.max(0.3, goal.radius);
+        let dTheta = angle - pinchAngle;
+        if (dTheta > Math.PI) dTheta -= 2 * Math.PI;
+        if (dTheta < -Math.PI) dTheta += 2 * Math.PI;
+        goal.theta -= dTheta;
+      }
+      pinchDist = dist;
+      pinchAngle = angle;
+      const panScale = cur.radius * 0.0012;
       const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
       const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
-      target.addScaledVector(right, -dx * panScale);
-      target.addScaledVector(up, dy * panScale);
+      goalTarget.addScaledVector(right, -(dx / 2) * panScale);
+      goalTarget.addScaledVector(up, (dy / 2) * panScale);
+      return;
     }
-    updateCamera();
+
+    if (e.pointerType === "touch") {
+      // Un dedo en móvil: orbita (movimiento horizontal) + inclina (vertical),
+      // con sensibilidad suave.
+      goal.theta -= dx * 0.004;
+      goal.phi -= dy * 0.004;
+    } else if (e.button === 2 || e.shiftKey) {
+      const panScale = cur.radius * 0.0015;
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+      goalTarget.addScaledVector(right, -dx * panScale);
+      goalTarget.addScaledVector(up, dy * panScale);
+    } else {
+      goal.theta -= dx * 0.005;
+      goal.phi -= dy * 0.005;
+    }
+    goal.phi = Math.max(0.05, Math.min(Math.PI - 0.05, goal.phi));
   };
+
   const onPointerUp = (e: PointerEvent) => {
-    isRotating = false;
-    isPanning = false;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchDist = 0;
     try {
       domElement.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
+
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
-    spherical.radius *= e.deltaY > 0 ? 1.1 : 0.9;
-    spherical.radius = Math.max(0.5, spherical.radius);
-    updateCamera();
+    const factor = e.deltaY > 0 ? 1.12 : 0.89;
+    goal.radius *= factor;
+    goal.radius = Math.max(0.3, goal.radius);
   };
   const onContextMenu = (e: Event) => e.preventDefault();
 
   function updateCamera() {
+    // Damping: acerca el estado actual al objetivo (suaviza en móvil).
+    const k = 0.18;
+    cur.theta += (goal.theta - cur.theta) * k;
+    cur.phi += (goal.phi - cur.phi) * k;
+    cur.radius += (goal.radius - cur.radius) * k;
+    target.lerp(goalTarget, k);
+    spherical.set(cur.radius, cur.phi, cur.theta);
     const pos = new THREE.Vector3().setFromSpherical(spherical).add(target);
     camera.position.copy(pos);
     camera.lookAt(target);
@@ -1541,8 +1645,11 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
   domElement.addEventListener("pointerdown", onPointerDown);
   domElement.addEventListener("pointermove", onPointerMove);
   domElement.addEventListener("pointerup", onPointerUp);
+  domElement.addEventListener("pointercancel", onPointerUp);
   domElement.addEventListener("wheel", onWheel, { passive: false });
   domElement.addEventListener("contextmenu", onContextMenu);
+  domElement.addEventListener("touchstart", touchAction, { passive: false });
+  domElement.addEventListener("touchmove", touchAction, { passive: false });
 
   // Initial placement
   updateCamera();
@@ -1554,8 +1661,12 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
       domElement.removeEventListener("pointerdown", onPointerDown);
       domElement.removeEventListener("pointermove", onPointerMove);
       domElement.removeEventListener("pointerup", onPointerUp);
+      domElement.removeEventListener("pointercancel", onPointerUp);
       domElement.removeEventListener("wheel", onWheel);
       domElement.removeEventListener("contextmenu", onContextMenu);
+      domElement.removeEventListener("touchstart", touchAction);
+      domElement.removeEventListener("touchmove", touchAction);
     },
   };
 }
+

@@ -1225,6 +1225,23 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     }
   }
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const t = setTimeout(() => setConfirmDeleteId(null), 3500);
+    return () => clearTimeout(t);
+  }, [confirmDeleteId]);
+
+  /** Doble clic de confirmación: el 1er clic arma '¿Borrar?', el 2º ejecuta. */
+  function requestDeleteFile(fileId: string) {
+    if (confirmDeleteId !== fileId) {
+      setConfirmDeleteId(fileId);
+      return;
+    }
+    setConfirmDeleteId(null);
+    void handleDeleteFile(fileId);
+  }
+
   async function handleDeleteFile(fileId: string) {
     const fid = activeFolderId;
     if (!fid) return;
@@ -2723,10 +2740,16 @@ en Latinoamérica
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteFile(file.id)}
-                                  aria-label="Eliminar archivo"
-                                  className="shrink-0 rounded-lg p-2.5 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 md:opacity-0 md:transition md:group-hover:opacity-100"
+                                  onClick={() => requestDeleteFile(file.id)}
+                                  aria-label={confirmDeleteId === file.id ? "Confirmar eliminación" : "Eliminar archivo"}
+                                  title={confirmDeleteId === file.id ? "Clic de nuevo para confirmar" : "Eliminar"}
+                                  className={`shrink-0 rounded-lg px-2.5 py-2 text-xs font-semibold transition md:opacity-0 md:transition md:group-hover:opacity-100 ${
+                                    confirmDeleteId === file.id
+                                      ? "bg-red-500 text-white opacity-100"
+                                      : "p-2.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+                                  }`}
                                 >
+                                  {confirmDeleteId === file.id ? "¿Borrar?" : null}
                                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                                   </svg>
