@@ -319,7 +319,18 @@ export async function POST(request: NextRequest) {
 
     // Vector search across the selected documents (RLS-enforced).
     // Consultas cortas de jerga se expanden para que el buscador encuentre páginas.
-    const { expanded, interpreted } = expandQuestion(question);
+    // En seguimiento, se antepone el tema de la conversación a la consulta de
+    // búsqueda: "y qué pasa si no cumple" debe recuperar páginas del TEMA
+    // (concreto), no de cualquier "resistencia" (p.ej. puesta a tierra RETIE).
+    const priorUserTurns = (Array.isArray(body.history)
+      ? (body.history as Array<{ role?: unknown; content?: unknown }>)
+      : []
+    ).filter((t) => t.role === "user" && typeof t.content === "string" && t.content.trim());
+    const topicHint =
+      priorUserTurns.length > 0 ? String(priorUserTurns[0].content).slice(0, 120) : "";
+    const { expanded, interpreted } = expandQuestion(
+      topicHint ? `${topicHint} — ${question}` : question,
+    );
     const { searchKB, buildKBContext, buildKBPromptFragment } = await import("@/lib/search");
     let results;
     try {
