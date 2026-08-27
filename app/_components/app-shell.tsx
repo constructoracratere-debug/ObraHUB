@@ -2923,7 +2923,7 @@ en Latinoamérica
 
           {showComposer && (
           <div className="shrink-0 border-t border-white/[0.04] bg-[#050b14]/60 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 backdrop-blur-xl sm:px-6 sm:pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
-            <div className={`mx-auto w-full ${showHero ? "max-w-5xl" : activeTool === "seguimiento" ? "max-w-[1600px]" : "max-w-3xl"}`}>
+            <div className={`mx-auto w-full ${showHero ? "max-w-5xl" : "max-w-3xl"}`}>
               <div className="relative flex items-end rounded-2xl border border-white/[0.08] bg-[#0a1120]/90 shadow-2xl shadow-black/30 ring-1 ring-white/[0.04] backdrop-blur-sm transition focus-within:border-blue-500/40 focus-within:ring-blue-500/15">
                 <textarea
                   ref={textareaRef}
