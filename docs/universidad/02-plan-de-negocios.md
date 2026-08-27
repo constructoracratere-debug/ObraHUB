@@ -153,6 +153,7 @@ Constructora/interventoría bogotana o medellinense de 5-30 personas, con 2-6 ob
 | Concepto | Valor |
 |----------|-------|
 | Inversión inicial | COP 18.000.000 |
+| **Valor comercial del producto** | **COP 25.000.000** |
 | Costos fijos mensuales (año 1) | COP 2.100.000 |
 | Precio Pro / Business | COP 149.000 / 449.000 por mes |
 | Punto de equilibrio | Mes 19 (~160 suscriptores Pro equivalentes) |

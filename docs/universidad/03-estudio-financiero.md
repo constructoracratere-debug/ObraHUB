@@ -17,6 +17,8 @@ Cifras en COP. Supuestos conservadores. Elaborado agosto 2026.
 | Legal/contable/constitución | $500.000 |
 | **TOTAL** | **$18.000.000** |
 
+> **Valor comercial del producto (ObraHub): $25.000.000 COP** — valoración de realización a la fecha, superior a la inversión ejecutada ($18 M) por el valor agregado del activo intangible: plataforma en producción, base normativa colombiana verificada (18 normas de la cadena NSR-10), suite E2E y marca registrada en curso bajo Cratere S.A.S.
+
 ## 2. ESTRUCTURA DE COSTOS
 
 ### 2.1 Costos fijos mensuales (año 1)

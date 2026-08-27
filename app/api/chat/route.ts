@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    let body: { message?: unknown; projectSlug?: unknown; folderSlug?: unknown; documentIds?: unknown };
+    let body: { message?: unknown; projectSlug?: unknown; folderSlug?: unknown; documentIds?: unknown; history?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -404,6 +404,14 @@ export async function POST(request: NextRequest) {
     }
 
     const openai = getOpenAIClient();
+    // Historial de conversación (últimos 6 turnos) para poder indagar en seguimiento.
+    const historyTurns: Array<{ role: "user" | "assistant"; content: string }> = Array.isArray(body.history)
+      ? (body.history as Array<{ role?: unknown; content?: unknown }>)
+          .filter((t) => (t.role === "user" || t.role === "assistant") && typeof t.content === "string" && t.content.trim())
+          .slice(-6)
+          .map((t) => ({ role: t.role === "assistant" ? "assistant" as const : "user" as const, content: String(t.content).slice(0, 2000) }))
+      : [];
+    const isFollowUp = historyTurns.length > 0;
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
@@ -411,13 +419,18 @@ export async function POST(request: NextRequest) {
           role: "system",
           content:
             "Eres ObraHub, un asistente técnico para la construcción y normativa en Colombia. " +
+            (isFollowUp
+              ? "Es una CONVERSACIÓN: usa el historial previo y responde en contexto, sin repetir citas ya dadas salvo que aporten. "
+              : "") +
             "Responde usando el CONTEXT proporcionado. " +
             "Si la pregunta usa jerga corta de obra (curador, panete, traba), interpreta el término técnico correcto y responde normal. " +
+            "Conocimiento base siempre válido: la Ley 400 de 1997 exige SUPERVISIÓN TÉCNICA OBLIGATORIA en obras que superen los 2000 m² de área construida (menores a 2000 m² tienen esquemas simplificados, no exención total de responsabilidad). " +
             "Cita siempre los números de página (por ejemplo, 'Página 42') y, cuando haya varios documentos, nombra la fuente. " +
             `Si el CONTEXT no contiene información suficiente para responder, responde exactamente: ${NO_ANSWER_MESSAGE}` +
             kbFragment +
             memoryPrompt,
         },
+        ...historyTurns,
         {
           role: "user",
           content: buildPrompt(question, context),

@@ -1481,6 +1481,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
+          history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
           projectSlug: projectSlug ?? undefined,
           folderSlug: folderSlug ?? undefined,
           documentIds:
