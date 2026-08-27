@@ -1675,16 +1675,16 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         <div className={`flex min-h-0 flex-1 flex-col overflow-y-auto p-3 ${sidebarCollapsed ? "px-2" : ""}`}>
           <button
             type="button"
-            title="Nueva consulta"
+            title="Inicio"
             onClick={startNewChat}
             className={`flex w-full items-center gap-2.5 rounded-xl border border-blue-500/20 bg-blue-600/10 text-sm font-medium text-white shadow-sm shadow-blue-900/20 transition hover:border-blue-400/30 hover:bg-blue-600/20 md:justify-center md:px-2 lg:justify-start ${
               sidebarCollapsed ? "justify-center px-2 py-2.5" : "justify-start px-3.5 py-2.5 lg:px-3.5"
             }`}
           >
             <Icon className="h-4 w-4 shrink-0 text-blue-400" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" />
             </Icon>
-            {!sidebarCollapsed && <span className="md:hidden lg:inline">Nueva consulta</span>}
+            {!sidebarCollapsed && <span className="md:hidden lg:inline">Inicio</span>}
           </button>
 
           {!sidebarCollapsed && (
