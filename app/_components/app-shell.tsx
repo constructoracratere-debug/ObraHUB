@@ -705,8 +705,19 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     !activeFolderId &&
     !isLoadingConversations;
 
-  // The chat composer only shows on chat surfaces (hero, normativa tool).
-  const showComposer = showHero || activeTool === "normativa";
+  // The chat composer lives on EVERY conversation surface: hero, normativa
+  // tool, folder chat, and crucially the main chat AFTER the first answer —
+  // antes el composer se desmontaba tras la 1ª respuesta (showHero pasaba a
+  // false) y el usuario no podía seguir preguntando. Se oculta solo cuando
+  // una herramienta de pantalla completa reemplaza al chat.
+  const fullScreenTool =
+    activeTool === "costos" ||
+    activeTool === "seguimiento" ||
+    activeTool === "bitacora" ||
+    activeTool === "control";
+  const showComposer =
+    !fullScreenTool &&
+    (showHero || activeTool === "normativa" || messages.length > 0 || !!activeFolderId);
   // Legacy project landing view is replaced by the folder dashboard.
 
   useEffect(() => {
