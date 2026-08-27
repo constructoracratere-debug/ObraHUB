@@ -36,11 +36,13 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
         // Dynamic import so the heavy three.js + dxf-viewer bundle only loads
         // when a DXF file is actually opened.
         const { DxfViewer } = await import("dxf-viewer");
+        const { Color } = await import("three");
         if (cancelled || !containerRef.current) return;
 
         const viewer = new DxfViewer(containerRef.current, {
           autoResize: true,
-          clearColor: { r: 0.04, g: 0.07, b: 0.12 }, // #0a1120
+          // dxf-viewer ≥1.0.x requiere un THREE.Color (llama .getHex()).
+          clearColor: new Color(0.04, 0.07, 0.12), // #0a1120
           clearAlpha: 1,
           antialias: true,
           colorCorrection: true,
