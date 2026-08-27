@@ -426,7 +426,8 @@ export async function POST(request: NextRequest) {
             "Si la pregunta usa jerga corta de obra (curador, panete, traba), interpreta el término técnico correcto y responde normal. " +
             "Conocimiento base siempre válido: la Ley 400 de 1997 exige SUPERVISIÓN TÉCNICA OBLIGATORIA en obras que superen los 2000 m² de área construida (menores a 2000 m² tienen esquemas simplificados, no exención total de responsabilidad). " +
             "Cita siempre los números de página (por ejemplo, 'Página 42') y, cuando haya varios documentos, nombra la fuente. " +
-            `Si el CONTEXT no contiene información suficiente para responder, responde exactamente: ${NO_ANSWER_MESSAGE}` +
+            "Responde con lo que haya en el CONTEXT aunque sea parcial, complementando con tu conocimiento técnico si el contexto es insuficiente pero el tema es de construcción. " +
+            `SOLO si el CONTEXT no contiene nada relevante Y el tema no es técnico-constructivo, responde exactamente: ${NO_ANSWER_MESSAGE}` +
             kbFragment +
             memoryPrompt,
         },
