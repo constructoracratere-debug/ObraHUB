@@ -1,11 +1,14 @@
 "use client";
 
 /**
- * DXF (AutoCAD) 2D viewer using dxf-viewer + three.js WebGL.
+ * DXF (AutoCAD) viewer using dxf-viewer + three.js WebGL.
  *
- * Renders DXF drawings directly in the browser — no backend conversion needed.
- * Loaded dynamically with ssr:false from app-shell to keep the bundle heavy
- * DXF rendering code out of the initial page load.
+ * Renderiza planos DXF en el navegador con TRES modos de vista:
+ *  - 🖨️ Plano: blueprint profesional — líneas claras, rellenos oscuros translúcidos
+ *    (ignora los colores verdes/ chillones de las capas del archivo CAD).
+ *  - 🔲 Alambre: wireframe/frame view clásico de CAD (wireframeMesh) para
+ *    identificar elementos estructurales rápido.
+ *  - 🎨 Colores CAD: respeta los colores originales de capa del archivo.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -18,11 +21,72 @@ type DxfPreviewProps = {
 };
 
 type LoadState = "loading" | "ready" | "error";
+type ViewMode = "plano" | "alambre" | "capas";
+
+const MODES: Array<{ id: ViewMode; label: string; title: string }> = [
+  { id: "plano", label: "🖨️ Plano", title: "Blueprint profesional: líneas claras, rellenos translúcidos" },
+  { id: "alambre", label: "🔲 Alambre", title: "Vista en alambre (frame) para identificar elementos rápido" },
+  { id: "capas", label: "🎨 Colores CAD", title: "Colores originales de las capas del archivo" },
+];
+
+/**
+ * Repinta la escena con una paleta profesional según el TIPO de geometría
+ * (no por los colores de capa del archivo, que suelen ser verdes de AutoCAD):
+ *  - Líneas/puntos → acero claro #D7E1EE
+ *  - Mallas (rellenos, caras 3D, hatch) → azul pizarra translúcido
+ *  - En modo alambre todo → azul cielo CAD, con wireframe activo.
+ */
+function applyPalette(viewer: any, mode: ViewMode) {
+  if (mode === "capas") return;
+  const scene = viewer.GetScene?.();
+  if (!scene?.traverse) return;
+  const LINE = 0xd7e1ee; // acero claro
+  const WIRE = 0x8fb8de; // azul cielo CAD
+  const FILL = 0x2e3d57; // azul pizarra
+  scene.traverse((obj: any) => {
+    const mats: any[] = Array.isArray(obj.material)
+      ? obj.material
+      : obj.material
+        ? [obj.material]
+        : [];
+    for (const m of mats) {
+      if (!m?.color?.setHex) continue;
+      // El color de vértice (color de capa horneado) dominaría el material.
+      try {
+        if (m.vertexColors) {
+          m.vertexColors = false;
+          m.needsUpdate = true;
+        }
+      } catch {
+        /* ignore */
+      }
+      if (mode === "alambre") {
+        m.color.setHex(WIRE);
+        if ("wireframe" in m) m.wireframe = true;
+        continue;
+      }
+      if (obj.isMesh) {
+        m.color.setHex(FILL);
+        m.transparent = true;
+        m.opacity = 0.55;
+        m.depthWrite = false;
+      } else {
+        m.color.setHex(LINE);
+      }
+    }
+  });
+  try {
+    viewer.Render();
+  } catch {
+    /* ignore */
+  }
+}
 
 export function DxfPreview({ url, filename }: DxfPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const [state, setState] = useState<LoadState>("loading");
+  const [mode, setMode] = useState<ViewMode>("plano");
   const [progress, setProgress] = useState(0);
   const [progressPhase, setProgressPhase] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +96,7 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
     let cancelled = false;
 
     async function load() {
+      setState("loading");
       try {
         // Dynamic import so the heavy three.js + dxf-viewer bundle only loads
         // when a DXF file is actually opened.
@@ -50,7 +115,8 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
           pointSize: 3,
           sceneOptions: {
             arcTessellationAngle: Math.PI / 16,
-            wireframeMesh: false,
+            // Frame view: la librería renderiza hasta las mallas como aristas.
+            wireframeMesh: mode === "alambre",
           },
         });
         viewerRef.current = viewer;
@@ -73,6 +139,9 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
         });
 
         if (cancelled) return;
+
+        // Paleta profesional (no los verdes del archivo CAD).
+        applyPalette(viewer, mode);
 
         // Get layers for the layer panel.
         try {
@@ -120,7 +189,7 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
         viewerRef.current = null;
       }
     };
-  }, [url]);
+  }, [url, mode]);
 
   function toggleLayer(name: string) {
     const layer = layers.find((l) => l.name === name);
@@ -152,7 +221,7 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
       {/* The dxf-viewer canvas container */}
       <div ref={containerRef} className="absolute inset-0 cursor-crosshair" />
 
-      {/* Top toolbar */}
+      {/* Top toolbar: fit + filename */}
       <div className="pointer-events-auto absolute left-3 top-3 z-10 flex items-center gap-2">
         <button
           type="button"
@@ -161,9 +230,28 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
         >
           🎯 Ajustar vista
         </button>
-        <span className="rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-3 py-1.5 text-xs text-slate-400 backdrop-blur">
+        <span className="hidden rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-3 py-1.5 text-xs text-slate-400 backdrop-blur sm:inline">
           📐 {filename}
         </span>
+      </div>
+
+      {/* View mode selector */}
+      <div className="pointer-events-auto absolute bottom-3 left-3 z-10 flex flex-wrap items-center gap-1 rounded-xl border border-white/[0.08] bg-[#0a1120]/85 p-1 backdrop-blur">
+        {MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            title={m.title}
+            onClick={() => setMode(m.id)}
+            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
+              mode === m.id
+                ? "bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30"
+                : "text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
+            }`}
+          >
+            {m.label}
+          </button>
+        ))}
       </div>
 
       {/* Layers panel */}
@@ -197,7 +285,7 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
         </div>
       )}
 
-      {/* Loading overlay */}
+      {/* Loading overlay (initial load and mode switches) */}
       {state === "loading" && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a1120]/90 backdrop-blur">
           <div className="w-80 max-w-[90%] text-center">

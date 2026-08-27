@@ -100,6 +100,8 @@ export function IfcViewer({
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [elementCount, setElementCount] = useState(0);
+  // Modo de visualización: sólido / alambre (frame) / rayos X
+  const [viewMode, setViewMode] = useState<"solido" | "alambre" | "rayosx">("solido");
 
   // 4D linking state
   const [linkMode, setLinkMode] = useState(false);
@@ -638,6 +640,32 @@ export function IfcViewer({
     isolateClass(null);
   }
 
+  /** Aplica el modo de visualización a todos los materiales del modelo. */
+  function applyViewMode(mode: "solido" | "alambre" | "rayosx") {
+    setViewMode(mode);
+    for (const mesh of meshesRef.current) {
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      if (!mat) continue;
+      if (mode === "alambre") {
+        mat.wireframe = true;
+        mat.transparent = false;
+        mat.opacity = 1;
+        mat.depthWrite = true;
+      } else if (mode === "rayosx") {
+        mat.wireframe = false;
+        mat.transparent = true;
+        mat.opacity = 0.3;
+        mat.depthWrite = false;
+      } else {
+        mat.wireframe = false;
+        mat.transparent = false;
+        mat.opacity = 1;
+        mat.depthWrite = true;
+      }
+      mat.needsUpdate = true;
+    }
+  }
+
   /** Enfoca la cámara en un elemento concreto (desde el panel del árbol). */
   function focusElement(expressID: number) {
     const mesh = elementToMeshRef.current.get(expressID);
@@ -901,6 +929,28 @@ export function IfcViewer({
         >
           🎯 Reset vista
         </button>
+        {/* Selector de modo de vista */}
+        <div className="flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/80 p-0.5 backdrop-blur">
+          {([
+            { id: "solido", label: "🧱 Sólido", title: "Render sólido con materiales" },
+            { id: "alambre", label: "🔲 Alambre", title: "Vista en alambre (frame) — estructura y aristas" },
+            { id: "rayosx", label: "🔦 Rayos X", title: "Translúcido — ver elementos internos y superpuestos" },
+          ] as const).map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              title={m.title}
+              onClick={() => applyViewMode(m.id)}
+              className={`rounded-md px-2 py-1 text-[11px] font-medium transition ${
+                viewMode === m.id
+                  ? "bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30"
+                  : "text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={() => isolateClass(null)}
