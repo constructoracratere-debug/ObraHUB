@@ -534,6 +534,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 🧠 Multi-LLM: qué modelo respondió la última consulta (y en cuánto).
+  const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<Array<{ question: string; answer: string; timestamp: string }>>([]);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -1522,6 +1524,11 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         throw new Error(typeof data.error === "string" ? data.error : "Error al enviar el mensaje");
       }
 
+      const providerInfo =
+        typeof data.provider === "string"
+          ? `${data.provider}${typeof data.latencyMs === "number" ? ` · ${(data.latencyMs / 1000).toFixed(1)}s` : ""}`
+          : null;
+      setLastProvider(providerInfo);
       const assistantContent = typeof data.response === "string" ? data.response : "";
       if (!assistantContent) {
         throw new Error("La biblioteca respondió vacío. Vuelve a intentar tu pregunta.");
@@ -2892,6 +2899,11 @@ en Latinoamérica
                     <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-center text-sm text-red-400">
                       {error}
                     </div>
+                  )}
+                  {!error && lastProvider && !isLoading && (
+                    <p className="text-center text-[10px] text-slate-600">
+                      ⚡ Respondió {lastProvider}
+                    </p>
                   )}
                 </div>
               )}

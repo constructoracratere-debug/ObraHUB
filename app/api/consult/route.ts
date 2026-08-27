@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 // GPT-4o vision + RAG puede tardar >10s (límite por defecto en Vercel Hobby).
 export const maxDuration = 60;
 
+import { llmComplete, type LlmMessage } from "@/lib/ai/router";
+
 /**
  * POST /api/consult — Multimodal Construction Expert v2.
  *
@@ -228,13 +230,14 @@ export async function POST(request: NextRequest) {
       { role: "user", content: userContent },
     ];
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      max_tokens: 1200,
-      messages: messages as Array<{ role: "system" | "user" | "assistant"; content: string }>,
+    // 👁️ Visión: GPT-4o (pagado, la mejor lectura de imágenes) con Gemini
+    // 2.5 Flash de respaldo si OpenAI falla — decide el enrutador multi-LLM.
+    const llm = await llmComplete("vision", {
+      messages: messages as Array<LlmMessage>,
+      maxTokens: 1200,
     });
 
-    const answer = completion.choices[0]?.message?.content ?? "";
+    const answer = llm.content;
     const fullPrompt = promptParts.join("\n\n");
 
     // Persist as conversation for the project if slug provided
@@ -262,6 +265,7 @@ export async function POST(request: NextRequest) {
       answer,
       transcript: audioText || null,
       prompt: fullPrompt,
+      provider: llm.providerLabel,
     });
   } catch (e) {
     console.error("POST consult v2:", e);

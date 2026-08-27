@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 // 504 → el usuario no podía seguir preguntando. 60s es el máximo en Hobby.
 export const maxDuration = 60;
 
+import { llmComplete } from "@/lib/ai/router";
+
 const NO_ANSWER_MESSAGE = "No se encontró una respuesta clara en los documentos consultados.";
 
 /**
@@ -141,18 +143,6 @@ type SearchResult = {
   text: string;
 };
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI {
-  if (!openaiClient) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OPENAI_API_KEY is not configured");
-    }
-    openaiClient = new OpenAI({ apiKey });
-  }
-  return openaiClient;
-}
 
 function extractKeywords(message: string): string[] {
   const words = message.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
@@ -413,7 +403,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const openai = getOpenAIClient();
     // Historial de conversación (últimos 6 turnos) para poder indagar en seguimiento.
     const historyTurns: Array<{ role: "user" | "assistant"; content: string }> = Array.isArray(body.history)
       ? (body.history as Array<{ role?: unknown; content?: unknown }>)
@@ -422,8 +411,9 @@ export async function POST(request: NextRequest) {
           .map((t) => ({ role: t.role === "assistant" ? "assistant" as const : "user" as const, content: String(t.content).slice(0, 700) }))
       : [];
     const isFollowUp = historyTurns.length > 0;
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+    // 🧠 Enrutador multi-LLM: cadena gratis (Gemini → Kimi → Qwen → Grok →
+    // DeepSeek) con GPT-4.1-mini pagado de respaldo.
+    const llm = await llmComplete("chat", {
       messages: [
         {
           role: "system",
@@ -448,7 +438,7 @@ export async function POST(request: NextRequest) {
       ],
     });
 
-    const response = completion.choices[0]?.message?.content?.trim();
+    const response = llm.content;
     if (!response) {
       return NextResponse.json(
         { error: "No response from model" },
@@ -458,6 +448,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       response,
       pages: contextPages,
+      provider: llm.providerLabel,
+      latencyMs: llm.latencyMs,
     });
   } catch (error) {
     if (error instanceof Error && error.message === "OPENAI_API_KEY is not configured") {
