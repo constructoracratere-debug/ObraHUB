@@ -38,10 +38,10 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://obra-hub-diego-pined
 function gemini(): ProviderSpec {
   return {
     id: "gemini",
-    label: "Gemini 2.5 Flash (gratis)",
+    label: "Gemini 3.6 Flash (gratis)",
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
     apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY,
-    model: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+    model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
     paid: false,
     timeoutMs: 20_000,
   };
@@ -97,22 +97,24 @@ function openai(model: string, label: string, timeoutMs: number): ProviderSpec {
 
 /** Cadena de proveedores por tarea — el primero que responda gana. */
 export function providerChain(task: LlmTask): ProviderSpec[] {
-  const orKimi = openrouter(process.env.OPENROUTER_FREE_MODEL ?? "moonshotai/kimi-k2:free", "Kimi K2 (gratis)");
-  const orDeep = openrouter(process.env.OPENROUTER_FREE_MODEL_2 ?? "deepseek/deepseek-chat-v3.1:free", "DeepSeek V3 (gratis)");
+  // Slugs free verificados contra el catálogo vivo de OpenRouter (ago/2026).
+  const orGlm = openrouter(process.env.OPENROUTER_FREE_MODEL ?? "z-ai/glm-5.2:free", "GLM 5.2 (gratis)");
+  const orMiniMax = openrouter(process.env.OPENROUTER_FREE_MODEL_2 ?? "minimax/minimax-m3:free", "MiniMax M3 (gratis)");
+  const orNemotron = openrouter("nvidia/nemotron-3-super-120b-a12b:free", "Nemotron 3 Super (gratis)");
 
   switch (task) {
     // Biblioteca normativa: texto puro, mucho volumen → gratis primero.
     case "chat":
-      return [gemini(), orKimi, dashscope(), xai(), orDeep, openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 30_000)];
-    // Documentos largos: Gemini 1M contexto es imbatible gratis.
+      return [gemini(), orGlm, orMiniMax, dashscope(), xai(), orNemotron, openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 30_000)];
+    // Documentos largos: Gemini y MiniMax M3 ofrecen 1M de contexto gratis.
     case "docs":
-      return [gemini(), orDeep, openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 45_000)];
+      return [gemini(), orMiniMax, orNemotron, openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 45_000)];
     // Visión (fotos de obra): la mejor lectura de imágenes manda — GPT-4o.
     case "vision":
       return [openai("gpt-4o", "GPT-4o (pagado)", 55_000), gemini()];
     // JSON estructurado (APU, cronogramas): fiabilidad ante todo.
     case "structure":
-      return [openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 40_000), orDeep, dashscope()];
+      return [openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 40_000), orGlm, orMiniMax];
   }
 }
 
