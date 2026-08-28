@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AssistantMessage } from "@/app/_components/assistant-message";
 import { FOLDER_TEMPLATE, folderIcon } from "@/lib/folders";
@@ -503,18 +503,23 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     projects: number; avgSpi: number | null; critical: number; alerts: number; bacTotal: number; stale: number;
   } | null>(null);
 
+  // Homepage health cards, summary strip and map pins all come from
+  // /api/portfolio. Reusable so the UI reflects deletions immediately —
+  // antes solo se refrescaba al entrar/salir de un proyecto y el homepage
+  // quedaba mostrando proyectos ya borrados.
+  const loadPortfolio = useCallback(async () => {
+    try {
+      const r = await fetch("/api/portfolio");
+      if (!r.ok) return;
+      const d = await r.json();
+      setPortfolio(d.cards ?? []);
+      setPortfolioSummary(d.summary ?? null);
+    } catch { /* decorative */ }
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/portfolio")
-      .then((r) => (r.ok ? r.json() : { cards: [] }))
-      .then((d) => {
-        if (cancelled) return;
-        setPortfolio(d.cards ?? []);
-        setPortfolioSummary(d.summary ?? null);
-      })
-      .catch(() => { /* decorative */ });
-    return () => { cancelled = true; };
-  }, [activeProjectSlug]); // refresh when returning from a project
+    void loadPortfolio();
+  }, [activeProjectSlug, loadPortfolio]); // refresh when returning from a project
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -866,6 +871,9 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         throw new Error(typeof data.error === "string" ? data.error : "Error al eliminar");
       }
       setProjects((prev) => prev.filter((p) => p.slug !== project.slug));
+      // El homepage (tarjetas de salud, contadores y mapa) debe reflejar el borrado
+      // al instante, sin recargar la página.
+      void loadPortfolio();
       // If the deleted project was active, go back to the hero view.
       if (activeProjectSlug === project.slug) {
         startNewChat();
