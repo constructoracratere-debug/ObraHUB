@@ -2234,7 +2234,13 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             </div>
           )}
 
-          <AmericasMap cards={portfolio} onOpen={(slug) => openProject(slug)} />
+          {/* isolate: Leaflet usa z-index internos de hasta 1000 (controles,
+              panes) que se escapaban por encima de los modales (z-60) al
+              crear un proyecto en el homepage. Con isolate quedan
+              contenidos dentro del mapa. */}
+          <div className="relative isolate">
+            <AmericasMap cards={portfolio} onOpen={(slug) => openProject(slug)} />
+          </div>
 
           {/* Noticias LATAM — sección del Home, no herramienta */}
           <div className="mt-10">
