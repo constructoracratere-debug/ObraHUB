@@ -93,6 +93,9 @@ export async function DELETE(request: NextRequest) {
     await deleteProject(supabase, slug);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "Solo el dueño puede eliminar este proyecto") {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     console.error("DELETE /api/projects error:", error);
     return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
   }

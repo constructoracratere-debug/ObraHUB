@@ -83,9 +83,18 @@ export async function deleteProject(
   supabase: SupabaseClient,
   slug: string,
 ): Promise<void> {
-  const { error } = await supabase.from("projects").delete().eq("slug", slug);
+  const { error, count } = await supabase
+    .from("projects")
+    .delete({ count: "exact" })
+    .eq("slug", slug);
   if (error) {
     throw error;
+  }
+  // RLS permite borrar solo al dueño: para un miembro la operación afecta
+  // 0 filas SIN error. Antes se reportaba éxito, la UI lo quitaba y el
+  // proyecto reaparecía al recargar ("homepage no se actualiza").
+  if (count === 0) {
+    throw new Error("Solo el dueño puede eliminar este proyecto");
   }
 }
 
