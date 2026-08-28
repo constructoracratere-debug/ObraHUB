@@ -96,9 +96,30 @@ export async function POST(request: Request) {
       .update({ consumed: true })
       .eq("email", email);
 
-    // Ensure an auth user exists for this email.
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existing = existingUsers?.users?.find((u) => u.email?.toLowerCase() === email);
+    // Ensure an auth user exists for this email — searching ALL pages of the
+    // user list. Antes solo se revisaba la 1ª página: si el usuario no estaba
+    // ahí se creaba OTRO con el mismo correo, y los duplicados rompían la
+    // propiedad de datos (proyectos/chat de un uid inaccesible desde otro).
+    // Se elige el usuario CANÓNICO (el más antiguo con ese correo).
+    let canonical: { id: string; created_at?: string } | null = null;
+    let page = 1;
+    for (;;) {
+      const { data: pageData } = await supabase.auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
+      const users = pageData?.users ?? [];
+      for (const u of users) {
+        if (u.email?.toLowerCase() !== email) continue;
+        if (!canonical || String(u.created_at) < String(canonical.created_at ?? "")) {
+          canonical = { id: u.id, created_at: u.created_at };
+        }
+      }
+      const nextPage = (pageData as unknown as { nextPage?: number } | null)?.nextPage;
+      if (!nextPage || users.length === 0) break;
+      page = nextPage;
+    }
+    const existing = canonical;
 
     let userId: string;
     if (existing) {

@@ -216,3 +216,30 @@ create policy "ifc_links_write_member" on public.project_ifc_links
 drop policy if exists "ifc_links_delete_member" on public.project_ifc_links;
 create policy "ifc_links_delete_member" on public.project_ifc_links
   for delete using (public.is_project_editor(project_id, auth.uid()));
+
+-- ----------------------------------------------------------------------
+-- 2026-08-28: conversaciones y memorias para MIEMBROS (faltaban).
+-- Sin estas políticas, el chat de un proyecto compartido fallaba con
+-- "Failed to save message" para cualquier miembro no dueño.
+-- ⚠️ Ejecutar este bloque en el SQL Editor de Supabase (Dashboard).
+-- ----------------------------------------------------------------------
+
+drop policy if exists "messages_select_member" on public.conversation_messages;
+create policy "messages_select_member"
+  on public.conversation_messages for select
+  using (public.is_project_member(project_id, auth.uid()));
+
+drop policy if exists "messages_insert_member" on public.conversation_messages;
+create policy "messages_insert_member"
+  on public.conversation_messages for insert
+  with check (public.is_project_member(project_id, auth.uid()));
+
+drop policy if exists "memories_select_member" on public.memories;
+create policy "memories_select_member"
+  on public.memories for select
+  using (public.is_project_member(project_id, auth.uid()));
+
+drop policy if exists "memories_insert_member" on public.memories;
+create policy "memories_insert_member"
+  on public.memories for insert
+  with check (public.is_project_member(project_id, auth.uid()));
