@@ -423,6 +423,7 @@ export function IfcViewer({
                 cam.far = maxDim * 100;
                 cam.updateProjectionMatrix();
                 ctrl.target.copy(center);
+                ctrl.syncFromCamera();
                 ctrl.update();
               }
             }
@@ -585,6 +586,8 @@ export function IfcViewer({
     camera.far = maxDim * 100;
     camera.updateProjectionMatrix();
     controls.target.copy(center);
+    // Adopta la nueva pose para que el damping no la revierta al frame siguiente.
+    controls.syncFromCamera();
     controls.update();
   }
 
@@ -688,6 +691,7 @@ export function IfcViewer({
       cam.far = maxDim * 200;
       cam.updateProjectionMatrix();
       ctrl.target.copy(center);
+      ctrl.syncFromCamera();
       ctrl.update();
     }
   }
@@ -1578,6 +1582,8 @@ async function downloadIfc(
 // ---------------------------------------------------------------------------
 
 type OrbitControlsLike = {
+  /** Adopta la pose actual de la cámara (tras moverla directo con fit/focus). */
+  syncFromCamera: () => void;
   target: THREE.Vector3;
   update: () => void;
   dispose: () => void;
@@ -1592,19 +1598,40 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
   const cur = { theta: spherical.theta, phi: spherical.phi, radius: spherical.radius };
   const goal = { ...cur };
   const goalTarget = target.clone();
+  const minRadius = 0.3;
+  let maxRadius = Math.max(spherical.radius * 8, 5);
+
+  // 📱 CLAVE MÓVIL: sin touch-action none el navegador se queda el gesto
+  // (scroll/pinch de página), dispara pointercancel y el pinch muere a
+  // mitad. También quitamos selección/brillo de tap para que se sienta nativo.
+  domElement.style.touchAction = "none";
+  domElement.style.userSelect = "none";
+  (domElement.style as unknown as Record<string, string>).webkitUserSelect = "none";
+  (domElement.style as unknown as Record<string, string>).webkitTapHighlightColor = "transparent";
 
   // Multi-touch: mapa de punteros activos para pinch-zoom y pan a 2 dedos.
   const pointers = new Map<number, { x: number; y: number }>();
   let pinchDist = 0;
   let pinchAngle = 0;
 
+  // Doble tap = acercarse (como cualquier app móvil).
+  let lastTapTime = 0;
+  let lastTapX = 0;
+  let lastTapY = 0;
+  const tapStart = new Map<number, { x: number; y: number; t: number }>();
+
   function touchAction(e: Event) {
     // Evita que el navegador haga scroll/zoom de la página sobre el canvas.
     (e as TouchEvent).preventDefault?.();
   }
 
+  // iOS Safari: el pinch de página se bloquea con gesturestart, no con
+  // touchmove. Sin esto, el zoom con 2 dedos sobre el canvas escala la página.
+  const onGestureStart = (e: Event) => e.preventDefault();
+
   const onPointerDown = (e: PointerEvent) => {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    tapStart.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
     try {
       domElement.setPointerCapture(e.pointerId);
     } catch { /* ignore */ }
@@ -1628,8 +1655,10 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       const angle = Math.atan2(b.y - a.y, b.x - a.x);
       if (pinchDist > 0) {
-        goal.radius *= Math.max(0.9, Math.min(1.11, pinchDist / Math.max(1, dist)));
-        goal.radius = Math.max(0.3, goal.radius);
+        // Ratio por evento con rango amplio: el 0.9-1.11 anterior hacía el
+        // zoom lento/artificial; así responde 1:1 al gesto como una app nativa.
+        goal.radius *= Math.max(0.7, Math.min(1.4, pinchDist / Math.max(1, dist)));
+        goal.radius = Math.max(minRadius, Math.min(maxRadius, goal.radius));
         let dTheta = angle - pinchAngle;
         if (dTheta > Math.PI) dTheta -= 2 * Math.PI;
         if (dTheta < -Math.PI) dTheta += 2 * Math.PI;
@@ -1666,6 +1695,28 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
   const onPointerUp = (e: PointerEvent) => {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinchDist = 0;
+
+    // Doble tap (táctil): toc-toc rápido sin arrastrar = acercarse.
+    const start = tapStart.get(e.pointerId);
+    tapStart.delete(e.pointerId);
+    if (e.pointerType === "touch" && start) {
+      const moved = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+      const elapsed = performance.now() - start.t;
+      if (moved < 12 && elapsed < 250) {
+        const now = performance.now();
+        const isDoubleTap =
+          now - lastTapTime < 350 &&
+          Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 48;
+        lastTapTime = now;
+        lastTapX = e.clientX;
+        lastTapY = e.clientY;
+        if (isDoubleTap) {
+          goal.radius = Math.max(minRadius, goal.radius * 0.6);
+          lastTapTime = 0; // exige dos toques nuevos para repetir
+        }
+      }
+    }
+
     try {
       domElement.releasePointerCapture(e.pointerId);
     } catch { /* ignore */ }
@@ -1675,7 +1726,7 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
     e.preventDefault();
     const factor = e.deltaY > 0 ? 1.12 : 0.89;
     goal.radius *= factor;
-    goal.radius = Math.max(0.3, goal.radius);
+    goal.radius = Math.max(minRadius, Math.min(maxRadius, goal.radius));
   };
   const onContextMenu = (e: Event) => e.preventDefault();
 
@@ -1700,6 +1751,8 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
   domElement.addEventListener("contextmenu", onContextMenu);
   domElement.addEventListener("touchstart", touchAction, { passive: false });
   domElement.addEventListener("touchmove", touchAction, { passive: false });
+  // iOS Safari: bloquea el zoom de página con 2 dedos sobre el visor.
+  domElement.addEventListener("gesturestart", onGestureStart, { passive: false });
 
   // Initial placement
   updateCamera();
@@ -1707,6 +1760,16 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
   return {
     target,
     update: () => updateCamera(),
+    /** Tras mover la cámara directamente (fit/focus), adopta esa pose como
+     *  objetivo del damping — si no, el siguiente frame la devolvía atrás. */
+    syncFromCamera: () => {
+      goalTarget.copy(target);
+      spherical.setFromVector3(camera.position.clone().sub(target));
+      cur.theta = goal.theta = spherical.theta;
+      cur.phi = goal.phi = spherical.phi;
+      cur.radius = goal.radius = spherical.radius;
+      maxRadius = Math.max(maxRadius, spherical.radius * 2);
+    },
     dispose: () => {
       domElement.removeEventListener("pointerdown", onPointerDown);
       domElement.removeEventListener("pointermove", onPointerMove);
@@ -1716,6 +1779,7 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
       domElement.removeEventListener("contextmenu", onContextMenu);
       domElement.removeEventListener("touchstart", touchAction);
       domElement.removeEventListener("touchmove", touchAction);
+      domElement.removeEventListener("gesturestart", onGestureStart);
     },
   };
 }
