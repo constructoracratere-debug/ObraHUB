@@ -631,7 +631,7 @@ export function IfcViewer({
     }
     clearAllOutlines();
     for (const m of meshesRef.current) {
-      (m.material as THREE.MeshStandardMaterial).emissive.setHex(m === mesh ? 0x666633 : 0x000000);
+      (m.material as THREE.MeshStandardMaterial).emissive.setHex(m === mesh ? 0x9a9a00 : 0x000000);
     }
     setMeshOutline(mesh, true);
     dimOthers(eid != null ? new Set([eid]) : new Set(), 0.15);
@@ -721,34 +721,68 @@ export function IfcViewer({
   }
 
   // ── Visibilidad de selección ─────────────────────────────────────────────
-  // Contorno de aristas brillante (se dibuja SOBRE el resto, depthTest off)
-  // + atenuación del resto del modelo: imposible no ver qué está seleccionado.
-  const outlinesRef = useRef(new Map<THREE.Mesh, THREE.LineSegments>());
+  // El elemento seleccionado recibe: (1) un HALO amarillo grueso — copia de la
+  // geometría escalada 6% dibujada por detrás (BackSide, depthTest off) que
+  // forma un borde proporcional al tamaño del elemento, imposible de perder
+  // (las líneas WebGL son de 1px fijos, muy finas en móvil); (2) contorno de
+  // aristas brillante encima; (3) el resto del modelo atenuado al 15-25%.
+  const outlinesRef = useRef(new Map<THREE.Mesh, THREE.Group>());
 
   function setMeshOutline(mesh: THREE.Mesh, on: boolean) {
     const existing = outlinesRef.current.get(mesh);
     if (on) {
       if (existing) return;
+      const g = new THREE.Group();
+
+      // Halo: shell escalado alrededor del CENTRO de la geometría para que
+      // crezca "hacia afuera" sin desplazarse.
+      mesh.geometry.computeBoundingBox();
+      const c = new THREE.Vector3();
+      mesh.geometry.boundingBox?.getCenter(c);
+      const S = 1.06;
+      const halo = new THREE.Mesh(
+        mesh.geometry,
+        new THREE.MeshBasicMaterial({
+          color: 0xffd400,
+          transparent: true,
+          opacity: 0.55,
+          side: THREE.BackSide,
+          depthTest: false,
+          depthWrite: false,
+        }),
+      );
+      halo.scale.setScalar(S);
+      halo.position.copy(c).multiplyScalar(1 - S);
+      halo.renderOrder = 998;
+      g.add(halo);
+
       const edges = new THREE.LineSegments(
         new THREE.EdgesGeometry(mesh.geometry, 25),
         new THREE.LineBasicMaterial({ color: 0xffe600, depthTest: false, transparent: true }),
       );
       edges.renderOrder = 999;
-      mesh.add(edges);
-      outlinesRef.current.set(mesh, edges);
+      g.add(edges);
+
+      mesh.add(g);
+      outlinesRef.current.set(mesh, g);
     } else if (existing) {
       mesh.remove(existing);
-      existing.geometry.dispose();
-      (existing.material as THREE.Material).dispose();
+      for (const child of existing.children) {
+        // El halo comparte la geometría del mesh — NO disponerla aquí.
+        if (child instanceof THREE.LineSegments) child.geometry.dispose();
+        (child as THREE.Mesh<THREE.BufferGeometry, THREE.Material>).material.dispose();
+      }
       outlinesRef.current.delete(mesh);
     }
   }
 
   function clearAllOutlines() {
-    for (const [mesh, edges] of outlinesRef.current) {
-      mesh.remove(edges);
-      edges.geometry.dispose();
-      (edges.material as THREE.Material).dispose();
+    for (const [mesh, group] of outlinesRef.current) {
+      mesh.remove(group);
+      for (const child of group.children) {
+        if (child instanceof THREE.LineSegments) child.geometry.dispose();
+        (child as THREE.Mesh<THREE.BufferGeometry, THREE.Material>).material.dispose();
+      }
     }
     outlinesRef.current.clear();
   }
@@ -1482,7 +1516,7 @@ export function IfcViewer({
 
       {/* Element properties inspector — opened by clicking an element */}
       {elementProps && (
-        <div className="pointer-events-auto absolute bottom-4 left-3 z-10 flex max-h-[52%] w-80 flex-col overflow-hidden rounded-xl border border-blue-500/25 bg-[#0a1120]/95 backdrop-blur-xl">
+        <div className="pointer-events-auto absolute inset-x-2 bottom-2 z-10 flex max-h-[38%] flex-col overflow-hidden rounded-xl border border-blue-500/25 bg-[#0a1120]/95 backdrop-blur-xl sm:inset-x-auto sm:bottom-4 sm:left-3 sm:max-h-[52%] sm:w-80">
           <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] px-3 py-2.5">
             <div className="min-w-0">
               <p className="truncate text-xs font-semibold text-blue-200">
