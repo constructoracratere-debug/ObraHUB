@@ -511,7 +511,7 @@ export function IfcViewer({
       if (hits.length === 0) {
         // Clicked empty space — clear selection in link mode
         if (linkModeRef.current) {
-          clearHighlight();
+          restoreSelectionVisuals();
           setSelectedElements([]);
         }
         return;
@@ -533,6 +533,7 @@ export function IfcViewer({
           // Deselect
           newList = selectedElementsRef.current.filter((el) => el.expressID !== hitExpressId);
           (hit.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+          setMeshOutline(hit, false);
         } else {
           // Select — read element info from IFC
           const api = ifcApiForClickRef.current;
@@ -551,9 +552,12 @@ export function IfcViewer({
           }
           newList = [...selectedElementsRef.current, { expressID: hitExpressId, guid, ifcClass, name }];
           (hit.material as THREE.MeshStandardMaterial).emissive.setHex(0x004422);
+          setMeshOutline(hit, true);
         }
         selectedElementsRef.current = newList;
         setSelectedElements(newList);
+        // El resto del modelo se atenúa: la selección salta a la vista.
+        dimOthers(new Set(newList.map((el) => el.expressID)), 0.25);
       } else {
         // Normal mode — single highlight + open the properties inspector
         highlightMesh(hit);
@@ -603,6 +607,7 @@ export function IfcViewer({
     if (renderer && (renderer as any).__cleanup) {
       (renderer as any).__cleanup();
     }
+    clearAllOutlines();
     for (const m of meshesRef.current) {
       m.geometry.dispose();
       (m.material as THREE.Material).dispose();
@@ -618,14 +623,18 @@ export function IfcViewer({
   // Interaction helpers
   // -------------------------------------------------------------------------
   function highlightMesh(mesh: THREE.Mesh) {
-    for (const m of meshesRef.current) {
-      const mat = m.material as THREE.MeshStandardMaterial;
-      if (m === mesh) {
-        mat.emissive.setHex(0x444422);
-      } else {
-        mat.emissive.setHex(0x000000);
-      }
+    // Resalta el elemento Y lo aísla visualmente: contorno brillante + resto
+    // del modelo atenuado — el emisivo amarillo solo era casi invisible.
+    let eid: number | null = null;
+    for (const [k, m] of elementToMeshRef.current) {
+      if (m === mesh) { eid = k; break; }
     }
+    clearAllOutlines();
+    for (const m of meshesRef.current) {
+      (m.material as THREE.MeshStandardMaterial).emissive.setHex(m === mesh ? 0x666633 : 0x000000);
+    }
+    setMeshOutline(mesh, true);
+    dimOthers(eid != null ? new Set([eid]) : new Set(), 0.15);
   }
 
   function isolateClass(className: string | null) {
@@ -687,6 +696,7 @@ export function IfcViewer({
     for (const m of meshesRef.current) m.visible = false;
     mesh.visible = true;
     (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x005530);
+    setMeshOutline(mesh, true);
     const box = new THREE.Box3().setFromObject(mesh);
     if (!box.isEmpty()) {
       const center = box.getCenter(new THREE.Vector3());
@@ -710,13 +720,71 @@ export function IfcViewer({
     }
   }
 
+  // ── Visibilidad de selección ─────────────────────────────────────────────
+  // Contorno de aristas brillante (se dibuja SOBRE el resto, depthTest off)
+  // + atenuación del resto del modelo: imposible no ver qué está seleccionado.
+  const outlinesRef = useRef(new Map<THREE.Mesh, THREE.LineSegments>());
+
+  function setMeshOutline(mesh: THREE.Mesh, on: boolean) {
+    const existing = outlinesRef.current.get(mesh);
+    if (on) {
+      if (existing) return;
+      const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(mesh.geometry, 25),
+        new THREE.LineBasicMaterial({ color: 0xffe600, depthTest: false, transparent: true }),
+      );
+      edges.renderOrder = 999;
+      mesh.add(edges);
+      outlinesRef.current.set(mesh, edges);
+    } else if (existing) {
+      mesh.remove(existing);
+      existing.geometry.dispose();
+      (existing.material as THREE.Material).dispose();
+      outlinesRef.current.delete(mesh);
+    }
+  }
+
+  function clearAllOutlines() {
+    for (const [mesh, edges] of outlinesRef.current) {
+      mesh.remove(edges);
+      edges.geometry.dispose();
+      (edges.material as THREE.Material).dispose();
+    }
+    outlinesRef.current.clear();
+  }
+
+  /** Atenúa todos los elementos excepto los indicados (vaciío = restaura). */
+  function dimOthers(exceptIds: Set<number>, opacity = 0.15) {
+    const dim = exceptIds.size > 0;
+    for (const [eid, mesh] of elementToMeshRef.current) {
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      if (exceptIds.has(eid)) {
+        mat.transparent = false;
+        mat.opacity = 1;
+        mesh.renderOrder = 10;
+      } else {
+        mat.transparent = dim;
+        mat.opacity = dim ? opacity : 1;
+        mesh.renderOrder = 0;
+      }
+      mat.needsUpdate = true;
+    }
+  }
+
+  /** Restaura materiales: quita contornos, atenúo y re-aplica el modo de vista. */
+  function restoreSelectionVisuals() {
+    clearAllOutlines();
+    dimOthers(new Set());
+    applyViewMode(viewMode);
+  }
+
   /** Toggles 4D link mode — clears selection on exit. */
   function toggleLinkMode() {
     if (!linkMode) {
       setLinkMode(true);
     } else {
       setLinkMode(false);
-      clearHighlight();
+      restoreSelectionVisuals();
       setSelectedElements([]);
       selectedElementsRef.current = [];
     }
@@ -899,6 +967,7 @@ export function IfcViewer({
       clearHighlight();
       setSelectedElements([]);
       selectedElementsRef.current = [];
+      dimOthers(new Set());
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : "Error al vincular");
     } finally {
@@ -927,16 +996,23 @@ export function IfcViewer({
       for (const el of group.elements) {
         newList.push({ expressID: el.expressID, guid: el.guid, ifcClass: cls, name: el.name ?? `Element ${el.expressID}` });
         const mesh = elementToMeshRef.current.get(el.expressID);
-        if (mesh) (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x004422);
+        if (mesh) {
+          (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x004422);
+          setMeshOutline(mesh, true);
+        }
       }
     } else {
       for (const eid of groupIds) {
         const mesh = elementToMeshRef.current.get(eid);
-        if (mesh) (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+        if (mesh) {
+          (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+          setMeshOutline(mesh, false);
+        }
       }
     }
     setSelectedElements(newList);
     selectedElementsRef.current = newList;
+    dimOthers(new Set(newList.map((e) => e.expressID)), 0.25);
   }
 
   /** Elimina un lote de vínculos guardado. */
@@ -1206,10 +1282,14 @@ export function IfcViewer({
                         type="button"
                         onClick={() => {
                           const mesh = elementToMeshRef.current.get(el.expressID);
-                          if (mesh) (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+                          if (mesh) {
+                            (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+                            setMeshOutline(mesh, false);
+                          }
                           const newList = selectedElements.filter((e) => e.expressID !== el.expressID);
                           setSelectedElements(newList);
                           selectedElementsRef.current = newList;
+                          dimOthers(new Set(newList.map((e) => e.expressID)), 0.25);
                         }}
                         className="shrink-0 text-slate-600 hover:text-red-400"
                       >
