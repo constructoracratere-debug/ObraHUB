@@ -886,18 +886,87 @@ export function IfcViewer({
         ]);
       }
       setLinkedCount((c) => c + 1);
-      // Clear selection after saving
+      // Clear selection after saving — pero PERMANECE en modo vinculación con
+      // la misma tarea: así se encadenan lotes (muros → columnas → vigas)
+      // sin repetir el paso 1 ni reabrir el modo cada vez.
       clearHighlight();
       setSelectedElements([]);
       selectedElementsRef.current = [];
-      setLinkTaskId(null);
-      setLinkMode(false);
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : "Error al vincular");
     } finally {
       setIsSavingLink(false);
     }
   }
+
+  /** Color determinista por tarea — pinta los vínculos en el visor y el panel. */
+  function taskColorFor(taskId: string): number {
+    const palette = [0x8b5cf6, 0xf59e0b, 0x10b981, 0x3b82f6, 0xef4444, 0x14b8a6, 0xf97316, 0xec4899];
+    let h = 0;
+    for (let i = 0; i < taskId.length; i++) h = (h * 31 + taskId.charCodeAt(i)) | 0;
+    return palette[Math.abs(h) % palette.length];
+  }
+
+  /** Selecciona/deselecciona de un toque TODOS los elementos de una clase IFC
+   *  (p.ej. "todos los muros") — la vía rápida que faltaba en el 4D. */
+  function toggleSelectClass(cls: string) {
+    const group = summary?.byClass.find((g) => g.ifcClass === cls);
+    if (!group) return;
+    const selectedIds = new Set(selectedElements.map((e) => e.expressID));
+    const groupIds = new Set(group.elements.map((e) => e.expressID));
+    const allSelected = group.elements.every((e) => selectedIds.has(e.expressID));
+    let newList = selectedElements.filter((e) => !groupIds.has(e.expressID));
+    if (!allSelected) {
+      for (const el of group.elements) {
+        newList.push({ expressID: el.expressID, guid: el.guid, ifcClass: cls, name: el.name ?? `Element ${el.expressID}` });
+        const mesh = elementToMeshRef.current.get(el.expressID);
+        if (mesh) (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x004422);
+      }
+    } else {
+      for (const eid of groupIds) {
+        const mesh = elementToMeshRef.current.get(eid);
+        if (mesh) (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+      }
+    }
+    setSelectedElements(newList);
+    selectedElementsRef.current = newList;
+  }
+
+  /** Elimina un lote de vínculos guardado. */
+  async function handleDeleteLink(linkId: string) {
+    if (!projectSlug) return;
+    try {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(projectSlug)}/ifc-links?id=${encodeURIComponent(linkId)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) throw new Error("delete failed");
+      setLinks((prev) => prev.filter((l) => l.id !== linkId));
+    } catch {
+      setLinkError("No se pudo eliminar el vínculo");
+    }
+  }
+
+  // En modo vinculación, cada elemento YA vinculado se pinta con el color de
+  // su tarea: se ve al instante qué falta por asignar y qué tiene cada tarea.
+  useEffect(() => {
+    if (state !== "ready" || !summary) return;
+    const byGuid = new Map<string, string>();
+    for (const l of links) for (const g of l.ifcGlobalIds) byGuid.set(g, l.taskId);
+    const selectedIds = new Set(selectedElements.map((e) => e.expressID));
+    for (const group of summary.byClass) {
+      for (const el of group.elements) {
+        const mesh = elementToMeshRef.current.get(el.expressID);
+        if (!mesh) continue;
+        if (selectedIds.has(el.expressID)) continue; // no pisar la selección activa
+        const taskId = byGuid.get(el.guid);
+        (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(
+          linkMode && taskId ? taskColorFor(taskId) : 0x000000,
+        );
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkMode, links, state, summary]);
 
   // -------------------------------------------------------------------------
   // Action callbacks
@@ -1013,91 +1082,199 @@ export function IfcViewer({
         )}
       </div>
 
-      {/* 4D Linking bar — shows when in link mode */}
+      {/* 4D Linking — panel guiado por pasos (derecha). El flujo anterior era
+          una barra con un <select> plano y selección 1-a-1: ahora es wizard
+          tarea → elementos (por tipo o al tacto) → vincular, y se encadena. */}
       {linkMode && (
-        <div className="pointer-events-auto absolute left-1/2 top-16 z-10 w-[min(640px,90%)] -translate-x-1/2 rounded-xl border border-cyan-500/30 bg-[#0a1120]/95 p-4 backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-cyan-200">
-                🔗 Modo vinculación BIM 4D
-              </p>
-              <p className="text-[11px] text-slate-400">
-                {selectedElements.length === 0
-                  ? "Haz clic en elementos del modelo para seleccionarlos"
-                  : `${selectedElements.length} elemento(s) seleccionado(s) — clic de nuevo para deseleccionar`}
-              </p>
+        <div className="pointer-events-auto absolute right-0 top-0 z-10 flex h-full w-[min(360px,92%)] flex-col border-l border-cyan-500/25 bg-[#0a1120]/95 shadow-2xl shadow-black/40 backdrop-blur-xl">
+          {/* Encabezado */}
+          <div className="flex shrink-0 items-center justify-between border-b border-cyan-500/20 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-cyan-100">🔗 Vincular 4D</p>
+              <p className="text-[10px] text-slate-400">Elementos del modelo → tareas del cronograma</p>
             </div>
-            <span className="shrink-0 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-200">
-              {selectedElements.length} sel.
-            </span>
+            <button
+              type="button"
+              onClick={toggleLinkMode}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
+              aria-label="Cerrar modo vinculación"
+            >
+              ✕
+            </button>
           </div>
 
-          {selectedElements.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <select
-                value={linkTaskId ?? ""}
-                onChange={(e) => setLinkTaskId(e.target.value || null)}
-                className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 focus:border-cyan-500/40 focus:outline-none"
-              >
-                <option value="">Selecciona una tarea del cronograma…</option>
-                {tasks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleSaveLink}
-                disabled={!linkTaskId || isSavingLink}
-                className="shrink-0 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSavingLink ? "Guardando…" : "✓ Vincular"}
-              </button>
-            </div>
-          )}
-
-          {linkError && (
-            <p className="mt-2 text-[11px] text-red-400">{linkError}</p>
-          )}
-
-          {linkedCount > 0 && (
-            <p className="mt-2 text-[11px] text-emerald-400">
-              ✓ {linkedCount} vínculo(s) creado(s)
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            {/* PASO 1 — tarea */}
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Paso 1 · Elige la tarea
             </p>
-          )}
-
-          {/* Selected elements list */}
-          {selectedElements.length > 0 && (
-            <div className="mt-3 max-h-32 overflow-y-auto rounded-lg border border-white/[0.04] bg-white/[0.02] p-2">
-              {selectedElements.map((el) => (
-                <div
-                  key={el.expressID}
-                  className="flex items-center justify-between py-0.5 text-[10px]"
-                >
-                  <span className="truncate text-slate-400">
-                    <span className="text-cyan-400">{el.ifcClass}</span>
-                    {el.name && el.name !== `Element ${el.expressID}` && ` · ${el.name}`}
-                  </span>
+            <div className="mt-2 space-y-1.5">
+              {tasks.map((t) => {
+                const linkedTo = links
+                  .filter((l) => l.taskId === t.id)
+                  .reduce((n, l) => n + l.ifcGlobalIds.length, 0);
+                const active = linkTaskId === t.id;
+                const color = `#${taskColorFor(t.id).toString(16).padStart(6, "0")}`;
+                return (
                   <button
+                    key={t.id}
                     type="button"
-                    onClick={() => {
-                      const mesh = elementToMeshRef.current.get(el.expressID);
-                      if (mesh) {
-                        (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
-                      }
-                      const newList = selectedElements.filter((e) => e.expressID !== el.expressID);
-                      setSelectedElements(newList);
-                      selectedElementsRef.current = newList;
-                    }}
-                    className="shrink-0 text-slate-600 hover:text-red-400"
+                    onClick={() => setLinkTaskId(active ? null : t.id)}
+                    className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition ${
+                      active
+                        ? "border-cyan-400/60 bg-cyan-500/15 ring-1 ring-cyan-400/30"
+                        : "border-white/[0.06] bg-white/[0.02] hover:border-cyan-500/30 hover:bg-cyan-500/[0.07]"
+                    }`}
                   >
-                    ✕
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium text-slate-100">{t.name}</span>
+                      <span className="block text-[10px] text-slate-500">
+                        {new Date(t.startDate).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}
+                        {" → "}
+                        {new Date(t.endDate).toLocaleDateString("es-CO", { day: "numeric", month: "short" })}
+                        {typeof t.progress === "number" ? ` · ${t.progress}%` : ""}
+                      </span>
+                    </span>
+                    {linkedTo > 0 && (
+                      <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                        {linkedTo} elem.
+                      </span>
+                    )}
                   </button>
-                </div>
-                  ))}
+                );
+              })}
             </div>
-          )}
+
+            {/* PASO 2 — elementos */}
+            <div className={`mt-4 ${linkTaskId ? "" : "pointer-events-none opacity-40"}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Paso 2 · Elige los elementos
+              </p>
+              {/* Selección rápida por tipo — un toque = toda la clase */}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {summary?.byClass.map((g) => {
+                  const selectedIds = new Set(selectedElements.map((e) => e.expressID));
+                  const groupIds = g.elements.map((e) => e.expressID);
+                  const allSel = groupIds.length > 0 && groupIds.every((id) => selectedIds.has(id));
+                  const someSel = groupIds.some((id) => selectedIds.has(id));
+                  return (
+                    <button
+                      key={g.ifcClass}
+                      type="button"
+                      onClick={() => toggleSelectClass(g.ifcClass)}
+                      className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${
+                        allSel
+                          ? "border-cyan-400/60 bg-cyan-500/20 text-cyan-100"
+                          : someSel
+                            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-200"
+                            : "border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-cyan-500/30 hover:bg-cyan-500/[0.07]"
+                      }`}
+                      title={`Seleccionar todos los ${g.ifcClass}`}
+                    >
+                      {allSel ? "✓ " : ""}{g.ifcClass} · {g.count}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                …o toca elementos directamente en el modelo {selectedElements.length > 0 && (
+                  <span className="text-cyan-300">({selectedElements.length} seleccionado(s))</span>
+                )}
+              </p>
+
+              {/* Lista de seleccionados */}
+              {selectedElements.length > 0 && (
+                <div className="mt-2 max-h-28 overflow-y-auto rounded-lg border border-white/[0.04] bg-white/[0.02] p-2">
+                  {selectedElements.map((el) => (
+                    <div key={el.expressID} className="flex items-center justify-between py-0.5 text-[10px]">
+                      <span className="truncate text-slate-400">
+                        <span className="text-cyan-400">{el.ifcClass}</span>
+                        {el.name && el.name !== `Element ${el.expressID}` && ` · ${el.name}`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const mesh = elementToMeshRef.current.get(el.expressID);
+                          if (mesh) (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+                          const newList = selectedElements.filter((e) => e.expressID !== el.expressID);
+                          setSelectedElements(newList);
+                          selectedElementsRef.current = newList;
+                        }}
+                        className="shrink-0 text-slate-600 hover:text-red-400"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Vínculos existentes */}
+            <div className="mt-5 border-t border-white/[0.06] pt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Vínculos existentes ({links.length})
+              </p>
+              {links.length === 0 ? (
+                <p className="mt-2 text-[10px] text-slate-600">
+                  Ninguno todavía — cada vínculo pinta sus elementos con el color de su tarea.
+                </p>
+              ) : (
+                <div className="mt-2 space-y-1">
+                  {links.map((l) => {
+                    const task = tasks.find((t) => t.id === l.taskId);
+                    const color = `#${taskColorFor(l.taskId).toString(16).padStart(6, "0")}`;
+                    return (
+                      <div
+                        key={l.id}
+                        className="flex items-center gap-2 rounded-lg border border-white/[0.04] bg-white/[0.02] px-2.5 py-1.5"
+                      >
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: color }} />
+                        <span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">
+                          {task?.name ?? "Tarea"}
+                          <span className="ml-1.5 text-slate-500">· {l.ifcGlobalIds.length} elem.</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLink(l.id)}
+                          className="shrink-0 text-[10px] text-slate-500 transition hover:text-red-400"
+                          title="Eliminar vínculo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* CTA fija */}
+          <div className="shrink-0 border-t border-cyan-500/20 px-4 py-3">
+            {linkError && <p className="mb-2 text-[10px] text-red-400">{linkError}</p>}
+            {linkedCount > 0 && !linkError && (
+              <p className="mb-2 text-[10px] text-emerald-400">✓ {linkedCount} lote(s) vinculado(s) — puedes seguir con otro</p>
+            )}
+            <button
+              type="button"
+              onClick={handleSaveLink}
+              disabled={!linkTaskId || selectedElements.length === 0 || isSavingLink}
+              className="w-full rounded-xl bg-cyan-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-900/40 transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isSavingLink
+                ? "Guardando…"
+                : !linkTaskId
+                  ? "1️⃣ Elige una tarea arriba"
+                  : selectedElements.length === 0
+                    ? "2️⃣ Selecciona elementos (tipo o al tacto)"
+                    : `✓ Vincular ${selectedElements.length} elemento(s) → ${tasks.find((t) => t.id === linkTaskId)?.name ?? ""}`}
+            </button>
+          </div>
         </div>
       )}
 
