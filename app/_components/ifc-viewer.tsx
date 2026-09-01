@@ -119,6 +119,8 @@ export function IfcViewer({
   // 4D simulation state
   const [links, setLinks] = useState<IfcLinkLite[]>([]);
   const [simEnabled, setSimEnabled] = useState(false);
+  // Móvil: acciones del toolbar (APU/cronograma/4D) plegadas tras "⋯".
+  const [moreOpen, setMoreOpen] = useState(false);
   const [simDate, setSimDate] = useState<number>(0);
   const [simPlaying, setSimPlaying] = useState(false);
   const [simSpeed, setSimSpeed] = useState(1);
@@ -1110,21 +1112,23 @@ export function IfcViewer({
         <canvas ref={canvasRef} className="h-full w-full" />
       </div>
 
-      {/* Top toolbar */}
-      <div className="pointer-events-auto absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
+      {/* Top toolbar — en móvil: iconos + acciones plegadas en "⋯" para no
+          tapar el modelo; en desktop se muestran todos los botones completos. */}
+      <div className="pointer-events-auto absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={resetView}
-          className="rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-3 py-1.5 text-xs font-medium text-slate-200 backdrop-blur transition hover:bg-white/[0.08]"
+          title="Reset vista"
+          className="rounded-lg border border-white/[0.08] bg-[#0a1120]/80 px-2.5 py-1.5 text-xs font-medium text-slate-200 backdrop-blur transition hover:bg-white/[0.08] sm:px-3"
         >
-          🎯 Reset vista
+          🎯 <span className="hidden sm:inline">Reset vista</span>
         </button>
         {/* Selector de modo de vista */}
         <div className="flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/80 p-0.5 backdrop-blur">
           {([
-            { id: "solido", label: "🧱 Sólido", title: "Render sólido con materiales" },
-            { id: "alambre", label: "🔲 Alambre", title: "Vista en alambre (frame) — estructura y aristas" },
-            { id: "rayosx", label: "🔦 Rayos X", title: "Translúcido — ver elementos internos y superpuestos" },
+            { id: "solido", icon: "🧱", label: "Sólido", title: "Render sólido con materiales" },
+            { id: "alambre", icon: "🔲", label: "Alambre", title: "Vista en alambre (frame) — estructura y aristas" },
+            { id: "rayosx", icon: "🔦", label: "Rayos X", title: "Translúcido — ver elementos internos y superpuestos" },
           ] as const).map((m) => (
             <button
               key={m.id}
@@ -1137,42 +1141,59 @@ export function IfcViewer({
                   : "text-slate-400 hover:bg-white/[0.06] hover:text-slate-200"
               }`}
             >
-              {m.label}
+              {m.icon} <span className="hidden sm:inline">{m.label}</span>
             </button>
           ))}
         </div>
         <button
           type="button"
           onClick={() => isolateClass(null)}
-          className={`rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur transition ${
+          title="Ver todo"
+          className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium backdrop-blur transition sm:px-3 ${
             selectedClass === null
               ? "border-blue-500/40 bg-blue-500/20 text-blue-200"
               : "border-white/[0.08] bg-[#0a1120]/80 text-slate-200 hover:bg-white/[0.08]"
           }`}
         >
-          Ver todo
+          👁 <span className="hidden sm:inline">Ver todo</span>
         </button>
+        {/* Móvil: despliega las acciones que no caben (presupuesto, 4D…) */}
+        {summary && (
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium backdrop-blur transition sm:hidden ${
+              moreOpen
+                ? "border-blue-400/50 bg-blue-500/25 text-blue-100"
+                : "border-white/[0.08] bg-[#0a1120]/80 text-slate-200"
+            }`}
+          >
+            {moreOpen ? "✕" : "⋯"}
+          </button>
+        )}
         {summary && (
           <>
             <button
               type="button"
               onClick={handleGenerateBudget}
-              className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 backdrop-blur transition hover:bg-emerald-500/25"
+              className={`${moreOpen ? "inline-flex" : "hidden"} rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1.5 text-xs font-semibold text-emerald-200 backdrop-blur transition hover:bg-emerald-500/25 sm:inline-flex sm:px-3`}
             >
-              💰 Generar Presupuesto APU
+              💰 <span className="hidden sm:inline">Generar Presupuesto APU</span><span className="sm:hidden">APU</span>
             </button>
             <button
               type="button"
               onClick={handleGenerateSchedule}
-              className="rounded-lg border border-purple-500/30 bg-purple-500/15 px-3 py-1.5 text-xs font-semibold text-purple-200 backdrop-blur transition hover:bg-purple-500/25"
+              className={`${moreOpen ? "inline-flex" : "hidden"} rounded-lg border border-purple-500/30 bg-purple-500/15 px-2.5 py-1.5 text-xs font-semibold text-purple-200 backdrop-blur transition hover:bg-purple-500/25 sm:inline-flex sm:px-3`}
             >
-              📅 Crear Cronograma
+              📅 <span className="hidden sm:inline">Crear Cronograma</span><span className="sm:hidden">Crono</span>
             </button>
             {tasks.length > 0 && projectSlug && (
               <button
                 type="button"
                 onClick={toggleLinkMode}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold backdrop-blur transition sm:inline-flex sm:px-3 ${
+                  moreOpen ? "inline-flex" : "hidden"
+                } ${
                   linkMode
                     ? "border-cyan-400/50 bg-cyan-500/25 text-cyan-100"
                     : "border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20"
@@ -1185,14 +1206,16 @@ export function IfcViewer({
               <button
                 type="button"
                 onClick={toggleSimulation}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold backdrop-blur transition sm:inline-flex sm:px-3 ${
+                  moreOpen ? "inline-flex" : "hidden"
+                } ${
                   simEnabled
                     ? "border-amber-400/50 bg-amber-500/25 text-amber-100"
                     : "border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
                 }`}
                 title={links.length === 0 ? "Primero vincula elementos con tareas (Vincular 4D)" : "Reproduce la construcción en el tiempo"}
               >
-                {simEnabled ? "⏸ Cerrar simulación" : "▶ Simulación 4D"}
+                {simEnabled ? "⏸ Cerrar simulación" : "▶ 4D"}
               </button>
             )}
           </>
