@@ -473,8 +473,11 @@ export function IfcViewer({
     renderer.setSize(w, h);
     rendererRef.current = renderer;
 
-    // OrbitControls — loaded lazily to avoid SSR issues.
-    const controls = createOrbitControls(camera, renderer.domElement);
+    // OrbitControls — loaded lazily to avoid SSR issues. El tercer parámetro
+    // recibe los TAPS del táctil (el click no llega en móvil) y se resuelve
+    // tarde porque pickAt se define más abajo.
+    const pickAtRef: { current: ((x: number, y: number) => void) | null } = { current: null };
+    const controls = createOrbitControls(camera, renderer.domElement, (x, y) => pickAtRef.current?.(x, y));
     controlsRef.current = controls;
 
     // Resize observer
@@ -496,11 +499,13 @@ export function IfcViewer({
     };
     let rafId = requestAnimationFrame(animate);
 
-    // Click → highlight element (or select for 4D linking)
-    const handleClick = (e: MouseEvent) => {
+    // Click/tap → highlight element (or select for 4D linking). En móvil el
+    // click no llega (preventDefault del touchstart lo suprime), así que la
+    // selección también se dispara desde el tap de los controles orbitales.
+    const pickAt = (clientX: number, clientY: number) => {
       const rect = renderer.domElement.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((clientY - rect.top) / rect.height) * 2 + 1;
       raycasterRef.current.setFromCamera(new THREE.Vector2(x, y), camera);
       const hits = raycasterRef.current.intersectObjects(meshesRef.current, false);
       if (hits.length === 0) {
@@ -555,6 +560,8 @@ export function IfcViewer({
         inspectElementRef.current?.(hitExpressId);
       }
     };
+    const handleClick = (e: MouseEvent) => pickAt(e.clientX, e.clientY);
+    pickAtRef.current = pickAt;
     renderer.domElement.addEventListener("click", handleClick);
 
     // Store cleanup on the renderer ref for disposal
@@ -1766,7 +1773,11 @@ type OrbitControlsLike = {
   dispose: () => void;
 };
 
-function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCanvasElement): OrbitControlsLike {
+function createOrbitControls(
+  camera: THREE.PerspectiveCamera,
+  domElement: HTMLCanvasElement,
+  onTap?: (clientX: number, clientY: number) => void,
+): OrbitControlsLike {
   const spherical = new THREE.Spherical().setFromVector3(
     camera.position.clone().sub(new THREE.Vector3(0, 0, 0)),
   );
@@ -1873,13 +1884,14 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinchDist = 0;
 
-    // Doble tap (táctil): toc-toc rápido sin arrastrar = acercarse.
+    // Taps táctiles: selección de elementos (el click no llega en móvil) y
+    // doble tap para acercarse.
     const start = tapStart.get(e.pointerId);
     tapStart.delete(e.pointerId);
     if (e.pointerType === "touch" && start) {
       const moved = Math.hypot(e.clientX - start.x, e.clientY - start.y);
       const elapsed = performance.now() - start.t;
-      if (moved < 12 && elapsed < 250) {
+      if (moved < 12 && elapsed < 250 && pointers.size === 0) {
         const now = performance.now();
         const isDoubleTap =
           now - lastTapTime < 350 &&
@@ -1890,6 +1902,9 @@ function createOrbitControls(camera: THREE.PerspectiveCamera, domElement: HTMLCa
         if (isDoubleTap) {
           goal.radius = Math.max(minRadius, goal.radius * 0.6);
           lastTapTime = 0; // exige dos toques nuevos para repetir
+        } else {
+          // Tap simple → seleccionar/inspeccionar el elemento bajo el dedo.
+          onTap?.(e.clientX, e.clientY);
         }
       }
     }
