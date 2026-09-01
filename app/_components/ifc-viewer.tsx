@@ -562,6 +562,27 @@ export function IfcViewer({
     };
     const handleClick = (e: MouseEvent) => pickAt(e.clientX, e.clientY);
     pickAtRef.current = pickAt;
+    // TEMPORAL: sonda de diagnóstico para depurar selección desde consola.
+    if (typeof window !== "undefined") {
+      (window as any).__ifcDebug = {
+        probe: (fx: number, fy: number) => {
+          const rect = renderer.domElement.getBoundingClientRect();
+          const px = fx * 2 - 1;
+          const py = -(fy * 2 - 1);
+          raycasterRef.current.setFromCamera(new THREE.Vector2(px, py), camera);
+          const hits = raycasterRef.current.intersectObjects(meshesRef.current, false);
+          return {
+            hits: hits.length,
+            meshes: meshesRef.current.length,
+            linkMode: linkModeRef.current,
+            selected: selectedElementsRef.current.length,
+            canvasW: Math.round(rect.width),
+            canvasH: Math.round(rect.height),
+          };
+        },
+        pick: pickAt,
+      };
+    }
     renderer.domElement.addEventListener("click", handleClick);
 
     // Store cleanup on the renderer ref for disposal
