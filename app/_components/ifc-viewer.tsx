@@ -210,6 +210,9 @@ export function IfcViewer({
   // Bridge so the stable click handler defined in initScene() can call the
   // latest inspector without re-subscribing listeners.
   const inspectElementRef = useRef<((eid: number) => void) | null>(null);
+  // Puente para que pickAt (dentro del effect de escena, closures estáticas)
+  // pueda deseleccionar con el estado fresco (selectedClass/summary).
+  const clearSelectionRef = useRef<(() => void) | null>(null);
 
   const inspectElement = useCallback((eid: number) => {
     const api = ifcApiForClickRef.current;
@@ -511,10 +514,13 @@ export function IfcViewer({
       raycasterRef.current.setFromCamera(new THREE.Vector2(x, y), camera);
       const hits = raycasterRef.current.intersectObjects(meshesRef.current, false);
       if (hits.length === 0) {
-        // Clicked empty space — clear selection in link mode
+        // Tocar fuera del modelo deselecciona (cierra inspector + restaura).
         if (linkModeRef.current) {
           restoreSelectionVisuals();
+          selectedElementsRef.current = [];
           setSelectedElements([]);
+        } else {
+          clearSelectionRef.current?.();
         }
         return;
       }
@@ -813,6 +819,24 @@ export function IfcViewer({
     dimOthers(new Set());
     applyViewMode(viewMode);
   }
+
+  /** Deselecciona todo: cierra el inspector, restaura materiales Y visibilidad
+   *  (focusElement oculta el resto del modelo — hay que traerlo de vuelta
+   *  respetando el aislamiento por tipo activo). */
+  function clearSelection() {
+    clearHighlight();
+    restoreSelectionVisuals();
+    const targetIds = new Set<number>();
+    if (selectedClass && summary) {
+      const group = summary.byClass.find((g) => g.ifcClass === selectedClass);
+      if (group) for (const el of group.elements) targetIds.add(el.expressID);
+    }
+    for (const [eid, mesh] of elementToMeshRef.current) {
+      mesh.visible = selectedClass === null || targetIds.has(eid);
+    }
+    setElementProps(null);
+  }
+  useEffect(() => { clearSelectionRef.current = clearSelection; });
 
   /** Toggles 4D link mode — clears selection on exit. */
   function toggleLinkMode() {
@@ -1553,7 +1577,7 @@ export function IfcViewer({
             </div>
             <button
               type="button"
-              onClick={() => setElementProps(null)}
+              onClick={clearSelection}
               className="shrink-0 rounded p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-300"
               title="Cerrar"
             >
