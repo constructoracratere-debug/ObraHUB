@@ -118,8 +118,8 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     setBusy(0); setError(null);
     try {
       const data = await call({ stage: "site", location, prompt });
-      setSiteMemo(data.siteMemo);
-      setProviderInfo(`📍 ${data.provider} · ${(data.latencyMs / 1000).toFixed(1)}s`);
+      setSiteMemo(data.siteMemo as SiteMemo);
+      setProviderInfo(`📍 ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(1);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
@@ -129,8 +129,8 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     setBusy(1); setError(null);
     try {
       const data = await call({ stage: "draft", prompt, siteMemo });
-      setPlan(data.plan); setGates(data.gates);
-      setProviderInfo(`🏛️ ${data.provider} · ${(data.latencyMs / 1000).toFixed(1)}s`);
+      setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
+      setProviderInfo(`🏛️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(2);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
@@ -141,8 +141,8 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     setBusy(2); setError(null);
     try {
       const data = await call({ stage: "experts", previousPlan: plan, siteMemo });
-      setConstructorMemo(data.constructorMemo); setCivilMemo(data.civilMemo);
-      setProviderInfo(`👷 ${data.providers.constructor} + ${data.providers.civil} · ${(data.latencyMs / 1000).toFixed(1)}s`);
+      setConstructorMemo(data.constructorMemo as ConstructorMemo); setCivilMemo(data.civilMemo as CivilMemo);
+      setProviderInfo(`👷 ${String((data.providers as any).constructor)} + ${String((data.providers as any).civil)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(3);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
@@ -153,8 +153,8 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     setBusy(3); setError(null);
     try {
       const data = await call({ stage: "adapt", previousPlan: plan, constructorMemo, civilMemo });
-      setPlan(data.plan); setGates(data.gates);
-      setProviderInfo(`📐 ${data.provider} · ${(data.latencyMs / 1000).toFixed(1)}s`);
+      setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
+      setProviderInfo(`📐 ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(4);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
@@ -165,8 +165,8 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     setBusy(4); setError(null);
     try {
       const data = await call({ stage: "installations", previousPlan: plan });
-      setPlan(data.plan); setGates(data.gates);
-      setProviderInfo(`⚡ ${data.providers.electrical} + ${data.providers.hydro} · ${(data.latencyMs / 1000).toFixed(1)}s`);
+      setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
+      setProviderInfo(`⚡ ${String((data.providers as any).electrical)} + ${String((data.providers as any).hydro)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(5);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
@@ -177,8 +177,8 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     setBusy(5); setError(null);
     try {
       const data = await call({ stage: "finishes", previousPlan: plan, constructorMemo });
-      setPlan(data.plan); setEquipment(data.equipment ?? []); setGates(data.gates);
-      setProviderInfo(`🎨 ${data.provider} · ${(data.latencyMs / 1000).toFixed(1)}s`);
+      setPlan(data.plan as FloorPlan); setEquipment((data.equipment as Equipment) ?? []); setGates(data.gates as Gate[]);
+      setProviderInfo(`🎨 ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
   };

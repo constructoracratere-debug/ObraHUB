@@ -51,3 +51,5 @@ user_tmp.json
 .tmp-*/
 test-output.dxf
 supabase/.temp/
+.tmp-ejemplo.ifc
+ejemplo-estructural.ifc
