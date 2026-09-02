@@ -113,6 +113,25 @@ export type HydroPoint = {
 
 export type FinishRow = { room: string; floor: string; walls: string; ceiling: string };
 
+/** Memoria de diseño del arquitecto — POR QUÉ es así el proyecto
+ *  (requisito de expediente para licencia). */
+export type DesignReport = {
+  orientation: string;        // estrategias de orientación/aparente solar
+  wind: string;               // ventilación según vientos del sitio
+  lighting: string;           // iluminación natural por espacio
+  zoning: string;             // lógica de agrupación (húmedas, social/privada)
+  dimensioning: string;       // criterio dimensional (Neufert/Plazola/Panero)
+  potCompliance: string;      // cómo atiende el POT/ficha de sitio
+  decisions: Array<{ issue: string; decision: string; reason: string }>;
+};
+
+/** Una revisión pedida por el profesional + qué cambió el arquitecto. */
+export type RevisionLog = {
+  feedback: string;
+  changes: Array<{ change: string; why: string }>;
+  at: string; // ISO
+};
+
 export type SiteFicha = {
   city: string;
   department: string;
@@ -148,6 +167,8 @@ export type FloorPlan = {
   electrical?: { points: ElectricalPoint[]; notes: string };
   hydro?: { points: HydroPoint[]; notes: string };
   finishes?: FinishRow[];
+  /** Memoria de diseño del arquitecto (por qué así: viento/luz/orientación). */
+  designReport?: DesignReport;
 };
 
 // ─── Sanitizador ────────────────────────────────────────────────────────────
@@ -316,8 +337,7 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
       }
     : undefined;
 
-  const finishes = Array.isArray(o.finishes)
-    ? o.finishes.slice(0, MAX_ROOMS).map((f0) => {
+  const finishes = Array.isArray(o.finishes)    ? o.finishes.slice(0, MAX_ROOMS).map((f0) => {
         const f = (f0 ?? {}) as Record<string, unknown>;
         return {
           room: str(f.room, "", 40),
@@ -326,6 +346,27 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
           ceiling: str(f.ceiling, "", 80),
         } satisfies FinishRow;
       })
+    : undefined;
+
+  // Memoria de diseño del arquitecto (se regenera en cada redibujo).
+  const reportRaw = o.designReport as Record<string, unknown> | undefined;
+  const designReport = reportRaw
+    ? {
+        orientation: str(reportRaw.orientation, "", 600),
+        wind: str(reportRaw.wind, "", 500),
+        lighting: str(reportRaw.lighting, "", 500),
+        zoning: str(reportRaw.zoning, "", 500),
+        dimensioning: str(reportRaw.dimensioning, "", 500),
+        potCompliance: str(reportRaw.potCompliance, "", 600),
+        decisions: (Array.isArray(reportRaw.decisions) ? reportRaw.decisions.slice(0, 12) : []).map((d0) => {
+          const dd = (d0 ?? {}) as Record<string, unknown>;
+          return {
+            issue: str(dd.issue, "", 120),
+            decision: str(dd.decision, "", 160),
+            reason: str(dd.reason, "", 240),
+          };
+        }),
+      }
     : undefined;
 
   const siteRaw = o.site as Record<string, unknown> | undefined;
@@ -360,6 +401,7 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
     electrical,
     hydro,
     finishes,
+    designReport,
   };
 }
 

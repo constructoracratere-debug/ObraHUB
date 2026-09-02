@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   AGENT_ARCHITECT_ADAPT,
   AGENT_ARCHITECT_DRAFT,
+  AGENT_ARCHITECT_REVISE,
   AGENT_CIVIL,
   AGENT_CONSTRUCTOR,
   AGENT_ELECTRICAL,
@@ -13,12 +14,12 @@ import {
   AGENT_SITE,
   planContext,
 } from "@/lib/design/agents";
-import { sanitizeFloorPlan, type SiteFicha } from "@/lib/design/schema";
-import { allGates } from "@/lib/design/validate";
+import { sanitizeFloorPlan, type SiteFicha, type RevisionLog } from "@/lib/design/schema";
+import { allGates, type Gate } from "@/lib/design/validate";
 
 export const maxDuration = 60;
 
-type Stage = "site" | "draft" | "experts" | "adapt" | "installations" | "finishes";
+type Stage = "site" | "draft" | "experts" | "adapt" | "installations" | "finishes" | "revise";
 
 type ConstructorMemo = {
   materials: Array<{ element: string; suggestion: string; reason: string; source?: string }>;
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
     constructorMemo?: ConstructorMemo;
     civilMemo?: CivilMemo;
     siteMemo?: SiteMemo;
+    feedback?: string;
+    gates?: Gate[];
+    revisions?: RevisionLog[];
   };
   try {
     body = await req.json();
@@ -204,6 +208,10 @@ export async function POST(req: NextRequest) {
         if (!b.constructorMemo || !b.civilMemo) throw new Error("Faltan los memos de los expertos");
         say("📐 Arquitecto en mesa técnica: alineando muros a la retícula del ingeniero…", "arquitecto");
         say("📏 Respetando luces máximas del sistema estructural elegido…", "arquitecto");
+        const gatesText = (b.gates ?? [])
+          .flatMap((g) => g.checks.filter((c) => !c.pass).map((c) => `· [${g.stage}] ${c.label}: ${c.detail}`))
+          .join("\n");
+        if (gatesText) say(`🛡️ Corrigiendo observaciones de verificación:\n${gatesText.slice(0, 400)}`, "arquitecto");
         const res = await llmJson<Record<string, unknown>>("structure", {
           system: AGENT_ARCHITECT_ADAPT,
           user:
@@ -283,6 +291,52 @@ export async function POST(req: NextRequest) {
           plan: merged,
           equipment: res.data.equipment ?? [],
           gates: allGates(merged),
+          provider: res.providerLabel,
+          model: res.model,
+          latencyMs: Date.now() - t0,
+        });
+        return;
+      }
+
+      // ── Etapa R · Revisión con el profesional (redibujo con su feedback) ──
+      case "revise": {
+        const plan = sanitizeFloorPlan(b.previousPlan);
+        if (plan.rooms.length === 0) throw new Error("Falta la planta");
+        const feedback = (b.feedback ?? "").trim().slice(0, 1200);
+        if (!feedback) throw new Error("Escribe la sugerencia o corrección para el arquitecto");
+        say("📝 El profesional dejó feedback — el arquitecto redibuja…", "arquitecto");
+        say(`💬 "${feedback.slice(0, 120)}"`, "arquitecto");
+        const gatesText = (b.gates ?? [])
+          .flatMap((g) => g.checks.filter((c) => !c.pass).map((c) => `· [${g.stage}] ${c.label}: ${c.detail}`))
+          .join("\n");
+        if (gatesText) say("🛡️ Aprovecha para corregir observaciones pendientes de las gates.", "arquitecto");
+        const res = await llmJson<Record<string, unknown>>("structure", {
+          system: AGENT_ARCHITECT_REVISE,
+          user:
+            `FEEDBACK DEL PROFESIONAL (manda sobre todo lo demás, salvo mínimos normativos — si choca, explícalo en revisionChanges):\n${feedback}\n\n` +
+            `PLANTA ACTUAL (JSON):\n${JSON.stringify(plan).slice(0, 7000)}\n\n` +
+            `OBSERVACIONES PENDIENTES:\n${gatesText || "ninguna"}`,
+          maxTokens: 4500,
+          temperature: 0.35,
+          timeoutMs: 18000,
+          onEvent: live("arquitecto"),
+        });
+        const changes = Array.isArray((res.data as any)?.revisionChanges) ? (res.data as any).revisionChanges : [];
+        const revised = sanitizeFloorPlan(res.data);
+        const revision: RevisionLog = {
+          feedback,
+          changes: changes.slice(0, 10).map((c: any) => ({
+            change: String(c?.change ?? "").slice(0, 200),
+            why: String(c?.why ?? "").slice(0, 300),
+          })),
+          at: new Date().toISOString(),
+        };
+        say(`✏️ ${revision.changes.length} cambio(s) aplicado(s) — planta redibujada.`, "arquitecto");
+        send({
+          type: "done",
+          plan: revised,
+          gates: allGates(revised),
+          revision,
           provider: res.providerLabel,
           model: res.model,
           latencyMs: Date.now() - t0,

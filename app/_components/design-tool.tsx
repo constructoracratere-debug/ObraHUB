@@ -22,6 +22,8 @@ import {
 import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
 import { planToDxf } from "@/lib/design/dxf";
+import { buildLicenseExpediente } from "@/lib/design/expediente";
+import type { RevisionLog } from "@/lib/design/schema";
 
 type SiteMemo = {
   city?: string;
@@ -85,6 +87,10 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
   const [civilMemo, setCivilMemo] = useState<CivilMemo | null>(null);
   const [equipment, setEquipment] = useState<Equipment>([]);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  // Bucle de revisión con el profesional + paquete de licencia.
+  const [feedback, setFeedback] = useState("");
+  const [revisions, setRevisions] = useState<RevisionLog[]>([]);
+  const [revBusy, setRevBusy] = useState(false);
 
   // Consola en vivo: líneas {agent, kind, text} — deltas coalescidos.
   const [consoleLines, setConsoleLines] = useState<Array<{ agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }>>([]);
@@ -256,6 +262,34 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     return new Blob([planToDxf(plan)], { type: "application/dxf" });
   }, [plan]);
 
+  // ── Revisión del profesional: feedback → redibujo ─────────────────────
+  const runRevise = async () => {
+    if (!plan || !feedback.trim()) return;
+    setRevBusy(true); setError(null);
+    try {
+      const data = await callWithRetries({ stage: "revise", previousPlan: plan, feedback, gates: gates ?? undefined });
+      const rev = data.revision as RevisionLog | undefined;
+      setPlan(data.plan as FloorPlan);
+      setGates(data.gates as Gate[]);
+      if (rev) setRevisions((prev) => [...prev, rev]);
+      setProviderInfo(`📝 ${String(data.provider)} · ${(data.latencyMs as number) / 1000 | 0}s — ${rev?.changes.length ?? 0} cambio(s)`);
+      setFeedback("");
+    } catch (e) { setError(e instanceof Error ? e.message : "Error en la revisión"); }
+    setRevBusy(false);
+  };
+
+  // ── Expediente de licencia (documento completo) ────────────────────────
+  const expedienteText = () => plan ? buildLicenseExpediente({ plan, constructorMemo, civilMemo, gates, revisions }) : "";
+  const downloadExpediente = () => {
+    if (!plan) return;
+    const blob = new Blob([expedienteText()], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `expediente-licencia-${slugify(plan.name)}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const downloadDxf = () => {
     if (!dxfBlob || !plan) return;
     const a = document.createElement("a");
@@ -336,6 +370,55 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-200">{error}</div>
           )}
 
+          {/* Revisión del profesional — su criterio manda */}
+          {plan && (
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                📝 Sugerir cambios (profesional)
+              </p>
+              <textarea
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                rows={3}
+                placeholder="Ej: agranda el baño principal a 2.0×2.2, mueve la cocina junto a la lavandería, la alcoba sur necesita ventana más grande…"
+                className="mt-2 w-full resize-none rounded-lg border border-white/10 bg-[#0a1120] px-2.5 py-2 text-xs text-slate-100 placeholder:text-slate-600 focus:border-amber-500/50 focus:outline-none"
+              />
+              <button
+                type="button" onClick={runRevise} disabled={revBusy || !feedback.trim()}
+                className="mt-2 w-full rounded-lg bg-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-100 ring-1 ring-amber-400/40 transition hover:bg-amber-500/30 disabled:opacity-50"
+              >
+                {revBusy ? "Redibujando…" : "✏️ Redibujar con mis cambios"}
+              </button>
+              <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500">
+                El arquitecto ejecuta tus indicaciones, actualiza la memoria de diseño y registra cada cambio en el expediente.
+              </p>
+            </div>
+          )}
+
+          {/* Paquete de licencia de construcción */}
+          {plan && (
+            <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/[0.05] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                🏛️ Paquete de licencia
+              </p>
+              <div className="mt-2 space-y-1 text-[10px] text-slate-300">
+                <p>✅ Plano arquitectónico (DXF por capas)</p>
+                <p>✅ Memoria de diseño {plan.designReport ? "" : "(pendiente — regenera)"}</p>
+                <p>✅ Cuadro de áreas ({plan.rooms.length} espacios)</p>
+                <p>✅ Memoria estructural {plan.structure ? "" : "(falta etapa expertos)"}</p>
+                <p>✅ Instalaciones {(plan.electrical || plan.hydro) ? "" : "(falta etapa instalaciones)"}</p>
+                <p>✅ Registro de revisiones ({revisions.length})</p>
+                <p className="text-slate-500">⬜ F.U.N. · CTL · suelos · firmas (checklist dentro)</p>
+              </div>
+              <button
+                type="button" onClick={downloadExpediente}
+                className="mt-2 w-full rounded-lg bg-indigo-500/20 px-3 py-2 text-xs font-semibold text-indigo-100 ring-1 ring-indigo-400/40 transition hover:bg-indigo-500/30"
+              >
+                📄 Descargar expediente completo
+              </button>
+            </div>
+          )}
+
           {/* Acciones de salida */}
           {canDownload && (
             <div className="mt-1 space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
@@ -385,7 +468,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
           <Dossier
             gates={gates} plan={plan}
             constructorMemo={constructorMemo} civilMemo={civilMemo}
-            equipment={equipment}
+            equipment={equipment} revisions={revisions}
           />
         </div>
       </div>
@@ -754,10 +837,10 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
 }
 
 // ── Expediente derecho: gates + memos ────────────────────────────────────────
-function Dossier({ gates, plan, constructorMemo, civilMemo, equipment }: {
+function Dossier({ gates, plan, constructorMemo, civilMemo, equipment, revisions }: {
   gates: Gate[] | null; plan: FloorPlan | null;
   constructorMemo: ConstructorMemo | null; civilMemo: CivilMemo | null;
-  equipment: Equipment;
+  equipment: Equipment; revisions: RevisionLog[];
 }) {
   return (
     <div className="space-y-3">
@@ -781,6 +864,34 @@ function Dossier({ gates, plan, constructorMemo, civilMemo, equipment }: {
           </div>
         );
       })}
+
+      {/* Memoria de diseño del arquitecto (por qué así) */}
+      {plan?.designReport && (
+        <Memo title="🏛️ Memoria de diseño — por qué así">
+          {plan.designReport.orientation && <p className="text-[10px] leading-relaxed text-slate-300">🧭 <span className="text-slate-500">Orientación:</span> {plan.designReport.orientation}</p>}
+          {plan.designReport.wind && <p className="text-[10px] leading-relaxed text-slate-300">🌬️ <span className="text-slate-500">Ventilación:</span> {plan.designReport.wind}</p>}
+          {plan.designReport.lighting && <p className="text-[10px] leading-relaxed text-slate-300">💡 <span className="text-slate-500">Iluminación:</span> {plan.designReport.lighting}</p>}
+          {plan.designReport.zoning && <p className="text-[10px] leading-relaxed text-slate-300">🏘️ <span className="text-slate-500">Zonificación:</span> {plan.designReport.zoning}</p>}
+          {plan.designReport.dimensioning && <p className="text-[10px] leading-relaxed text-slate-300">📐 <span className="text-slate-500">Dimensionamiento:</span> {plan.designReport.dimensioning}</p>}
+          {plan.designReport.decisions.slice(0, 6).map((d, i) => (
+            <p key={i} className="text-[10px] leading-relaxed text-slate-400">• <span className="text-slate-300">{d.issue}:</span> {d.decision} — <span className="text-slate-500">{d.reason}</span></p>
+          ))}
+        </Memo>
+      )}
+
+      {/* Registro de revisiones del profesional */}
+      {revisions.length > 0 && (
+        <Memo title={`📝 Revisiones del profesional (${revisions.length})`}>
+          {revisions.map((rev, i) => (
+            <div key={i} className="rounded-lg bg-white/[0.03] p-2">
+              <p className="text-[10px] text-amber-200">R{i + 1} · "{rev.feedback.slice(0, 90)}"</p>
+              {rev.changes.map((c, j) => (
+                <p key={j} className="text-[10px] leading-relaxed text-slate-300">✏️ {c.change} — <span className="text-slate-500">{c.why}</span></p>
+              ))}
+            </div>
+          ))}
+        </Memo>
+      )}
 
       {/* Memo constructor */}
       {constructorMemo && (
