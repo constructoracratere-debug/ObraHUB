@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
           user: `Ubicación: ${location || "no indicada — pídela, pero asume Colombia"}.\nEncargo: ${brief || "vivienda unifamiliar"}.`,
           maxTokens: 1800,
           temperature: 0.4,
+        timeoutMs: 25000,
         });
         return NextResponse.json({
           siteMemo: res.data,
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
           user: `ENCARGO DEL CLIENTE:\n${prompt}\n\nFICHA DE SITIO (si hay): ${ficha || "no disponible"}`,
           maxTokens: 4500,
           temperature: 0.5,
+        timeoutMs: 25000,
         });
         const plan = sanitizeFloorPlan(res.data);
         return NextResponse.json({
@@ -119,12 +121,14 @@ export async function POST(req: NextRequest) {
             user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPROGRAMA: ${ctx}`,
             maxTokens: 2200,
             temperature: 0.4,
+          timeoutMs: 25000,
           }),
           llmJson<CivilMemo>("structure", {
             system: AGENT_CIVIL,
             user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPLANTA ACTUAL: ${ctx}`,
             maxTokens: 2200,
             temperature: 0.3,
+          timeoutMs: 25000,
           }),
         ]);
         return NextResponse.json({
@@ -152,6 +156,7 @@ export async function POST(req: NextRequest) {
             `MEMO DEL INGENIERO CIVIL:\n${JSON.stringify(body.civilMemo).slice(0, 2200)}`,
           maxTokens: 4500,
           temperature: 0.4,
+        timeoutMs: 25000,
         });
         const adapted = sanitizeFloorPlan(res.data);
         return NextResponse.json({
@@ -176,12 +181,14 @@ export async function POST(req: NextRequest) {
             user: `PLANTA FINAL: ${ctx}`,
             maxTokens: 2500,
             temperature: 0.3,
+          timeoutMs: 25000,
           }),
           llmJson<{ points: unknown[]; notes?: string }>("structure", {
             system: AGENT_HYDRO,
             user: `PLANTA FINAL: ${ctx}`,
             maxTokens: 1800,
             temperature: 0.3,
+          timeoutMs: 25000,
           }),
         ]);
         // Fusiona las capas en el plan sanitizado de una sola vez.
@@ -209,6 +216,7 @@ export async function POST(req: NextRequest) {
           user: `PLANTA FINAL: ${planContext(plan)}\nMEMO CONSTRUCTOR: ${JSON.stringify(body.constructorMemo ?? {}).slice(0, 1600)}`,
           maxTokens: 2200,
           temperature: 0.5,
+        timeoutMs: 25000,
         });
         const merged = sanitizeFloorPlan({ ...plan, finishes: res.data.finishes ?? [] });
         return NextResponse.json({

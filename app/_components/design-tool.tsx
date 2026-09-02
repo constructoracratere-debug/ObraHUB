@@ -94,8 +94,23 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Error del estudio");
+    let data: Record<string, unknown> = {};
+    try {
+      data = await res.json();
+    } catch {
+      /* cuerpo no-JSON (p. ej. 504 de Vercel) */
+    }
+    if (!res.ok) {
+      // El error puede ser string nuestro o el objeto anidado de Vercel.
+      const e = data.error;
+      const msg =
+        typeof e === "string" ? e
+        : typeof (e as { message?: string })?.message === "string" ? (e as { message: string }).message
+        : res.status === 504
+          ? "La etapa tardó demasiado (proveedores IA saturados). Reintenta — la 2ª vez suele ser más rápida."
+          : `Error ${res.status}`;
+      throw new Error(msg);
+    }
     return data;
   }, []);
 

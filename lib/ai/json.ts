@@ -39,6 +39,8 @@ export async function llmJson<T = unknown>(
     user: string;
     maxTokens?: number;
     temperature?: number;
+    /** Presupuesto por proveedor — evita que los fallbacks sumen >60 s (504). */
+    timeoutMs?: number;
   },
 ): Promise<LlmJsonResult<T>> {
   const messages: LlmMessage[] = [
@@ -51,6 +53,7 @@ export async function llmJson<T = unknown>(
     maxTokens: params.maxTokens,
     temperature: params.temperature,
     responseFormat: "json",
+    ...(params.timeoutMs != null ? { timeoutMs: params.timeoutMs } : {}),
   });
 
   let parsed: unknown;
@@ -73,6 +76,7 @@ export async function llmJson<T = unknown>(
       maxTokens: params.maxTokens,
       temperature: 0,
       responseFormat: "json",
+      ...(params.timeoutMs != null ? { timeoutMs: params.timeoutMs } : {}),
     });
     const candidate = extractJson(rescue.content);
     parsed = JSON.parse(candidate ?? "null");

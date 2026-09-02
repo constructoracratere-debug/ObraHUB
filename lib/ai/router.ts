@@ -157,6 +157,9 @@ export async function llmComplete(
     temperature?: number;
     /** Modo JSON estricto — solo proveedores compatibles lo usan (ver llmJson). */
     responseFormat?: "json";
+    /** Presupuesto por proveedor (ms): la ruta ajusta para no chocar con el
+     *  límite de 60 s de la función en Vercel (los fallbacks suman). */
+    timeoutMs?: number;
   },
 ): Promise<LlmResult> {
   const chain = providerChain(task).filter((p) => p.apiKey);
@@ -170,6 +173,7 @@ export async function llmComplete(
     // El modo json_object no es universal: solo el proveedor primario de la
     // cadena (OpenAI) lo pide; los fallbacks gratuitos van con prompt puro.
     const wantsJson = params.responseFormat === "json" && spec.id === "openai";
+    const timeoutMs = params.timeoutMs != null ? Math.min(params.timeoutMs, spec.timeoutMs) : spec.timeoutMs;
     try {
       const completion = await clientFor(spec).chat.completions.create(
         {
@@ -179,7 +183,7 @@ export async function llmComplete(
           ...(params.temperature != null ? { temperature: params.temperature } : {}),
           ...(wantsJson ? { response_format: { type: "json_object" as const } } : {}),
         },
-        { timeout: spec.timeoutMs },
+        { timeout: timeoutMs },
       );
       const content = completion.choices[0]?.message?.content?.trim() ?? "";
       if (!content) throw new Error("respuesta vacía");
