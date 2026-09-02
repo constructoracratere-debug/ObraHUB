@@ -218,8 +218,11 @@ export function DxfPreview({ url, filename }: DxfPreviewProps) {
 
   return (
     <div className="relative h-full w-full bg-[#0a1120]">
-      {/* The dxf-viewer canvas container */}
-      <div ref={containerRef} className="absolute inset-0 cursor-crosshair" />
+      {/* The dxf-viewer canvas container.
+          ⚠️ h-full en vez de absolute inset-0: la librería cambia el position
+          del contenedor a "relative" (estático en flujo) — con inset-0 la
+          altura colapsaba a 0px y el canvas nunca se dimensionaba. */}
+      <div ref={containerRef} className="h-full w-full cursor-crosshair" />
 
       {/* Top toolbar: fit + filename */}
       <div className="pointer-events-auto absolute left-3 top-3 z-10 flex items-center gap-2">
