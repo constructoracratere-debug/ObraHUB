@@ -46,3 +46,8 @@ next-env.d.ts
 # local test upload staging
 .tmp-upload/
 user_tmp.json
+
+# Artefactos temporales de tests
+.tmp-*/
+test-output.dxf
+supabase/.temp/

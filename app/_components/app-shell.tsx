@@ -71,6 +71,17 @@ const ControlTool = dynamic(() => import("@/app/_components/control-tool").then(
   ),
 });
 
+// Estudio de diseño multi-agente (✏️ Diseño IA) — el motor DXF corre en el
+// navegador; solo las etapas LLM van al servidor.
+const DesignTool = dynamic(() => import("@/app/_components/design-tool").then((m) => m.DesignTool), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-16">
+      <p className="text-sm text-slate-500">Cargando estudio de diseño…</p>
+    </div>
+  ),
+});
+
 // Code-split the DXF viewer — three.js + dxf-viewer bundle, loaded on demand.
 const DxfPreview = dynamic(() => import("@/app/_components/dxf-preview").then((m) => m.DxfPreview), {
   ssr: false,
@@ -106,7 +117,7 @@ const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
 const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
-type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control";
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "diseno";
 
 type ToolDef = {
   id: ToolId;
@@ -118,6 +129,14 @@ type ToolDef = {
 };
 
 const TOOLS: ToolDef[] = [
+  {
+    id: "diseno",
+    title: "Diseño IA",
+    description: "Estudio multi-agente: sitio (POT) → arquitecto → constructor + ingeniero → instalaciones → plano DXF por capas.",
+    icon: "✏️",
+    available: true,
+    gradient: "from-indigo-500/15 to-indigo-600/5",
+  },
   {
     id: "storage",
     title: "Documentos",
@@ -719,7 +738,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     activeTool === "costos" ||
     activeTool === "seguimiento" ||
     activeTool === "bitacora" ||
-    activeTool === "control";
+    activeTool === "control" ||
+    activeTool === "diseno";
   const showComposer =
     !fullScreenTool &&
     (showHero || activeTool === "normativa" || messages.length > 0 || !!activeFolderId);
@@ -2813,6 +2833,8 @@ en Latinoamérica
                     setActiveTool("seguimiento");
                   } : undefined}
                 />
+              ) : activeTool === "diseno" ? (
+                <DesignTool projectSlug={activeProjectSlug ?? undefined} />
               ) : activeTool === "seguimiento" ? (
                 activeProjectSlug ? (
                   <GanttTool
