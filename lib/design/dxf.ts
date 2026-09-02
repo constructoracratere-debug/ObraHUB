@@ -11,6 +11,7 @@
  */
 
 import { roomArea, type FloorPlan, type Room } from "./schema";
+import { POCHÉ, NORTH_ARROW, SCALE_BAR } from "./knowledge";
 
 type Entity = string; // pares "code\nvalue\n" acumulados
 
@@ -66,31 +67,98 @@ class DxfBuilder {
   }
 
   text(layer: string, x: number, y: number, height: number, value: string, rotationDeg = 0) {
-    const safe = value.replace(/[\n\r]/g, " ").replace(/[^\x20-\x7EáéíóúñÁÉÍÓÚÑ°²]/g, "");
+    const safe = value.replace(/[\n\r]/g, " ").replace(/[^\x20-\x7EáéíóúñÁÉÍÓÚÑüÜ°²×–—]/g, "");
     this.entities.push(
       `0\nTEXT\n8\n${layer}\n10\n${f(x)}\n20\n${f(y)}\n40\n${f(height)}\n1\n${safe}\n50\n${f(rotationDeg)}\n`,
     );
   }
 
-  /** Dibujo una cota lineal con primitivas (líneas de extensión + texto). */
+  /** Dibujo una cota lineal con primitivas (líneas de extensión + ticks 45°). */
   dim(x1: number, y1: number, x2: number, y2: number, offset: number, horizontal: boolean) {
     const L = "COTAS";
     const mid = horizontal ? (x1 + x2) / 2 : (y1 + y2) / 2;
     const dist = Math.hypot(x2 - x1, y2 - y1);
     const label = `${dist.toFixed(2)}`;
+    const tick = 0.07;
     if (horizontal) {
       const y = y1 + offset;
-      this.line(L, x1, y1, x1, y, );
+      this.line(L, x1, y1, x1, y);
       this.line(L, x2, y2, x2, y);
       this.line(L, x1, y, x2, y);
       this.text(L, mid - label.length * 0.08, y + 0.05, 0.14, label);
+      // Ticks oblicuos 45° (convención de cota — Ching).
+      this.line(L, x1 - tick, y - tick, x1 + tick, y + tick);
+      this.line(L, x2 - tick, y - tick, x2 + tick, y + tick);
     } else {
       const x = x1 + offset;
       this.line(L, x1, y1, x, y1);
       this.line(L, x2, y2, x, y2);
       this.line(L, x, y1, x, y2);
       this.text(L, x + 0.05, mid - 0.07, 0.14, label, 90);
+      this.line(L, x - tick, y1 - tick, x + tick, y1 + tick);
+      this.line(L, x - tick, y2 - tick, x + tick, y2 + tick);
     }
+  }
+
+  /** Poché clásico: rayado a 45° en la banda del muro exterior (Ching). */
+  poché(x: number, y: number, w: number, h: number, spacing: number, maxSegs: number) {
+    // Rayado del rectángulo [x,y,x+w,y+h] con líneas a 45°, recortadas a la banda.
+    const n = Math.min(maxSegs, Math.ceil((w + h) / spacing));
+    for (let i = 0; i < n; i++) {
+      const c = x + i * spacing;               // intercepto sobre el borde inferior
+      // Segmento a 45°: desde (c, y) subiendo hasta chocar con x+w o y+h.
+      const dx = Math.min(w - 0, h);            // longitud máx. en diagonal dentro del rect
+      const endX = Math.min(c + dx, x + w);
+      const endY = y + (endX - c);
+      if (endX > c && endY <= y + h + 1e-9) {
+        this.line("MUROS", c, y, endX, endY);
+      }
+      // Ramas que arrancan del borde izquierdo (cuando c + h > x, ya cubierto arriba).
+    }
+  }
+
+  /** Flecha de norte (Ching: siempre presente, apunta al NORTE del proyecto). */
+  northArrow(cx: number, cy: number, size: number, layer = "TEXTOS") {
+    const h = size, w = size * 0.5;
+    this.polyline(layer, [[cx - w / 2, cy - h / 2], [cx, cy + h / 2], [cx + w / 2, cy - h / 2]]);
+    this.line(layer, cx, cy - h / 2, cx, cy + h / 2);
+    this.text(layer, cx - 0.08, cy + h / 2 + 0.12, size * 0.22, "N");
+  }
+
+  /** Escala gráfica con barras alternadas 0–1–2–5 m (legible a cualquier zoom). */
+  scaleBar(x: number, y: number, segments: number[], unitLabel: string, layer = "COTAS") {
+    let cx = x;
+    const h = 0.12;
+    segments.forEach((seg, i) => {
+      // Cada segmento: contorno + relleno alterno (mitad inferior llena en pares).
+      this.line(layer, cx, y, cx + seg, y);
+      this.line(layer, cx, y, cx, y + h);
+      if (i % 2 === 0) {
+        for (let k = 0; k < Math.round(seg / 0.1); k++) {
+          this.line(layer, cx + k * 0.1, y, cx + k * 0.1, y + h);
+        }
+      }
+      this.text(layer, cx - 0.08, y - 0.3, 0.16, String(Math.round(cx - x)));
+      cx += seg;
+    });
+    this.line(layer, cx, y, cx, y + h);
+    this.text(layer, cx - 0.1, y - 0.3, 0.16, `${Math.round(cx - x)} ${unitLabel}`);
+  }
+
+  /** Cajetín (title block) — lámina estándar con campos mínimos. */
+  titleBlock(x: number, y: number, w: number, fields: Record<string, string>, layer = "TEXTOS") {
+    const rowH = 0.34;
+    const rows = Object.entries(fields);
+    const h = rows.length * rowH + 0.2;
+    // Marco
+    this.line(layer, x, y, x + w, y);
+    this.line(layer, x, y, x, y + h);
+    this.line(layer, x + w, y, x + w, y + h);
+    this.line(layer, x, y + h, x + w, y + h);
+    rows.forEach(([k, v], i) => {
+      const yy = y + h - 0.1 - (i + 1) * rowH;
+      this.text(layer, x + 0.12, yy + 0.05, 0.14, `${k}: ${v}`.toUpperCase().slice(0, 42));
+    });
   }
 
   build(): string {
@@ -224,6 +292,46 @@ export function planToDxf(plan: FloorPlan): string {
     // ── Cotas generales del nivel.
     d.dim(0, 0, W, 0, -0.8, true);   // ancho total (abajo)
     d.dim(0, 0, 0, D, -0.8, false);  // fondo total (izquierda)
+
+    // ── Poché de muros cortados: rayado 45° en el anillo exterior (Ching).
+    //    El anillo = 4 bandas rectangulares; cada banda se raya de forma trivial.
+    const sp = POCHÉ.spacing;
+    const bands: Array<[number, number, number, number]> = [
+      [0, 0, W, te],                    // sur
+      [0, D - te, W, te],               // norte
+      [0, te, te, D - 2 * te],          // oeste
+      [W - te, te, te, D - 2 * te],     // este
+    ];
+    for (const [bx, by, bw, bh] of bands) {
+      if (bw <= 0 || bh <= 0) continue;
+      const n = Math.ceil((bw + bh) / sp);
+      if (n > POCHÉ.maxSegments) continue;
+      for (let i = 0; i <= n; i++) {
+        // Diagonal 45° que arranca en el borde inferior de la banda en bx + i*sp.
+        const startX = bx + i * sp;
+        const endX = Math.min(startX + bh, bx + bw);   // choca con top o right
+        const endY = by + (endX - startX);
+        if (endX > startX && endY <= by + bh + 1e-9) {
+          d.line("MUROS", startX, by, endX, endY);
+        }
+      }
+    }
+
+    // ── Flecha de norte (esquina superior derecha, fuera del dibujo).
+    d.northArrow(W + 1.6, D + 1.4, NORTH_ARROW.size);
+
+    // ── Escala gráfica 0–1–2–5 m (bajo las cotas, a la izquierda).
+    d.scaleBar(0, -2.0, SCALE_BAR.segments, SCALE_BAR.unitLabel);
+
+    // ── Cajetín estándar de lámina (esquina inferior derecha).
+    d.titleBlock(Math.max(W - 4.2, 2.5), -3.6, 4.0, {
+      PROYECTO: plan.name,
+      PLANO: `Planta arquitectónica — Nivel ${level + 1}`,
+      ESCALA: "GRÁFICA (m)",
+      FECHA: new Date().toISOString().slice(0, 10),
+      DIBUJÓ: "ObraHub · Diseño IA",
+      LÁMINA: `A-1${plan.levels > 1 ? `.${level + 1}` : ""}`,
+    });
 
     // Título del nivel.
     d.text(T, 0, D + 2.0, 0.28, `${plan.name} — NIVEL ${level + 1}`);

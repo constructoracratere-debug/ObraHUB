@@ -107,6 +107,12 @@ check("TEXT con nombre de espacios", dxf.includes("ALCOBA PRINCIPAL") || dxf.inc
 check("TEXT de área (m2)", dxf.includes("m2"));
 check("cota total presente", dxf.includes("8.50"));
 check("EOF final", dxf.trimEnd().endsWith("0\nEOF"));
+// Convenciones Ching (KB):
+check("poché: más LINEs en MUROS tras el rayado 45°", (dxf.match(/0\nLINE\n8\nMUROS\n/g) ?? []).length > 60);
+check("flecha de norte (texto N + capa TEXTOS)", /0\nTEXT\n8\nTEXTOS\n[\s\S]{0,80}N\n/.test(dxf.replace(/1\n/g, "1\n")) || (dxf.match(/TEXTOS/g) ?? []).length > 2);
+check("cajetín con PROYECTO", dxf.includes("PROYECTO:"));
+check("cajetín con LÁMINA", dxf.includes("LAMINA") || dxf.includes("LÁMINA") || /L[ÁA]MINA/.test(dxf));
+check("escala gráfica (metros en COTAS)", dxf.includes("5 m"));
 
 // Determinismo: mismo plan → mismo string.
 const dxf2 = planToDxf(sanitizeFloorPlan(rawPlan));

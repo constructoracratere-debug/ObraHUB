@@ -15,23 +15,23 @@ import {
   roomArea,
   roomKey,
 } from "./schema";
+import { DIMENSIONAL_STANDARDS, CLEARANCES } from "./knowledge";
 
-/** Mínimos por tipo de espacio. Ajustar con criterio profesional. */
-export const ROOM_MINIMUMS: Record<string, { minSide: number; minArea: number; label: string }> = {
-  habitacion: { minSide: 2.0, minArea: 6.0, label: "Habitación" },
-  habitacion_principal: { minSide: 2.6, minArea: 9.0, label: "Habitación principal" },
-  bano: { minSide: 1.0, minArea: 1.8, label: "Baño" },
-  cocina: { minSide: 1.5, minArea: 4.0, label: "Cocina" },
-  sala: { minSide: 2.5, minArea: 9.0, label: "Sala" },
-  comedor: { minSide: 2.4, minArea: 7.0, label: "Comedor" },
-  estudio: { minSide: 2.0, minArea: 6.0, label: "Estudio" },
-  lavanderia: { minSide: 1.0, minArea: 2.0, label: "Lavandería" },
-  pasillo: { minSide: 0.9, minArea: 0, label: "Pasillo" },
-  garaje: { minSide: 2.5, minArea: 12.5, label: "Garaje" },
-};
+/**
+ * Mínimos por tipo de espacio — fuente única: lib/design/knowledge.ts
+ * (DIMENSIONAL_STANDARDS, con Neufert/Plazola/Panero). ⚠️ EDITABLE — Diego
+ * (AEC Domain Expert del roadmap) ajusta los valores con su criterio.
+ */
+export const ROOM_MINIMUMS: Record<string, { minSide: number; minArea: number; label: string }> =
+  Object.fromEntries(
+    Object.entries(DIMENSIONAL_STANDARDS).map(([type, d]) => [
+      type,
+      { minSide: d.minSide, minArea: d.minArea, label: d.label },
+    ]),
+  );
 
 /** Ancho mínimo de puertas (accesibilidad NSR-10 Cap. A.6 como guía). */
-export const MIN_DOOR_WIDTH = 0.9;
+export const MIN_DOOR_WIDTH = CLEARANCES.doorMain.min;
 
 export type GateCheck = {
   id: string;

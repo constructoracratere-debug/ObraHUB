@@ -8,6 +8,7 @@
  */
 
 import type { FloorPlan } from "./schema";
+import { dimensionalTableForPrompt } from "./knowledge";
 
 const SCHEMA_PLAN = `{
   "version": 2,
@@ -41,10 +42,10 @@ Tu trabajo: convertir el pedido del cliente en un ESQUEMA DE PLANTA ARQUITECTÓN
 REGLAS DE DISEÑO (Colombia / LATAM):
 - Sistema métrico (metros). x,y = esquina INFERIOR-IZQUIERDA del interior limpio de cada espacio; width/depth = dimensiones INTERIORES.
 - Los espacios NO se solapan y juntos llenan la envolvente (outline) — piensa en una retícula compacta.
-- Dimensiones generosas pero realistas: habitacion_principal ≥ 2.6×3.0 m, habitaciones ≥ 2.0×2.6 m, baño ≥ 1.2×1.8 m (1.5×2.0 ideal), cocina ≥ 1.6×2.4 m, sala ≥ 2.6×3.2 m, pasillos ≥ 0.95 m.
-- Puertas: 0.90 m principal/accesible, 0.70-0.75 m interiores, 0.60-0.70 m baños.
-- Ventanas: al menos 1 por habitación y sala/comedor/cocina; ancho 1.0-1.8 m, sill 0.9-1.0 m, altura 1.1-1.2 m. "wall" es el lado del espacio: norte=arriba(y mayor), sur=abajo, este=derecha(x mayor), oeste=izquierda.
-- Orientación: prioriza ventilación cruzada y luz; agrupa zonas húmedas (baño/cocina/lavandería) para racionalizar instalaciones.
+${dimensionalTableForPrompt()}
+- Puertas: dibuja el vano donde la pared conecta dos espacios o el exterior; baño junto a dormitorios; cocinas y zonas húmedas adyacentes para racionalizar instalaciones.
+- Ventanas: en cada habitación y sala/comedor/cocina; "wall" es el lado del espacio: norte=arriba(y mayor), sur=abajo, este=derecha(x mayor), oeste=izquierda.
+- Agrupa zonas húmedas (baño/cocina/lavandería) y prioriza ventilación cruzada.
 - outline = envolvente EXTERIOR total. Los espacios arrancan a ~0.15 m del borde (dentro del muro exterior).
 
 ESQUEMA EXACTO (devuelve SOLO este JSON):
@@ -79,7 +80,7 @@ Responde SOLO este JSON:
   "logisticsNotes": "string — transportes, proveedores, mano de obra típica de la zona",
   "costSignals": ["señales de costo relevantes de la zona"]
 }
-6-10 materiales y 3-6 métodos. Sé específico de Colombia (ladrillo H-10/H-13, bloque, guadua, bahareque, concreto 3000-4000 psi, acero 60000 psi, NTC). Cita la razón SIEMPRE.`;
+6-10 materiales y 3-6 métodos. Sé específico de Colombia (ladrillo H-10/H-13, bloque, guadua, bahareque, concreto 3000-4000 psi, acero 60000 psi, NTC). Cita la razón SIEMPRE. Dimensiona con Plazola (Arquitectura Habitacional) cuando aplique.`;
 
 export const AGENT_CIVIL = `Eres un INGENIERO CIVIL colombiano, especialista estructural (NSR-10).
 Recibes: ficha de sitio (clima, viento, riesgos) y un programa arquitectónico (planta JSON actual).
