@@ -86,22 +86,34 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
   const [equipment, setEquipment] = useState<Equipment>([]);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
+  // Consola en vivo: líneas {agent, kind, text} — deltas coalescidos.
+  const [consoleLines, setConsoleLines] = useState<Array<{ agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }>>([]);
+
   useEffect(() => { if (initialPrompt) setPrompt(initialPrompt); }, [initialPrompt]);
 
+  const pushLine = useCallback((line: { agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }) => {
+    setConsoleLines((prev) => {
+      const next = [...prev, line];
+      // Coalesce: un delta consecutivo del mismo agente se acumula en 1 línea.
+      const last = next[next.length - 2];
+      if (line.kind === "delta" && last && last.kind === "delta" && last.agent === line.agent) {
+        const merged = (last.text + line.text).slice(-220);
+        next.splice(next.length - 2, 2, { agent: last.agent, kind: "delta", text: merged });
+      }
+      return next.slice(-140);
+    });
+  }, []);
+
   const call = useCallback(async (body: Record<string, unknown>) => {
+    setConsoleLines([]);
     const res = await fetch("/api/design/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    let data: Record<string, unknown> = {};
-    try {
-      data = await res.json();
-    } catch {
-      /* cuerpo no-JSON (p. ej. 504 de Vercel) */
-    }
-    if (!res.ok) {
-      // El error puede ser string nuestro o el objeto anidado de Vercel.
+    if (!res.ok || !res.body) {
+      let data: Record<string, unknown> = {};
+      try { data = await res.json(); } catch { /* 504 etc. */ }
       const e = data.error;
       const msg =
         typeof e === "string" ? e
@@ -111,8 +123,37 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
           : `Error ${res.status}`;
       throw new Error(msg);
     }
-    return data;
-  }, []);
+    // NDJSON en streaming: cada línea es un evento de la consola.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let done: Record<string, unknown> | null = null;
+    for (;;) {
+      const { value, done: eof } = await reader.read();
+      if (value) buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let ev: Record<string, unknown>;
+        try { ev = JSON.parse(line); } catch { continue; }
+        if (ev.type === "say") {
+          pushLine({ agent: (ev.agent as string) ?? null, kind: "say", text: ev.text as string });
+        } else if (ev.type === "json") {
+          const e = ev.e as { type?: string; text?: string };
+          const kind = e.type === "delta" || e.type === "provider" || e.type === "fallback" || e.type === "status" ? e.type : "status";
+          pushLine({ agent: (ev.agent as string) ?? null, kind, text: e.text ?? "" });
+        } else if (ev.type === "error") {
+          throw new Error(ev.error as string);
+        } else if (ev.type === "done") {
+          done = ev;
+        }
+      }
+      if (eof) break;
+    }
+    if (!done) throw new Error("La etapa no devolvió resultado (conexión cortada).");
+    return done;
+  }, [pushLine]);
 
   const runSite = async () => {
     setBusy(0); setError(null);
@@ -297,7 +338,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
           )}
         </div>
 
-        {/* Centro: plano SVG */}
+        {/* Centro: plano SVG + consola de agentes en vivo */}
         <div className="relative min-h-[320px] flex-1 bg-[#0a1120]">
           {plan ? (
             <PlanSvg plan={plan} />
@@ -309,6 +350,10 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
                 <p className="mt-1 text-xs text-slate-600">Empieza por la ficha de sitio (etapa 0).</p>
               </div>
             </div>
+          )}
+          {/* Consola EN VIVO — el estudio narrando su trabajo (como un agente) */}
+          {(busy !== null || consoleLines.length > 0) && (
+            <AgentConsole lines={consoleLines} working={busy !== null} />
           )}
         </div>
 
@@ -446,6 +491,71 @@ function RunButton({ onClick, running, label, doneLabel }: { onClick: () => void
     >
       {running ? "…" : doneLabel ?? `⚡ ${label}`}
     </button>
+  );
+}
+
+// ── Consola de agentes en vivo ───────────────────────────────────────────────
+// El estudio narrando su trabajo en tiempo real: pasos de cada persona,
+// proveedores IA pensando, tokens escribiéndose, failovers y reparaciones.
+const AGENT_META: Record<string, { icon: string; color: string }> = {
+  urbanista: { icon: "📍", color: "text-cyan-300" },
+  arquitecto: { icon: "🏛️", color: "text-blue-300" },
+  constructor: { icon: "👷", color: "text-amber-300" },
+  civil: { icon: "🏗️", color: "text-orange-300" },
+  electrico: { icon: "⚡", color: "text-yellow-300" },
+  hidro: { icon: "💧", color: "text-sky-300" },
+  interiores: { icon: "🎨", color: "text-fuchsia-300" },
+  mesa: { icon: "🛠️", color: "text-emerald-300" },
+};
+
+function AgentConsole({ lines, working }: {
+  lines: Array<{ agent: string | null; kind: string; text: string }>;
+  working: boolean;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    boxRef.current?.scrollTo({ top: boxRef.current.scrollHeight });
+  }, [lines]);
+
+  const kindClass: Record<string, string> = {
+    say: "text-slate-200",
+    delta: "text-emerald-300/80 font-mono",
+    provider: "text-blue-300",
+    status: "text-slate-400",
+    fallback: "text-amber-300",
+    error: "text-red-300",
+  };
+  const activeAgents = [...new Set(lines.map((l) => l.agent).filter(Boolean))];
+
+  return (
+    <div className="absolute inset-x-2 bottom-2 z-20 overflow-hidden rounded-xl border border-white/[0.08] bg-[#050b14]/95 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-2 sm:w-[420px]">
+      <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-1.5">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+          {working ? (
+            <span className="animate-pulse">
+              {activeAgents.slice(0, 3).map((a) => AGENT_META[a ?? ""]?.icon).join(" ")} trabajando…
+            </span>
+          ) : (
+            <span className="text-slate-500">Consola del estudio</span>
+          )}
+        </p>
+        <span className={`h-2 w-2 shrink-0 rounded-full ${working ? "animate-pulse bg-emerald-400" : "bg-slate-600"}`} />
+      </div>
+      <div ref={boxRef} className="max-h-[38vh] space-y-0.5 overflow-y-auto px-3 py-2">
+        {lines.map((l, i) => {
+          const meta = l.agent ? AGENT_META[l.agent] : null;
+          return (
+            <p key={i} className={`text-[10.5px] leading-relaxed ${kindClass[l.kind] ?? "text-slate-300"}`}>
+              {meta && l.kind !== "delta" && <span className={meta.color}>{meta.icon} </span>}
+              {l.kind === "delta" && <span className="text-emerald-500/70">▎</span>}
+              {l.text}
+              {l.kind === "delta" && i === lines.length - 1 && <span className="animate-pulse text-emerald-300">▊</span>}
+            </p>
+          );
+        })}
+        {lines.length === 0 && <p className="text-[10.5px] text-slate-500">Iniciando…</p>}
+      </div>
+    </div>
   );
 }
 

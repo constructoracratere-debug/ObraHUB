@@ -149,6 +149,12 @@ export type LlmResult = {
  * proveedor responda. Lanza solo si TODOS fallan (los manejadores de ruta ya
  * muestran el error al usuario).
  */
+/** Evento de progreso en vivo (consola del estudio de diseño). */
+export type LlmEvent =
+  | { type: "provider"; text: string }
+  | { type: "delta"; text: string }
+  | { type: "fallback"; text: string };
+
 export async function llmComplete(
   task: LlmTask,
   params: {
@@ -160,6 +166,9 @@ export async function llmComplete(
     /** Presupuesto por proveedor (ms): la ruta ajusta para no chocar con el
      *  límite de 60 s de la función en Vercel (los fallbacks suman). */
     timeoutMs?: number;
+    /** Con onEvent la respuesta se STREAMING (tokens en vivo) + narrativa de
+     *  proveedores. Sin onEvent, comportamiento clásico no-streaming. */
+    onEvent?: (e: LlmEvent) => void;
   },
 ): Promise<LlmResult> {
   const chain = providerChain(task).filter((p) => p.apiKey);
@@ -174,18 +183,50 @@ export async function llmComplete(
     // cadena (OpenAI) lo pide; los fallbacks gratuitos van con prompt puro.
     const wantsJson = params.responseFormat === "json" && spec.id === "openai";
     const timeoutMs = params.timeoutMs != null ? Math.min(params.timeoutMs, spec.timeoutMs) : spec.timeoutMs;
+    if (params.onEvent) {
+      params.onEvent({
+        type: "provider",
+        text: `⚡ ${spec.label} · ${spec.model}${spec.paid ? "" : " (gratis"}${spec.paid ? "" : ")"} está pensando…`,
+      });
+    }
     try {
-      const completion = await clientFor(spec).chat.completions.create(
-        {
-          model: spec.model,
-          messages: params.messages,
-          ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
-          ...(params.temperature != null ? { temperature: params.temperature } : {}),
-          ...(wantsJson ? { response_format: { type: "json_object" as const } } : {}),
-        },
-        { timeout: timeoutMs },
-      );
-      const content = completion.choices[0]?.message?.content?.trim() ?? "";
+      let content: string;
+      if (params.onEvent) {
+        // Modo EN VIVO: streaming de tokens → la consola ve la respuesta
+        // escribirse. Si el stream falla a mitad, cae al siguiente proveedor.
+        const stream = await clientFor(spec).chat.completions.create(
+          {
+            model: spec.model,
+            messages: params.messages,
+            ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
+            ...(params.temperature != null ? { temperature: params.temperature } : {}),
+            ...(wantsJson ? { response_format: { type: "json_object" as const } } : {}),
+            stream: true,
+          },
+          { timeout: timeoutMs },
+        );
+        let acc = "";
+        for await (const part of stream as AsyncIterable<{ choices?: Array<{ delta?: { content?: string } }> }>) {
+          const delta = part.choices?.[0]?.delta?.content ?? "";
+          if (delta) {
+            acc += delta;
+            params.onEvent({ type: "delta", text: delta });
+          }
+        }
+        content = acc.trim();
+      } else {
+        const completion = await clientFor(spec).chat.completions.create(
+          {
+            model: spec.model,
+            messages: params.messages,
+            ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
+            ...(params.temperature != null ? { temperature: params.temperature } : {}),
+            ...(wantsJson ? { response_format: { type: "json_object" as const } } : {}),
+          },
+          { timeout: timeoutMs },
+        );
+        content = completion.choices[0]?.message?.content?.trim() ?? "";
+      }
       if (!content) throw new Error("respuesta vacía");
       return {
         content,
@@ -199,6 +240,12 @@ export async function llmComplete(
       const msg = err instanceof Error ? err.message : String(err);
       failures.push({ provider: spec.label, error: msg.slice(0, 200) });
       console.warn(`[llm:${task}] ${spec.label} falló (${spec.paid ? "pagado" : "gratis"}): ${msg.slice(0, 160)}`);
+      if (params.onEvent && chain.indexOf(spec) < chain.length - 1) {
+        params.onEvent({
+          type: "fallback",
+          text: `⚠ ${spec.label} falló (${msg.slice(0, 60)}…) → probando el siguiente proveedor…`,
+        });
+      }
     }
   }
   throw new Error(

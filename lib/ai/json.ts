@@ -9,7 +9,7 @@
  * Nunca lanza por JSON malformado sin agotar el reintento.
  */
 
-import { llmComplete, type LlmMessage, type LlmTask } from "./router";
+import { llmComplete, type LlmEvent, type LlmMessage, type LlmTask } from "./router";
 
 export type LlmJsonResult<T> = {
   data: T;
@@ -19,6 +19,8 @@ export type LlmJsonResult<T> = {
   latencyMs: number;
   repaired: boolean;
 };
+
+export type JsonEvent = LlmEvent | { type: "status"; text: string };
 
 /** Extrae el primer objeto JSON balanceado de un texto ruidoso. */
 export function extractJson(raw: string): string | null {
@@ -68,6 +70,8 @@ export async function llmJson<T = unknown>(
     temperature?: number;
     /** Presupuesto por proveedor — evita que los fallbacks sumen >60 s (504). */
     timeoutMs?: number;
+    /** Consola en vivo: tokens + estados de extracción/reparación. */
+    onEvent?: (e: JsonEvent) => void;
   },
 ): Promise<LlmJsonResult<T>> {
   const messages: LlmMessage[] = [
@@ -75,28 +79,34 @@ export async function llmJson<T = unknown>(
     { role: "user", content: params.user },
   ];
 
+  const emit = (e: JsonEvent) => params.onEvent?.(e);
   let res = await llmComplete(task, {
     messages,
     maxTokens: params.maxTokens,
     temperature: params.temperature,
     responseFormat: "json",
     ...(params.timeoutMs != null ? { timeoutMs: params.timeoutMs } : {}),
+    ...(params.onEvent ? { onEvent: params.onEvent } : {}),
   });
 
   let parsed: unknown;
   try {
+    emit({ type: "status", text: "🔧 Extrayendo el objeto JSON de la respuesta…" });
     const candidate = extractJson(res.content);
     if (!candidate) throw new Error("sin objeto JSON en la respuesta");
     try {
       parsed = JSON.parse(candidate);
     } catch {
       // Truncado por maxTokens: cierra contenedores y reintenta.
+      emit({ type: "status", text: "♻️ JSON truncado — cerrando contenedores abiertos…" });
       const repaired = repairTruncatedJson(candidate);
       if (repaired == null) throw new Error("JSON incompleto");
       parsed = repaired;
+      emit({ type: "status", text: "✅ JSON reparado" });
     }
   } catch {
     // Reintento de reparación: el modelo ve su propio error.
+    emit({ type: "status", text: "🔁 La respuesta no fue JSON válido — pidiendo corrección al modelo…" });
     const rescue = await llmComplete(task, {
       messages: [
         ...messages,
@@ -111,6 +121,7 @@ export async function llmJson<T = unknown>(
       temperature: 0,
       responseFormat: "json",
       ...(params.timeoutMs != null ? { timeoutMs: params.timeoutMs } : {}),
+      ...(params.onEvent ? { onEvent: params.onEvent } : {}),
     });
     const candidate = extractJson(rescue.content);
     try {
