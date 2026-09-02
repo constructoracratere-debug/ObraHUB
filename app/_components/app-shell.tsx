@@ -3358,7 +3358,9 @@ en Latinoamérica
               </button>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-hidden bg-[#050b14]">
+          {/* min-h móvil: sin esto el contenedor colapsa a 0px y el visor
+              DXF/IFC queda sin canvas (flex-1 necesita padre con altura). */}
+          <div className="min-h-[60vh] flex-1 overflow-hidden bg-[#050b14] sm:min-h-0">
             {isLoadingPreview ? (
               <div className="flex h-full items-center justify-center">
                 <p className="text-sm text-slate-500">Cargando vista previa…</p>
