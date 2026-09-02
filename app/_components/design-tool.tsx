@@ -205,11 +205,11 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     if (!dxfBlob || !plan || !projectSlug) return;
     setSaving("saving");
     try {
-      // 1) Asegura carpeta "Diseño IA" del proyecto.
+      // 1) Asegura carpeta "Diseño IA" del proyecto (path string "A/B", no array).
       const f = await fetch(`/api/projects/${projectSlug}/folders/ensure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: ["Diseño IA"] }),
+        body: JSON.stringify({ path: "Diseño IA" }),
       });
       const fd = await f.json();
       if (!f.ok) throw new Error(fd.error ?? "No se pudo crear la carpeta");
