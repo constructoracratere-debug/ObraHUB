@@ -104,8 +104,8 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     });
   }, []);
 
-  const call = useCallback(async (body: Record<string, unknown>) => {
-    setConsoleLines([]);
+  const call = useCallback(async (body: Record<string, unknown>, attempt = 0): Promise<Record<string, unknown>> => {
+    if (attempt === 0) setConsoleLines([]);
     const res = await fetch("/api/design/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -151,7 +151,15 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
       }
       if (eof) break;
     }
-    if (!done) throw new Error("La etapa no devolvió resultado (conexión cortada).");
+    if (!done) {
+      // Corte de conexión (p. ej. límite de 60 s con proveedor lento): un
+      // reintento automático — la consola lo narra y la 2ª va más rápida.
+      if (attempt < 1) {
+        pushLine({ agent: "mesa", kind: "fallback", text: "🔁 Conexión cortada por tiempo — reintentando automáticamente (suele ir más rápido)…" });
+        return call(body, attempt + 1);
+      }
+      throw new Error("La etapa no devolvió resultado tras reintentar. Vuelve a lanzarla.");
+    }
     return done;
   }, [pushLine]);
 
