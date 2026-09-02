@@ -32,6 +32,33 @@ export function extractJson(raw: string): string | null {
   return s.slice(start, end + 1);
 }
 
+/** Intenta reparar JSON truncado (recorte por maxTokens): cierra los
+ *  contenedores abiertos y reintenta el parse. */
+function repairTruncatedJson(s: string): unknown | null {
+  // Conteos de contenedores sin cerrar (fuera de strings, aproximado).
+  let inStr = false, esc = false;
+  const stack: string[] = [];
+  for (const ch of s) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+  if (stack.length === 0) return null;
+  let fixed = inStr ? s.slice(0, s.lastIndexOf('"')) : s.replace(/[,:\s]+$/, "");
+  for (let i = stack.length - 1; i >= 0; i--) fixed += stack[i] === "{" ? "}" : "]";
+  try {
+    return JSON.parse(fixed);
+  } catch {
+    return null;
+  }
+}
+
 export async function llmJson<T = unknown>(
   task: LlmTask,
   params: {
@@ -60,7 +87,14 @@ export async function llmJson<T = unknown>(
   try {
     const candidate = extractJson(res.content);
     if (!candidate) throw new Error("sin objeto JSON en la respuesta");
-    parsed = JSON.parse(candidate);
+    try {
+      parsed = JSON.parse(candidate);
+    } catch {
+      // Truncado por maxTokens: cierra contenedores y reintenta.
+      const repaired = repairTruncatedJson(candidate);
+      if (repaired == null) throw new Error("JSON incompleto");
+      parsed = repaired;
+    }
   } catch {
     // Reintento de reparación: el modelo ve su propio error.
     const rescue = await llmComplete(task, {
@@ -79,7 +113,12 @@ export async function llmJson<T = unknown>(
       ...(params.timeoutMs != null ? { timeoutMs: params.timeoutMs } : {}),
     });
     const candidate = extractJson(rescue.content);
-    parsed = JSON.parse(candidate ?? "null");
+    try {
+      parsed = JSON.parse(candidate ?? "null");
+      if (parsed == null) parsed = candidate ? repairTruncatedJson(candidate) : null;
+    } catch {
+      parsed = candidate ? repairTruncatedJson(candidate) : null;
+    }
     res = rescue;
     if (parsed == null) throw new Error("El modelo no pudo producir JSON válido tras reintento");
     return {
