@@ -42,8 +42,7 @@ type SimStatus = "completed" | "active" | "pending" | "unlinked";
 type IfcViewerProps = {
   /** Signed URL to the .ifc file in Supabase Storage. */
   url: string;
-  /** Project slug — needed to load/save 4D links. */
-  projectSlug?: string;
+  /** Project slug — needed to load/save 4D links. */  projectSlug?: string;
   /** File ID of the IFC file in the files table (for link persistence). */
   fileId?: string;
   /** Gantt tasks for 4D linking. If omitted and projectSlug is set, they are auto-loaded. */
@@ -57,6 +56,26 @@ type IfcViewerProps = {
 };
 
 type LoadState = "loading-wasm" | "downloading" | "parsing" | "ready" | "error";
+
+// ── IfcAPI singleton ────────────────────────────────────────────────────────
+// web-ifc cachea la factoría WASM a nivel de módulo: instanciar `new IfcAPI()`
+// + Init() en cada mount (cerrar y reabrir el visor) corrompe el streaming de
+// geometría del segundo intento — las propiedades cargan pero las mallas no
+// llegan (canvas vacío, sin error). Un único IfcAPI por página lo evita.
+let sharedIfcApi: IfcAPI | null = null;
+let sharedIfcApiInit: Promise<IfcAPI> | null = null;
+
+function getSharedIfcApi(): Promise<IfcAPI> {
+  if (sharedIfcApi) return Promise.resolve(sharedIfcApi);
+  if (!sharedIfcApiInit) {
+    const api = new IfcAPI();
+    sharedIfcApi = api;
+    sharedIfcApiInit = api
+      .Init((filename: string) => `/wasm/${filename}`)
+      .then(() => api);
+  }
+  return sharedIfcApiInit;
+}
 
 export function IfcViewer({
   url,
@@ -302,9 +321,9 @@ export function IfcViewer({
         setState("loading-wasm");
         setProgress(5);
 
-        const ifcApi = new IfcAPI();
-        // Locate the WASM file in /public/wasm (copied during build).
-        await ifcApi.Init((filename: string) => `/wasm/${filename}`);
+        // Singleton (ver nota arriba): reinstanciar rompe la geometría en
+        // remounts. Init() ya inicializado resuelve inmediatamente.
+        const ifcApi = await getSharedIfcApi();
         if (cancelled) return;
         ifcApiRef.current = ifcApi;
         setProgress(15);
