@@ -152,21 +152,36 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
       if (eof) break;
     }
     if (!done) {
-      // Corte de conexión (p. ej. límite de 60 s con proveedor lento): un
-      // reintento automático — la consola lo narra y la 2ª va más rápida.
-      if (attempt < 1) {
-        pushLine({ agent: "mesa", kind: "fallback", text: "🔁 Conexión cortada por tiempo — reintentando automáticamente (suele ir más rápido)…" });
+      // Corte de conexión (p. ej. límite de 60 s con proveedor lento): reintento
+      // automático — la consola lo narra y la siguiente va más rápida.
+      if (attempt < 2) {
+        pushLine({ agent: "mesa", kind: "fallback", text: `🔁 Conexión cortada por tiempo — reintentando automáticamente (${attempt + 2}/3)…` });
         return call(body, attempt + 1);
       }
-      throw new Error("La etapa no devolvió resultado tras reintentar. Vuelve a lanzarla.");
+      throw new Error("La etapa no devolvió resultado tras 3 intentos. Vuelve a lanzarla en un momento.");
     }
     return done;
   }, [pushLine]);
 
+  /** Envuelve una etapa: reintentos automáticos con narrativa ante errores de
+   *  proveedores saturados — el usuario no debe apretar "intentar de nuevo". */
+  const callWithRetries = useCallback(async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await call(body);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const retryable = /falló en la etapa|saturad|timed out|no devolvió resultado|Error 5\d\d|vacía/i.test(msg);
+        if (attempt >= 3 || !retryable) throw err;
+        pushLine({ agent: "mesa", kind: "fallback", text: `⚠️ ${msg.slice(0, 90)} — reintentando automáticamente (${attempt + 1}/3)…` });
+      }
+    }
+  }, [call, pushLine]);
+
   const runSite = async () => {
     setBusy(0); setError(null);
     try {
-      const data = await call({ stage: "site", location, prompt });
+      const data = await callWithRetries({ stage: "site", location, prompt });
       setSiteMemo(data.siteMemo as SiteMemo);
       setProviderInfo(`📍 ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(1);
@@ -177,7 +192,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
   const runDraft = async () => {
     setBusy(1); setError(null);
     try {
-      const data = await call({ stage: "draft", prompt, siteMemo });
+      const data = await callWithRetries({ stage: "draft", prompt, siteMemo });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`🏛️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(2);
@@ -189,7 +204,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     if (!plan) return;
     setBusy(2); setError(null);
     try {
-      const data = await call({ stage: "experts", previousPlan: plan, siteMemo });
+      const data = await callWithRetries({ stage: "experts", previousPlan: plan, siteMemo });
       setConstructorMemo(data.constructorMemo as ConstructorMemo); setCivilMemo(data.civilMemo as CivilMemo);
       setProviderInfo(`👷 ${String((data.providers as any).constructor)} + ${String((data.providers as any).civil)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(3);
@@ -201,7 +216,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     if (!plan || !constructorMemo || !civilMemo) return;
     setBusy(3); setError(null);
     try {
-      const data = await call({ stage: "adapt", previousPlan: plan, constructorMemo, civilMemo });
+      const data = await callWithRetries({ stage: "adapt", previousPlan: plan, constructorMemo, civilMemo });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`📐 ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(4);
@@ -213,7 +228,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     if (!plan) return;
     setBusy(4); setError(null);
     try {
-      const data = await call({ stage: "installations", previousPlan: plan });
+      const data = await callWithRetries({ stage: "installations", previousPlan: plan });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`⚡ ${String((data.providers as any).electrical)} + ${String((data.providers as any).hydro)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(5);
@@ -225,7 +240,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     if (!plan) return;
     setBusy(5); setError(null);
     try {
-      const data = await call({ stage: "finishes", previousPlan: plan, constructorMemo });
+      const data = await callWithRetries({ stage: "finishes", previousPlan: plan, constructorMemo });
       setPlan(data.plan as FloorPlan); setEquipment((data.equipment as Equipment) ?? []); setGates(data.gates as Gate[]);
       setProviderInfo(`🎨 ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }

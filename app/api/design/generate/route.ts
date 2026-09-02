@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
         say(`📍 Urbanista: investigando ${location || "la zona"}…`, "urbanista");
         say("📚 Revisando marco del POT, clima, vientos dominantes y riesgos…", "urbanista");
         say("🧱 Identificando materiales y métodos constructivos de la zona…", "urbanista");
-        const res = await llmJson<SiteMemo>("docs", {
+        const res = await llmJson<SiteMemo>("structure", {
           system: AGENT_SITE,
           user: `Ubicación: ${location || "no indicada — asume Colombia"}.\nEncargo: ${brief || "vivienda unifamiliar"}.`,
           maxTokens: 1800,
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
         say("👷 Evaluando materiales disponibles y métodos locales (Plazola)…", "constructor");
         say("🏗️ Calculando sistema estructural y retícula según NSR-10…", "civil");
         const [constructor, civil] = await Promise.all([
-          llmJson<ConstructorMemo>("docs", {
+          llmJson<ConstructorMemo>("structure", {
             system: AGENT_CONSTRUCTOR,
             user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPROGRAMA: ${ctx}`,
             maxTokens: 3200,
@@ -268,7 +268,7 @@ export async function POST(req: NextRequest) {
         const plan = sanitizeFloorPlan(b.previousPlan);
         if (plan.rooms.length === 0) throw new Error("Falta la planta");
         say("🎨 Interiores: proponiendo acabados coherentes con el sistema y el segmento…", "interiores");
-        const res = await llmJson<{ finishes?: unknown[]; equipment?: Array<{ item: string; room?: string; note?: string }> }>("docs", {
+        const res = await llmJson<{ finishes?: unknown[]; equipment?: Array<{ item: string; room?: string; note?: string }> }>("structure", {
           system: AGENT_FINISHES,
           user: `PLANTA FINAL: ${planContext(plan)}\nMEMO CONSTRUCTOR: ${JSON.stringify(b.constructorMemo ?? {}).slice(0, 1600)}`,
           maxTokens: 2200,
