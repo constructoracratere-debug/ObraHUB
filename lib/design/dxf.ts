@@ -12,7 +12,7 @@
 
 import { roomArea, type FloorPlan, type Room } from "./schema";
 import { POCHÉ, NORTH_ARROW, SCALE_BAR } from "./knowledge";
-import { sectionPrimitives, facadePrimitives, type Prim } from "./views";
+import { sheetPrimitives, type Prim } from "./views";
 
 type Entity = string; // pares "code\nvalue\n" acumulados
 
@@ -359,21 +359,10 @@ export function planToDxf(plan: FloorPlan): string {
     d.text(T, 0, D + 2.0, 0.28, `${plan.name} — NIVEL ${level + 1}`);
   }
 
-  // ── VISTAS DE LICENCIA: corte A-A' + 4 fachadas (Ching §secciones).
-  // Layout: corte debajo de la planta; fachadas en fila bajo el corte.
-  const fft = plan.floorToFloor;
-  const levels = Math.max(1, plan.levels);
-  const corteY0 = -6.5;
-  d.prims(sectionPrimitives(plan), 0, corteY0);
-
-  const fachY = corteY0 - levels * fft - 3.5;
-  const sides = ["sur", "oeste", "este", "norte"] as const;
-  let fx = 0;
-  for (const side of sides) {
-    const w = (side === "norte" || side === "sur" ? W : D);
-    d.prims(facadePrimitives(plan, side), fx, fachY);
-    fx += w + 3.0;
-  }
+  // ── VISTAS DE LICENCIA (Ching §secciones): la misma LÁMINA compuesta que
+  // ve el usuario — cortes A-A'/B-B', 4 fachadas y cuadro de áreas, debajo
+  // de la planta principal.
+  d.prims(sheetPrimitives(plan), 0, -(D + 5.5));
 
   return d.build();
 }

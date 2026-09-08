@@ -23,7 +23,7 @@ import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
 import { planToDxf } from "@/lib/design/dxf";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
-import { sectionPrimitives, facadePrimitives, primsBounds, type Prim } from "@/lib/design/views";
+import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, type Prim } from "@/lib/design/views";
 import type { RevisionLog } from "@/lib/design/schema";
 
 type SiteMemo = {
@@ -92,8 +92,11 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
   const [feedback, setFeedback] = useState("");
   const [revisions, setRevisions] = useState<RevisionLog[]>([]);
   const [revBusy, setRevBusy] = useState(false);
-  // Vista del centro: planta, corte o fachadas.
-  const [view, setView] = useState<"planta" | "corte" | "fachadas">("planta");
+  // Vista del centro: planta, corte, fachadas o LÁMINA completa.
+  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina">("planta");
+  // El PLANO es el protagonista: paneles como drawers overlay (estilo Figma).
+  // Sin plan aún, el estudio (form) ocupa el centro.
+  const [drawer, setDrawer] = useState<"estudio" | "expediente" | null>(null);
 
   // Consola en vivo: líneas {agent, kind, text} — deltas coalescidos.
   const [consoleLines, setConsoleLines] = useState<Array<{ agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }>>([]);
@@ -357,9 +360,18 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
         })}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Panel izquierdo: etapa actual */}
-        <div className="flex w-full shrink-0 flex-col gap-3 overflow-y-auto border-b border-white/[0.06] p-3 lg:w-80 lg:border-b-0 lg:border-r">
+      <div className="relative flex min-h-0 flex-1">
+        {/* Backdrop móvil/tablet cuando un drawer está abierto */}
+        {drawer && (
+          <button
+            type="button" aria-label="Cerrar panel"
+            onClick={() => setDrawer(null)}
+            className="absolute inset-0 z-20 bg-black/50 lg:hidden"
+          />
+        )}
+        {/* Drawer ESTUDIO (etapa + acciones) — overlay; visible sin plan */}
+        {(drawer === "estudio" || !plan) && (
+        <div className="absolute inset-y-0 left-0 z-30 flex w-[88%] max-w-sm flex-col gap-3 overflow-y-auto border-r border-white/[0.1] bg-[#070d1a]/95 p-3 backdrop-blur-xl lg:w-80">
           <StagePanel
             stage={stage}
             prompt={prompt} setPrompt={setPrompt}
@@ -448,7 +460,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
         </div>
 
         {/* Centro: plano SVG + consola de agentes en vivo */}
-        <div className="relative min-h-[320px] flex-1 bg-[#0a1120]">
+        <div className="absolute inset-0 bg-[#0a1120]">
           {plan && (
             <div className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5 backdrop-blur">
               {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"]] as const).map(([id, label]) => (
@@ -461,8 +473,9 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
           )}
           {plan ? (
             view === "planta" ? <PlanSvg plan={plan} />
-            : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Corte A-A'" />
-            : <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
+            : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Cortes" />
+            : view === "fachadas" ? <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
+            : <PrimsSvg prims={sheetPrimitives(plan)} title="Lámina de curaduría" fitSmall />
           ) : (
             <div className="flex h-full items-center justify-center p-6 text-center">
               <div>
@@ -478,14 +491,16 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
           )}
         </div>
 
-        {/* Derecha: expediente (gates + memos) */}
-        <div className="w-full shrink-0 overflow-y-auto border-t border-white/[0.06] p-3 lg:w-80 lg:border-t-0 lg:border-l">
+        {/* Drawer EXPEDIENTE (gates + memos + memoria + revisiones) */}
+        {drawer === "expediente" && (
+        <div className="absolute inset-y-0 right-0 z-30 w-[88%] max-w-sm overflow-y-auto border-l border-white/[0.1] bg-[#070d1a]/95 p-3 backdrop-blur-xl lg:w-80">
           <Dossier
             gates={gates} plan={plan}
             constructorMemo={constructorMemo} civilMemo={civilMemo}
             equipment={equipment} revisions={revisions}
           />
         </div>
+        )}
       </div>
     </div>
   );
@@ -623,7 +638,7 @@ const PRIM_COLORS: Record<string, string> = {
   EJES: "#f87171", COTAS: "#a78bfa", TEXTOS: "#cbd5e1",
 };
 
-function PrimsSvg({ prims, title }: { prims: Prim[]; title: string }) {
+function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {
   const b = primsBounds(prims);
   const pad = 1.2;
   const vb = { x: b.minX - pad, y: b.minY - pad, w: b.maxX - b.minX + pad * 2, h: b.maxY - b.minY + pad * 2 };
@@ -701,7 +716,7 @@ function AgentConsole({ lines, working }: {
         </p>
         <span className={`h-2 w-2 shrink-0 rounded-full ${working ? "animate-pulse bg-emerald-400" : "bg-slate-600"}`} />
       </div>
-      <div ref={boxRef} className="max-h-[38vh] space-y-0.5 overflow-y-auto px-3 py-2">
+      <div ref={boxRef} className="max-h-[30vh] space-y-0.5 overflow-y-auto px-3 py-2">
         {lines.map((l, i) => {
           const meta = l.agent ? AGENT_META[l.agent] : null;
           return (

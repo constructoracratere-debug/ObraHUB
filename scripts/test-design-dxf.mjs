@@ -119,6 +119,8 @@ check("capas FACHADA-N/S/E/O en tabla", ["FACHADA-NORTE","FACHADA-SUR","FACHADA-
 check("título CORTE A-A'", dxf.includes("CORTE A-A'"));
 check("títulos de fachadas", dxf.includes("FACHADA NORTE") && dxf.includes("FACHADA SUR"));
 check("marcas de nivel (+0.00)", dxf.includes("+0.00"));
+check("corte transversal B-B'", dxf.includes("CORTE B-B'"));
+check("cuadro de áreas dibujado", dxf.includes("CUADRO DE"));
 
 // Determinismo: mismo plan → mismo string.
 const dxf2 = planToDxf(sanitizeFloorPlan(rawPlan));
