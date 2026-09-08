@@ -12,6 +12,7 @@
 
 import { roomArea, type FloorPlan, type Room } from "./schema";
 import { POCHÉ, NORTH_ARROW, SCALE_BAR } from "./knowledge";
+import { sectionPrimitives, facadePrimitives, type Prim } from "./views";
 
 type Entity = string; // pares "code\nvalue\n" acumulados
 
@@ -29,6 +30,11 @@ class DxfBuilder {
       ["HIDROSANITARIO", 5], // azul
       ["TEXTOS", 8],         // gris
       ["COTAS", 6],          // magenta
+      ["CORTE", 7],          // sección A-A'
+      ["FACHADA-NORTE", 4],
+      ["FACHADA-SUR", 4],
+      ["FACHADA-ESTE", 4],
+      ["FACHADA-OESTE", 4],
     ];
     this.layers = [];
     for (const [name, color] of base) {
@@ -114,6 +120,21 @@ class DxfBuilder {
         this.line("MUROS", c, y, endX, endY);
       }
       // Ramas que arrancan del borde izquierdo (cuando c + h > x, ya cubierto arriba).
+    }
+  }
+
+  /** Dibuja un set de primitivas de vistas.ts trasladadas (dx, dy). */
+  prims(list: Prim[], dx: number, dy: number) {
+    for (const p of list) {
+      if (p.t === "L") this.line(p.l, p.x1 + dx, p.y1 + dy, p.x2 + dx, p.y2 + dy);
+      else if (p.t === "T") this.text(p.l, p.x + dx, p.y + dy, p.h, p.s, p.r ?? 0);
+      else {
+        // Rect hueco → contorno.
+        this.line(p.l, p.x + dx, p.y + dy, p.x + p.w + dx, p.y + dy);
+        this.line(p.l, p.x + p.w + dx, p.y + dy, p.x + p.w + dx, p.y + p.h + dy);
+        this.line(p.l, p.x + p.w + dx, p.y + p.h + dy, p.x + dx, p.y + p.h + dy);
+        this.line(p.l, p.x + dx, p.y + p.h + dy, p.x + dx, p.y + dy);
+      }
     }
   }
 
@@ -322,6 +343,7 @@ export function planToDxf(plan: FloorPlan): string {
 
     // ── Escala gráfica 0–1–2–5 m (bajo las cotas, a la izquierda).
     d.scaleBar(0, -2.0, SCALE_BAR.segments, SCALE_BAR.unitLabel);
+    void te;
 
     // ── Cajetín estándar de lámina (esquina inferior derecha).
     d.titleBlock(Math.max(W - 4.2, 2.5), -3.6, 4.0, {
@@ -335,6 +357,22 @@ export function planToDxf(plan: FloorPlan): string {
 
     // Título del nivel.
     d.text(T, 0, D + 2.0, 0.28, `${plan.name} — NIVEL ${level + 1}`);
+  }
+
+  // ── VISTAS DE LICENCIA: corte A-A' + 4 fachadas (Ching §secciones).
+  // Layout: corte debajo de la planta; fachadas en fila bajo el corte.
+  const fft = plan.floorToFloor;
+  const levels = Math.max(1, plan.levels);
+  const corteY0 = -6.5;
+  d.prims(sectionPrimitives(plan), 0, corteY0);
+
+  const fachY = corteY0 - levels * fft - 3.5;
+  const sides = ["sur", "oeste", "este", "norte"] as const;
+  let fx = 0;
+  for (const side of sides) {
+    const w = (side === "norte" || side === "sur" ? W : D);
+    d.prims(facadePrimitives(plan, side), fx, fachY);
+    fx += w + 3.0;
   }
 
   return d.build();

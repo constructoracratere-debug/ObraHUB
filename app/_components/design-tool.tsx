@@ -23,6 +23,7 @@ import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
 import { planToDxf } from "@/lib/design/dxf";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
+import { sectionPrimitives, facadePrimitives, primsBounds, type Prim } from "@/lib/design/views";
 import type { RevisionLog } from "@/lib/design/schema";
 
 type SiteMemo = {
@@ -91,6 +92,8 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
   const [feedback, setFeedback] = useState("");
   const [revisions, setRevisions] = useState<RevisionLog[]>([]);
   const [revBusy, setRevBusy] = useState(false);
+  // Vista del centro: planta, corte o fachadas.
+  const [view, setView] = useState<"planta" | "corte" | "fachadas">("planta");
 
   // Consola en vivo: líneas {agent, kind, text} — deltas coalescidos.
   const [consoleLines, setConsoleLines] = useState<Array<{ agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }>>([]);
@@ -446,8 +449,20 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
 
         {/* Centro: plano SVG + consola de agentes en vivo */}
         <div className="relative min-h-[320px] flex-1 bg-[#0a1120]">
+          {plan && (
+            <div className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5 backdrop-blur">
+              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"]] as const).map(([id, label]) => (
+                <button key={id} type="button" onClick={() => setView(id)}
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${view === id ? "bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30" : "text-slate-400 hover:bg-white/[0.06]"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           {plan ? (
-            <PlanSvg plan={plan} />
+            view === "planta" ? <PlanSvg plan={plan} />
+            : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Corte A-A'" />
+            : <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
           ) : (
             <div className="flex h-full items-center justify-center p-6 text-center">
               <div>
@@ -597,6 +612,45 @@ function RunButton({ onClick, running, label, doneLabel }: { onClick: () => void
     >
       {running ? "…" : doneLabel ?? `⚡ ${label}`}
     </button>
+  );
+}
+
+// ── SVG genérico de primitivas (corte/fachadas — vistas.ts) ─────────────────
+const PRIM_COLORS: Record<string, string> = {
+  CORTE: "#e2e8f0",
+  "FACHADA-NORTE": "#38bdf8", "FACHADA-SUR": "#38bdf8",
+  "FACHADA-ESTE": "#38bdf8", "FACHADA-OESTE": "#38bdf8",
+  EJES: "#f87171", COTAS: "#a78bfa", TEXTOS: "#cbd5e1",
+};
+
+function PrimsSvg({ prims, title }: { prims: Prim[]; title: string }) {
+  const b = primsBounds(prims);
+  const pad = 1.2;
+  const vb = { x: b.minX - pad, y: b.minY - pad, w: b.maxX - b.minX + pad * 2, h: b.maxY - b.minY + pad * 2 };
+  const sy = (y: number) => b.maxY + pad - (y - (b.minY - pad)); // invierte Y (CAD arriba)
+  return (
+    <div className="absolute inset-0 overflow-hidden">
+      <svg className="h-full w-full" viewBox={`${vb.x} ${0} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet">
+        <rect x={vb.x} y={0} width={vb.w} height={vb.h} fill="#0a1120" />
+        {prims.filter((p) => p.t === "L").map((p, i) => (
+          <line key={`l${i}`} x1={p.x1} y1={sy(p.y1)} x2={p.x2} y2={sy(p.y2)}
+            stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={0.05} />
+        ))}
+        {prims.filter((p) => p.t === "H").map((p, i) => (
+          <rect key={`h${i}`} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h}
+            fill="none" stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={0.05} />
+        ))}
+        {prims.filter((p) => p.t === "T").map((p, i) => (
+          <text key={`t${i}`} x={p.x} y={sy(p.y)} fontSize={p.h} fill={PRIM_COLORS[p.l] ?? "#cbd5e1"}>
+            {p.s}
+          </text>
+        ))}
+      </svg>
+      <div className="pointer-events-none absolute right-2 bottom-16 rounded-lg bg-[#070d1a]/85 px-2.5 py-1.5 backdrop-blur sm:bottom-2">
+        <p className="text-xs font-semibold text-slate-200">{title}</p>
+        <p className="text-[10px] text-slate-500">vista incluida en el DXF y en el expediente</p>
+      </div>
+    </div>
   );
 }
 

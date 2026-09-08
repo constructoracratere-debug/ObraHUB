@@ -13,7 +13,7 @@ const root = path.resolve(here, "..");
 
 // Transpila schema+dxf a JS plano en tmp (sin dependencias externas).
 const tmp = path.join(root, ".tmp-design-test");
-execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck`, { cwd: root, stdio: "pipe" });
+execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/views.ts lib/design/knowledge.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck`, { cwd: root, stdio: "pipe" });
 
 const { createRequire } = await import("node:module");
 const req = createRequire(import.meta.url);
@@ -113,6 +113,12 @@ check("flecha de norte (texto N + capa TEXTOS)", /0\nTEXT\n8\nTEXTOS\n[\s\S]{0,8
 check("cajetín con PROYECTO", dxf.includes("PROYECTO:"));
 check("cajetín con LÁMINA", dxf.includes("LAMINA") || dxf.includes("LÁMINA") || /L[ÁA]MINA/.test(dxf));
 check("escala gráfica (metros en COTAS)", dxf.includes("5 m"));
+// Vistas de licencia (Ching §secciones):
+check("capa CORTE en tabla", dxf.includes("CORTE"));
+check("capas FACHADA-N/S/E/O en tabla", ["FACHADA-NORTE","FACHADA-SUR","FACHADA-ESTE","FACHADA-OESTE"].every(f => dxf.includes(f)));
+check("título CORTE A-A'", dxf.includes("CORTE A-A'"));
+check("títulos de fachadas", dxf.includes("FACHADA NORTE") && dxf.includes("FACHADA SUR"));
+check("marcas de nivel (+0.00)", dxf.includes("+0.00"));
 
 // Determinismo: mismo plan → mismo string.
 const dxf2 = planToDxf(sanitizeFloorPlan(rawPlan));

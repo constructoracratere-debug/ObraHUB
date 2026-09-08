@@ -170,7 +170,7 @@ export function buildLicenseExpediente(input: {
   // ── 8. Checklist curaduría ────────────────────────────────────────────────
   h("8. CHECKLIST DE RADICACIÓN ANTE CURADURÍA");
   p("GENERADO POR OBRAHUB (adjuntar):");
-  p("  [x] Planos arquitectónicos (planta DXF por capas — cortes/fachadas en desarrollo)");
+  p("  [x] Planos arquitectónicos: planta DXF por capas + CORTE A-A' + 4 fachadas");
   p("  [x] Memoria de diseño arquitectónico (sección 1)");
   p("  [x] Cuadro de áreas (sección 2)");
   p("  [x] Memoria estructural preliminar NSR-10 (sección 3 — requiere firma y cálculo definitivo)");
