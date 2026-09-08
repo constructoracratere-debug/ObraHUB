@@ -101,14 +101,23 @@ function overlapChecks(rooms: Room[]): GateCheck[] {
 
 function doorChecks(plan: FloorPlan): GateCheck[] {
   const checks: GateCheck[] = [];
-  const narrow = plan.doors.filter((d) => d.width < MIN_DOOR_WIDTH - 0.01 && d.from !== "exterior");
+  // Mínimo según tipo de puerta (Neufert/NSR-10 A.6 solo para la principal):
+  // principal/accesible ≥0.90 · interior ≥0.70 · baño ≥0.60.
+  const minFor = (d: FloorPlan["doors"][number]) => {
+    const key = roomKey(d.to);
+    if (d.from === "exterior") return CLEARANCES.doorMain.min;
+    if (key.includes("bano") || key.includes("baño")) return CLEARANCES.doorBath.min;
+    return CLEARANCES.doorInterior.min;
+  };
+  const narrow = plan.doors.filter((d) => d.width < minFor(d) - 0.01);
   for (const d of narrow) {
+    const min = minFor(d);
     checks.push({
       id: `puerta-${roomKey(d.from)}-${roomKey(d.to)}`,
       label: `Puerta ${d.from} → ${d.to} angosta`,
       pass: false,
-      detail: `${d.width.toFixed(2)} m < ${MIN_DOOR_WIDTH} m mínimo accesible`,
-      ref: "NSR-10 A.6 (accesibilidad) — guía",
+      detail: `${d.width.toFixed(2)} m < ${min.toFixed(2)} m mínimo (${d.from === "exterior" ? "accesible" : min === CLEARANCES.doorBath.min ? "baño" : "interior"})`,
+      ref: d.from === "exterior" ? "NSR-10 A.6 (accesibilidad) — guía" : "Neufert (práctica) — ajustable",
     });
   }
   return checks;
