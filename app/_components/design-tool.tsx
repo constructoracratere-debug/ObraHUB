@@ -458,12 +458,27 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
             </div>
           )}
         </div>
+        )}
+
+        {/* Botones flotantes para abrir drawers — el plano manda */}
+        {plan && (
+          <div className="absolute right-2 top-2 z-10 flex gap-1.5">
+            <button type="button" onClick={() => setDrawer(drawer === "estudio" ? null : "estudio")}
+              className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur transition ${drawer === "estudio" ? "border-blue-400/50 bg-blue-500/25 text-blue-100" : "border-white/[0.08] bg-[#0a1120]/85 text-slate-300 hover:bg-white/[0.08]"}`}>
+              ⚙️ Estudio
+            </button>
+            <button type="button" onClick={() => setDrawer(drawer === "expediente" ? null : "expediente")}
+              className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur transition ${drawer === "expediente" ? "border-blue-400/50 bg-blue-500/25 text-blue-100" : "border-white/[0.08] bg-[#0a1120]/85 text-slate-300 hover:bg-white/[0.08]"}`}>
+              📋 Expediente
+            </button>
+          </div>
+        )}
 
         {/* Centro: plano SVG + consola de agentes en vivo */}
         <div className="absolute inset-0 bg-[#0a1120]">
           {plan && (
             <div className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5 backdrop-blur">
-              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"]] as const).map(([id, label]) => (
+              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"]] as const).map(([id, label]) => (
                 <button key={id} type="button" onClick={() => setView(id)}
                   className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${view === id ? "bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30" : "text-slate-400 hover:bg-white/[0.06]"}`}>
                   {label}
