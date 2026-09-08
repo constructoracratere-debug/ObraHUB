@@ -65,17 +65,97 @@ Ser el Construction OS estándar en Latinoamérica para 2031, con presencia en C
 
 ## 4. ESTUDIO DE MERCADO
 
-### 4.1 Segmentación y tamaño (Colombia)
+### 4.1 Segmentación y tamaño (Colombia) — 4 segmentos objetivo
 
-| Segmento | Tamaño | Dolor principal | Disposición de pago |
-|----------|--------|-----------------|---------------------|
-| Constructoras pequeñas y medianas (5-50 empleados) | ~12.000 empresas | Desviaciones de presupuesto/plazo, papeleo | Media-alta (COP 100-300k/mes) |
-| Interventorías y firmas de supervisión | ~2.500 firmas | Evidencia, informes, RAG normativo | Alta (COP 300-500k/mes) |
-| Constructoras/independientes (1-4 personas) | ~180.000 | Todo: presupuesto, norma, control | Baja (freemium → complementos) |
-| Estudiantes y docentes (arquitectura, ingeniería, construcción) | ~60.000 activos | Aprender con herramientas reales | Muy baja (futuros clientes) |
-| Entidades públicas (oficinas de control, alcaldías) | ~1.100 municipios | Trazabilidad de recursos | Media (convenios) |
+**Contexto del mercado:** las constructoras colombianas facturaron **$91,78 billones en 2025** y las 10 más grandes concentraron $16,61 billones (margen 13,47%); solo vivienda (Camacol) sumó $14,68 billones entre las 20 líderes. El Estado ejecuta planes de infraestructura de $7,1+ billones (ANI/INVÍAS) y $8,42 billones en infraestructura educativa. El mercado paga — el problema es a quién, cómo y con qué discurso.
 
-**SAM conservador (Colombia):** 12.000 × penetración 2% a 5 años = 240 empresas de pago + ecosistema freemium.
+#### Segmento 1 · Constructoras (grandes y medianas)
+
+Top-10 Colombia (ranking Supersociedades/Portafolio 2025 + líderes históricos Camacol):
+
+| # | Empresa | Ingresos/nota | Por qué compra ObraHub |
+|---|---------|---------------|------------------------|
+| 1 | Metro Línea 1 (concesión Metro Bogotá) | $1,47 billones | Control de obra multi-contratista, evidencia para interventoría |
+| 2 | Marval | $1,21 billones (vivienda) | Estandarización de proyectos + bitácora legal |
+| 3 | Amarilo | $2,3 billones (vivienda) | Presupuesto APU vivo + control de desviaciones |
+| 4 | Constructora Capital | podio vivienda 2025 | Licencias + paquete arquitectónico IA |
+| 5 | Jaramillo Mora (Cali) | $1,02 billones | Supervisión regional de obras |
+| 6 | Conconcreto | líder histórico EPC | Interventoría NSR-10, RAG |
+| 7 | Constructora Bolívar | líder histórico vivienda | Gestión de portafolio de obras |
+| 8 | Ospinas & Cía | 70+ años proyectos | Digitalización del ciclo A-Z |
+| 9 | Prodesa ( Grupo Provivienda) | urbanizador VIP/VIS | Costeo VIS + cronogramas 4D |
+| 10 | MIPYME Camacol (5-50 empleados) | ~12.000 empresas | TODO: es el ICP natural |
+
+**Cómo se ofrece:** venta directa B2B a dirección de operaciones/PMO (demos con NDA y piloto de 1 obra). A las grandes: módulo de interventoría + evidencia multimodal; a las MIPYME: el circuito completo.
+**Cómo se gana dinero:** SaaS por obra activa (no por asiento — las obras rotan): Plan Obra COP 400-800k/mes para grandes; COP 150-300k/mes MIPYME. Piloto pago de 2-3 meses con métrica contractual: −10% horas de reporte, −5% desviación de presupuesto. **Un cliente grande ≈ 20 MIPYME en ingreso.**
+
+#### Segmento 2 · Instituciones gubernamentales
+
+Top-10 entidades con presupuesto de obra/tecnología:
+
+| # | Entidad | Palanca de venta |
+|---|---------|------------------|
+| 1 | MinTIC | Compra de tecnología TIC (SECOP II, licitación pública) — ObraHub como plataforma de gestión de proyectos de conectividad |
+| 2 | MinVivienda | VIP/VIS y reasentamientos — trazabilidad de subsidios y obras |
+| 3 | ANI | Concesiones 4G/5G — control de avance multi-concesionario |
+| 4 | INVÍAS | Obras viales — bitácora electrónica + evidencia fotográfica con IA |
+| 5 | Findeter | Banca de desarrollo — condición de desembolso ligada a avance verificado |
+| 6 | MinEducación | 218 proyectos de infraestructura universitaria ($8,42 B) |
+| 7 | Alcaldía de Bogotá / Medellín | Obras locales — transparencia y curva S para control político |
+| 8 | Curadurías urbanas | Digitalización del expediente de licencias (nuestro paquete A-A'/B-B'/fachadas) |
+| 9 | Fondo Adaptación / FGPI | Reconstrucción post-desastre — evidencia y control |
+| 10 | Gobernaciones (Antioquia, Valle, Atlántico) | Programas regionales de infraestructura |
+
+**Cómo se ofrece:** NO venta fría — se gana por **licitación en SECOP II** (minimisumiento/acuerdo marco) o **convenios interadministrativos**; también como subcontratista tecnológico de las firmas de interventoría que ya contrata el Estado.
+**Cómo se gana dinero:** contratos anuales por entidad (COP 50-200M/año) con licencia ilimitada de obras + soporte; el verdadero multiply: cada licitación ganada exige que los CONTRATISTAS usen la plataforma (modelo "proyecto obliga"). Ciclos 6-18 meses — sembrar temprano con pilotos gratuitos de 1 obra pública emblemática.
+
+#### Segmento 3 · Instituciones privadas
+
+Top-10 (educación + salud + corporativo — todos construyen constantemente):
+
+| # | Institución | Proyecto reciente/nota |
+|---|-------------|------------------------|
+| 1 | Universidad de los Andes | Centro Cívico Universitario ~25.000 m² |
+| 2 | Pontificia Universidad Javeriana | Edificio Félix Restrepo (19.900 m², 11 pisos) |
+| 3 | EAFIT (Medellín) | Nuevo Edificio de Ciencias |
+| 4 | Universidad CES | expansión salud |
+| 5 | Universidad Icesi (Cali) | campus growth |
+| 6 | Fundación Santa Fe de Bogotá | expansión hospitalaria |
+| 7 | Clínica Imbanaco (Cali) | torres de salud |
+| 8 | San Vicente Fundación (MDE/BOG) | ampliaciones |
+| 9 | Clínica del Country | renovación consultant rooms |
+| 10 | Bancolombia / Éxito (real estate corporativo) | sedes, campus, tiendas |
+
+**Cómo se ofrece:** a la dirección de infraestructura/física (no a TI): discurso de **curva S + evidencia auditable para juntas directivas**; el paquete de licencia IA acorta la fase de diseño de sus expansiones. Alianzas con facultades de ingeniería (licencia académica gratis → los egresados llegan conociendo la herramienta).
+**Cómo se gana dinero:** licencia por proyecto de expansión (COP 20-60M por obra de 1-3 años) + licencia académica institucional (COP 15-30M/año por facultad). Margen alto: son pocos, grandes y estables — 3 clientes de este segmento pagan el runway.
+
+#### Segmento 4 · Profesionales independientes (constructores/ingenieros/arquitectos multi-proyecto)
+
+No es un ranking de nombres sino de **10 nichos con perfil "varios proyectos simultáneos"** (los mejores clientes independientes):
+
+1. Constructores de obra gris en Bogotá con 3-8 edificios simultáneos (Usaquén/Chapinero)
+2. Arquitectos remodeladores de alto estándar (Bogotá/Medellín — proyectos de $200M-2.000M)
+3. Ingenieros civiles de interventoría freelance (contratistas de alcaldías)
+4. Constructores de vivienda en parcelaciones (Savanna, alrededores Bogotá)
+5. Gestores inmobiliarios small-scale (buy-fix-sell, 4-12 unidades/año)
+6. Diseñadores/especialistas estructurales con licitación de planos (nuestro paquete DXF/IFC)
+7. Constructores de locales comerciales para franquicias (retail fit-out)
+8. Peritos avalúadores (evidencia documental de inmuebles)
+9. Administradores de propiedad horizontal con obras de mejora
+10. Ingenieros de obra pública que facturan como persona natural (miles en SECOP)
+
+**Cómo se ofrece:** product-led growth — freemium real (1 proyecto gratis para siempre, sin tarjeta), YouTube/TikTok mostrando el estudio multi-agente generando planos + licencia en minutos, comunidades (COPCIC, SOC, grupos de WhatsApp de ingeniería), programa de afiliados con interventores.
+**Cómo se gana dinero:** freemium → **COP 49-99k/mes Pro** (proyectos ilimitados, expedientes de licencia, exportación DXF/IFC). Volumen: capturar 1% de 180.000 = 1.800 pago ≈ COP 90-180M MRR — este segmento es el motor de ARR y la base de datos de precios APU vivos que alimenta a los otros tres.
+
+#### Priorización go-to-market (a 24 meses)
+
+| Fase | Foco | Objetivo de ingreso |
+|------|------|---------------------|
+| 0-6 m | Segmento 4 (freemium) + 3-5 MIPYME del seg. 1 | Primeros COP 5-10M MRR + casos de uso |
+| 6-12 m | MIPYME Camacol (seg. 1) + 2 instituciones privadas (seg. 3) | COP 30-50M MRR |
+| 12-24 m | Licitación estatal (seg. 2) + constructora grande (seg. 1) | Contratos anuales COP 200M+ |
+
+**SAM conservador (Colombia):** 12.000 MIPYME × penetración 2% a 5 años = 240 empresas de pago + ecosistema freemium de independientes + 2-4 contratos estatales anuales.
 
 ### 4.2 Competencia
 
