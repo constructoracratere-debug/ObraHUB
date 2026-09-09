@@ -22,6 +22,7 @@ import {
 import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
 import { planToDxf } from "@/lib/design/dxf";
+import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, type Prim } from "@/lib/design/views";
 import type { RevisionLog } from "@/lib/design/schema";
@@ -96,7 +97,9 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
   const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina">("planta");
   // El PLANO es el protagonista: paneles como drawers overlay (estilo Figma).
   // Sin plan aún, el estudio (form) ocupa el centro.
-  const [drawer, setDrawer] = useState<"estudio" | "expediente" | null>(null);
+  // El estudio arranca ABIERTO: antes, al aparecer el plan el panel se
+  // ocultaba solo y el flujo parecía "morirse". Ahora solo el usuario lo cierra.
+  const [drawer, setDrawer] = useState<"estudio" | "expediente" | null>("estudio");
 
   // Consola en vivo: líneas {agent, kind, text} — deltas coalescidos.
   const [consoleLines, setConsoleLines] = useState<Array<{ agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }>>([]);
@@ -268,6 +271,12 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     return new Blob([planToDxf(plan)], { type: "application/dxf" });
   }, [plan]);
 
+  // Modelo BIM 3D: obra gris por capas + instalaciones (IFC4).
+  const ifcBlob = useMemo(() => {
+    if (!plan) return null;
+    return new Blob([planToIfc(plan)], { type: "application/x-step" });
+  }, [plan]);
+
   // ── Revisión del profesional: feedback → redibujo ─────────────────────
   const runRevise = async () => {
     if (!plan || !feedback.trim()) return;
@@ -292,6 +301,15 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `expediente-licencia-${slugify(plan.name)}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const downloadIfc = () => {
+    if (!ifcBlob || !plan) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(ifcBlob);
+    a.download = `${slugify(plan.name)}.ifc`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -385,31 +403,6 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-200">{error}</div>
           )}
 
-          {/* Revisión del profesional — su criterio manda */}
-          {plan && (
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-                📝 Sugerir cambios (profesional)
-              </p>
-              <textarea
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                rows={3}
-                placeholder="Ej: agranda el baño principal a 2.0×2.2, mueve la cocina junto a la lavandería, la alcoba sur necesita ventana más grande…"
-                className="mt-2 w-full resize-none rounded-lg border border-white/10 bg-[#0a1120] px-2.5 py-2 text-xs text-slate-100 placeholder:text-slate-600 focus:border-amber-500/50 focus:outline-none"
-              />
-              <button
-                type="button" onClick={runRevise} disabled={revBusy || !feedback.trim()}
-                className="mt-2 w-full rounded-lg bg-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-100 ring-1 ring-amber-400/40 transition hover:bg-amber-500/30 disabled:opacity-50"
-              >
-                {revBusy ? "Redibujando…" : "✏️ Redibujar con mis cambios"}
-              </button>
-              <p className="mt-1.5 text-[9px] leading-relaxed text-slate-500">
-                El arquitecto ejecuta tus indicaciones, actualiza la memoria de diseño y registra cada cambio en el expediente.
-              </p>
-            </div>
-          )}
-
           {/* Paquete de licencia de construcción */}
           {plan && (
             <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/[0.05] p-3">
@@ -417,7 +410,7 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
                 🏛️ Paquete de licencia
               </p>
               <div className="mt-2 space-y-1 text-[10px] text-slate-300">
-                <p>✅ Plano arquitectónico (DXF por capas)</p>
+                <p>✅ Modelo BIM IFC (muros por capas, estructura, MEP)</p>
                 <p>✅ Memoria de diseño {plan.designReport ? "" : "(pendiente — regenera)"}</p>
                 <p>✅ Cuadro de áreas ({plan.rooms.length} espacios)</p>
                 <p>✅ Memoria estructural {plan.structure ? "" : "(falta etapa expertos)"}</p>
@@ -443,6 +436,12 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
                 className="w-full rounded-lg bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-100 ring-1 ring-emerald-400/30 transition hover:bg-emerald-500/30"
               >
                 ⬇️ Descargar DXF por capas
+              </button>
+              <button
+                type="button" onClick={downloadIfc}
+                className="w-full rounded-lg bg-sky-500/20 px-3 py-2 text-xs font-semibold text-sky-100 ring-1 ring-sky-400/30 transition hover:bg-sky-500/30"
+              >
+                🧱 Descargar modelo IFC 3D (obra gris + instalaciones)
               </button>
               {projectSlug && (
                 <button
@@ -703,6 +702,13 @@ function AgentConsole({ lines, working }: {
   working: boolean;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!working) return;
+    setElapsed(0);
+    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [working]);
   useEffect(() => {
     boxRef.current?.scrollTo({ top: boxRef.current.scrollHeight });
   }, [lines]);
@@ -724,6 +730,7 @@ function AgentConsole({ lines, working }: {
           {working ? (
             <span className="animate-pulse">
               {activeAgents.slice(0, 3).map((a) => AGENT_META[a ?? ""]?.icon).join(" ")} trabajando…
+              <span className="ml-1 font-mono text-emerald-300">⏱ {elapsed}s</span>
             </span>
           ) : (
             <span className="text-slate-500">Consola del estudio</span>
