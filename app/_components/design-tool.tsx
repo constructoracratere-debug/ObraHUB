@@ -459,6 +459,32 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
         </div>
         )}
 
+        {/* ✏️ Modificar cualquier detalle con prompt — siempre visible sobre el plano */}
+        {plan && !revBusy && (
+          <div className="absolute bottom-2 left-1/2 z-10 w-[94%] max-w-2xl -translate-x-1/2">
+            <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-[#070d1a]/92 p-1.5 backdrop-blur-xl">
+              <span className="pl-2 text-sm">✏️</span>
+              <input
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="Modifica cualquier detalle: «agrupa baño con lavandería», «agranda la sala a 4×3.5», «más ventanas al norte»…"
+                className="min-w-0 flex-1 bg-transparent px-1 text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none"
+              />
+              <button
+                type="button" onClick={runRevise} disabled={!feedback.trim()}
+                className="shrink-0 rounded-lg bg-amber-500/25 px-3 py-1.5 text-[11px] font-semibold text-amber-100 ring-1 ring-amber-400/40 transition hover:bg-amber-500/40 disabled:opacity-40"
+              >
+                Redibujar
+              </button>
+            </div>
+          </div>
+        )}
+        {revBusy && (
+          <div className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 animate-pulse rounded-xl border border-amber-400/40 bg-[#070d1a]/92 px-4 py-2 text-xs font-semibold text-amber-200 backdrop-blur-xl">
+            ✏️ Arquitecto redibujando con tus cambios… (mira la consola)
+          </div>
+        )}
+
         {/* Botones flotantes para abrir drawers — el plano manda */}
         {plan && (
           <div className="absolute right-2 top-2 z-10 flex gap-1.5">
