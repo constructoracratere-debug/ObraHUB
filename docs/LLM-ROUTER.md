@@ -66,3 +66,5 @@ La biblioteca normativa responde hoy con GPT-4.1-mini (~US$0.0004/consulta con
 RAG). Con la cadena gratis activa, el 80-90% de las consultas de texto las
 absorben Gemini/Kimi/Qwen a **costo cero**, y OpenAI queda solo para fotos
 (GPT-4o) y JSON crítico — exactamente donde su calidad justifica el precio.
+
+<!-- verificación de migración completa: deploy automático OK -->
