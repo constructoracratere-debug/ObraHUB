@@ -445,6 +445,30 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeProjectSlug, setActiveProjectSlug] = useState<string | null>(null);
 
+  // Chivato de recursos que fallan al cargar (chunks 404 por caché vieja del
+  // service worker, red caída al pedir un módulo…). Antes estos fallos eran
+  // SILENCIOSOS: la herramienta no abría y no se veía nada. Ahora el usuario
+  // ve la causa y la cura (recarga dura).
+  const [resourceError, setResourceError] = useState<string | null>(null);
+  useEffect(() => {
+    const isResourceFailure = (msg: string) =>
+      /Loading chunk|dynamically imported module|Importing a module script failed|Failed to fetch|error loading dynamically/i.test(msg);
+    const onError = (e: ErrorEvent) => {
+      const msg = e?.message ?? "";
+      if (isResourceFailure(msg)) setResourceError(msg);
+    };
+    const onRejection = (e: PromiseRejectionEvent) => {
+      const msg = String((e as PromiseRejectionEvent)?.reason?.message ?? e?.reason ?? "");
+      if (isResourceFailure(msg)) setResourceError(msg);
+    };
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
   // Portfolio health cards (Home dashboard).
   const [portfolio, setPortfolio] = useState<Array<{
     slug: string; name: string; progress: number; spi: number | null;
@@ -1635,6 +1659,19 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
 
   return (
     <div className="relative flex h-dvh overflow-hidden bg-[#050b14] text-slate-200">
+      {/* Fallo de recursos visible: un chunk 404 por caché vieja antes dejaba
+          la herramienta muerta y silenciosa ("no se ve nada"). */}
+      {resourceError && (
+        <div className="fixed inset-x-0 top-0 z-[70] border-b border-amber-500/40 bg-amber-500/15 px-4 py-2.5 text-center text-xs text-amber-100 backdrop-blur">
+          <p className="font-semibold">⚠️ La app no pudo cargar un componente ({resourceError.slice(0, 80)}).</p>
+          <p className="mt-0.5 text-amber-200/80">
+            Casi siempre es caché vieja del navegador: haz <b>Ctrl+Shift+R</b> (o cierra y abre la app) y queda.
+          </p>
+          <button type="button" onClick={() => setResourceError(null)} className="mt-1 rounded-full px-2 py-0.5 text-[10px] text-amber-200/70 hover:bg-white/10">
+            ocultar
+          </button>
+        </div>
+      )}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"

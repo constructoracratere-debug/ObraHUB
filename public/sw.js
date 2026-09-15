@@ -25,7 +25,17 @@ self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
+      // Sanación en UNA visita: los dispositivos pegados a la v1 (app vieja
+      // con bugs) recargan sus ventanas apenas esta versión toma control, y
+      // la recarga ya sale limpia de la red. El activate corre una sola vez
+      // por versión — no hay bucle.
+      .then(() => self.clients.matchAll({ type: "window", includeUncontrolled: true }))
+      .then((clients) => {
+        for (const c of clients) {
+          try { c.navigate(c.url); } catch { /* cliente no navegable */ }
+        }
+      }),
   );
 });
 
