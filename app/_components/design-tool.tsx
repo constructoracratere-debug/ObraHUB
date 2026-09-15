@@ -128,6 +128,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Bucle de revisión con el profesional + paquete de licencia.
   const [feedback, setFeedback] = useState("");
+  const [promptOpen, setPromptOpen] = useState(true); // barra ámbar minimizable
   const [revisions, setRevisions] = useState<RevisionLog[]>([]);
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
@@ -430,8 +431,10 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             className="absolute inset-0 z-20 bg-black/50 lg:hidden"
           />
         )}
-        {/* Drawer ESTUDIO (etapa + acciones) — overlay; visible sin plan */}
-        {(drawer === "estudio" || !plan) && (
+        {/* Drawer ESTUDIO (etapa + acciones) — overlay. EL PLANO ES EL
+            PROTAGONISTA: se puede cerrar SIEMPRE (con o sin plan) desde ⚙️
+            Estudio; sin plan, el centro ofrece un CTA para reabrirlo. */}
+        {drawer === "estudio" && (
         <div className="absolute inset-y-0 left-0 z-30 flex w-[88%] max-w-sm flex-col gap-3 overflow-y-auto border-r border-white/[0.1] bg-[#070d1a]/95 p-3 backdrop-blur-xl lg:w-80">
           <StagePanel
             stage={stage}
@@ -502,8 +505,18 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
         </div>
         )}
 
-        {/* ✏️ Modificar cualquier detalle con prompt — siempre visible sobre el plano */}
-        {plan && !revBusy && (
+        {/* ✏️ Modificar cualquier detalle con prompt — siempre accesible;
+            minimizable a un botón para dejar el plano protagonista. */}
+        {plan && !revBusy && !promptOpen && (
+          <button
+            type="button" onClick={() => setPromptOpen(true)}
+            title="Modificar cualquier detalle del plano"
+            className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-amber-500/40 bg-[#070d1a]/92 px-4 py-2 text-xs font-semibold text-amber-200 shadow-lg backdrop-blur-xl transition hover:bg-amber-500/20"
+          >
+            ✏️ Modificar
+          </button>
+        )}
+        {plan && !revBusy && promptOpen && (
           <div className="absolute bottom-2 left-1/2 z-10 w-[94%] max-w-2xl -translate-x-1/2">
             <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-[#070d1a]/92 p-1.5 backdrop-blur-xl">
               <span className="pl-2 text-sm">✏️</span>
@@ -519,6 +532,14 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
               >
                 Redibujar
               </button>
+              <button
+                type="button" onClick={() => setPromptOpen(false)}
+                title="Minimizar — más espacio para el plano"
+                aria-label="Minimizar barra de modificación"
+                className="shrink-0 rounded-lg px-2 py-1.5 text-[11px] text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-300"
+              >
+                ▾
+              </button>
             </div>
           </div>
         )}
@@ -528,19 +549,20 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
           </div>
         )}
 
-        {/* Botones flotantes para abrir drawers — el plano manda */}
-        {plan && (
-          <div className="absolute right-2 top-2 z-10 flex gap-1.5">
-            <button type="button" onClick={() => setDrawer(drawer === "estudio" ? null : "estudio")}
-              className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur transition ${drawer === "estudio" ? "border-blue-400/50 bg-blue-500/25 text-blue-100" : "border-white/[0.08] bg-[#0a1120]/85 text-slate-300 hover:bg-white/[0.08]"}`}>
-              ⚙️ Estudio
-            </button>
+        {/* Botones flotantes para abrir drawers — el plano manda.
+            ⚙️ Estudio SIEMPRE visible: el usuario decide cuándo ver textos. */}
+        <div className="absolute right-2 top-2 z-10 flex gap-1.5">
+          <button type="button" onClick={() => setDrawer(drawer === "estudio" ? null : "estudio")}
+            className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur transition ${drawer === "estudio" ? "border-blue-400/50 bg-blue-500/25 text-blue-100" : "border-white/[0.08] bg-[#0a1120]/85 text-slate-300 hover:bg-white/[0.08]"}`}>
+            ⚙️ Estudio
+          </button>
+          {plan && (
             <button type="button" onClick={() => setDrawer(drawer === "expediente" ? null : "expediente")}
               className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur transition ${drawer === "expediente" ? "border-blue-400/50 bg-blue-500/25 text-blue-100" : "border-white/[0.08] bg-[#0a1120]/85 text-slate-300 hover:bg-white/[0.08]"}`}>
               📋 Expediente
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Centro: plano SVG + consola de agentes en vivo */}
         <div className="absolute inset-0 bg-[#0a1120]">
@@ -790,8 +812,12 @@ function AgentConsole({ lines, working }: {
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [elapsed, setElapsed] = useState(0);
+  // Minimizable: el usuario manda sobre el espacio — pero cuando el estudio
+  // trabaja, la consola se expande sola para narrar.
+  const [minimized, setMinimized] = useState(false);
   useEffect(() => {
     if (!working) return;
+    setMinimized(false); // auto-expandir al arrancar una etapa
     setElapsed(0);
     const t = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(t);
@@ -823,22 +849,34 @@ function AgentConsole({ lines, working }: {
             <span className="text-slate-500">Consola del estudio</span>
           )}
         </p>
-        <span className={`h-2 w-2 shrink-0 rounded-full ${working ? "animate-pulse bg-emerald-400" : "bg-slate-600"}`} />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className={`h-2 w-2 rounded-full ${working ? "animate-pulse bg-emerald-400" : "bg-slate-600"}`} />
+          <button
+            type="button" onClick={() => setMinimized((m) => !m)}
+            title={minimized ? "Expandir consola" : "Minimizar consola — más plano"}
+            aria-label={minimized ? "Expandir consola" : "Minimizar consola"}
+            className="rounded px-1.5 text-[11px] text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-200"
+          >
+            {minimized ? "▴" : "▾"}
+          </button>
+        </div>
       </div>
-      <div ref={boxRef} className="max-h-[30vh] space-y-0.5 overflow-y-auto px-3 py-2">
-        {lines.map((l, i) => {
-          const meta = l.agent ? AGENT_META[l.agent] : null;
-          return (
-            <p key={i} className={`text-[10.5px] leading-relaxed ${kindClass[l.kind] ?? "text-slate-300"}`}>
-              {meta && l.kind !== "delta" && <span className={meta.color}>{meta.icon} </span>}
-              {l.kind === "delta" && <span className="text-emerald-500/70">▎</span>}
-              {l.text}
-              {l.kind === "delta" && i === lines.length - 1 && <span className="animate-pulse text-emerald-300">▊</span>}
-            </p>
-          );
-        })}
-        {lines.length === 0 && <p className="text-[10.5px] text-slate-500">Iniciando…</p>}
-      </div>
+      {!minimized && (
+        <div ref={boxRef} className="max-h-[30vh] space-y-0.5 overflow-y-auto px-3 py-2">
+          {lines.map((l, i) => {
+            const meta = l.agent ? AGENT_META[l.agent] : null;
+            return (
+              <p key={i} className={`text-[10.5px] leading-relaxed ${kindClass[l.kind] ?? "text-slate-300"}`}>
+                {meta && l.kind !== "delta" && <span className={meta.color}>{meta.icon} </span>}
+                {l.kind === "delta" && <span className="text-emerald-500/70">▎</span>}
+                {l.text}
+                {l.kind === "delta" && i === lines.length - 1 && <span className="animate-pulse text-emerald-300">▊</span>}
+              </p>
+            );
+          })}
+          {lines.length === 0 && <p className="text-[10.5px] text-slate-500">Iniciando…</p>}
+        </div>
+      )}
     </div>
   );
 }
