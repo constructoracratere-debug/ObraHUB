@@ -2174,12 +2174,18 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         <main className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto">
             <div
-              className={`mx-auto flex w-full flex-col px-4 sm:px-6 ${
+              className={`mx-auto flex w-full flex-col ${
                 showHero
-                  ? "max-w-5xl py-8 sm:py-10"
+                  ? "max-w-5xl px-4 py-8 sm:px-6 sm:py-10"
+                  : activeTool === "diseno"
+                  // El Diseño IA es full-bleed: sin max-width de chat y con
+                  // ALTURA DEFINIDA (h-full) — antes heredaba la columna de
+                  // chat (max-w-3xl, altura por contenido) y su canvas
+                  // absoluto colapsaba a 0px: solo se veía la barra de etapas.
+                  ? "h-full max-w-none px-0 py-0"
                   : activeTool === "seguimiento"
-                  ? "max-w-[1600px] min-h-full py-4 sm:py-6"
-                  : "max-w-3xl min-h-full py-6 sm:py-8"
+                  ? "max-w-[1600px] min-h-full px-4 py-4 sm:px-6 sm:py-6"
+                  : "max-w-3xl min-h-full px-4 py-6 sm:px-6 sm:py-8"
               }`}
             >
               {showHero ? (
