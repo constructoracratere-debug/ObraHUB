@@ -10,7 +10,7 @@
  * El plano se dibuja en SVG (viewBox pan/zoom, patrón dwg-preview).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   type FloorPlan,
@@ -74,7 +74,44 @@ const EXAMPLES = [
   "Vivienda guadua 2 pisos en el Eje Cafetero, 3 alcobas, 80 m²",
 ];
 
-export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: string; initialPrompt?: string }) {
+// SHA del build (inyectado en build-time). Visible en el stepper: con una
+// captura sabemos de inmediato si un dispositivo corre un build viejo.
+const BUILD_SHA = (process.env.NEXT_PUBLIC_BUILD_SHA ?? "dev").slice(0, 7);
+
+/** Convierte cualquier crash de render en un mensaje visible — jamás pantalla en blanco. */
+class DesignErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex h-full items-center justify-center p-6">
+          <div className="max-w-md rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+            <p className="font-semibold">El estudio tuvo un error interno.</p>
+            <p className="mt-1 break-words font-mono text-[11px] text-red-300/80">
+              {String(this.state.error?.message ?? this.state.error)}
+            </p>
+            <button
+              type="button"
+              onClick={() => this.setState({ error: null })}
+              className="mt-3 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-semibold ring-1 ring-red-400/40 hover:bg-red-500/30"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string; initialPrompt?: string }) {
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
   const [location, setLocation] = useState("");
   const [stage, setStage] = useState<Stage>(0);
@@ -376,6 +413,12 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
             </div>
           );
         })}
+        <span
+          className="ml-auto shrink-0 self-center px-1 text-[9px] font-mono text-slate-700"
+          title={`Build ${process.env.NEXT_PUBLIC_BUILD_SHA ?? "dev"} — si esto no coincide con el último deploy, tu navegador tiene caché vieja (Ctrl+Shift+R)`}
+        >
+          v{BUILD_SHA}
+        </span>
       </div>
 
       <div className="relative flex min-h-0 flex-1">
@@ -522,6 +565,15 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl">✏️</div>
                 <p className="text-sm text-slate-400">El plano aparece aquí cuando el arquitecto termine el boceto.</p>
                 <p className="mt-1 text-xs text-slate-600">Empieza por la ficha de sitio (etapa 0).</p>
+                {drawer !== "estudio" && (
+                  <button
+                    type="button"
+                    onClick={() => setDrawer("estudio")}
+                    className="mt-4 rounded-lg bg-blue-500/20 px-4 py-2 text-xs font-semibold text-blue-100 ring-1 ring-blue-400/40 transition hover:bg-blue-500/30"
+                  >
+                    📍 Abrir el estudio de sitio
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -543,6 +595,15 @@ export function DesignTool({ projectSlug, initialPrompt }: { projectSlug?: strin
         )}
       </div>
     </div>
+  );
+}
+
+/** Export blindado: cualquier crash de render se muestra, nunca pantalla vacía. */
+export function DesignTool(props: { projectSlug?: string; initialPrompt?: string }) {
+  return (
+    <DesignErrorBoundary>
+      <DesignToolInner {...props} />
+    </DesignErrorBoundary>
   );
 }
 

@@ -14,9 +14,33 @@ export function PwaInstall() {
   const [standalone, setStandalone] = useState(true);
 
   useEffect(() => {
-    // Register the service worker once.
+    // Register the service worker once — y forzar chequeo de updates en cada
+    // visita y al volver a la pestaña. Un SW viejo cacheando builds viejos
+    // fue la causa de "la app no cambia nada" en dispositivos reales: la
+    // cura es detectar el nuevo SW apenas exista y recargar UNA sola vez.
+    // Solo se recarga si la página lleva <20 s abierta: nunca interrumpe una
+    // generación en curso; los updates que llegan después aplican en la
+    // siguiente navegación.
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => { /* optional */ });
+      const openedAt = Date.now();
+      let reloaded = false;
+      const onControllerChange = () => {
+        if (reloaded || Date.now() - openedAt > 20_000) return;
+        reloaded = true;
+        location.reload();
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          const check = () => reg.update().catch(() => { /* offline */ });
+          check();
+          document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") check();
+          });
+        })
+        .catch(() => { /* optional */ });
     }
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||

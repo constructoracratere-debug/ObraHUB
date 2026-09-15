@@ -1,11 +1,24 @@
-/* ObraHub service worker — installable PWA + offline app shell.
-   Strategy: precache the shell; navigations network-first with offline
-   fallback; immutable build assets cache-first; /api always network. */
-const CACHE = "obrahub-v1";
-const SHELL = ["/login", "/landing", "/manifest.json", "/logo-obrahub.svg"];
+/* ObraHub service worker v2 — installable PWA + offline shell.
+   CAMBIO CRÍTICO vs v1: la v1 cacheaba el HTML de cada navegación y podía
+   servir una app VIEJA completa (HTML viejo + chunks viejos) cuando la red
+   fallaba un instante — el usuario veía bugs ya arreglados ("pantalla en
+   blanco del Diseño IA"). Reglas v2:
+   - Navegación: SIEMPRE red; si la red falla, solo el shell genérico /login.
+     Nunca se guarda ni se sirve HTML de páginas de la app.
+   - Chunks de build (/_next/static, /wasm): cache-first — son inmutables
+     por hash de contenido, no existe el concepto de "versión vieja" en esa
+     URL.
+   - activate: borra TODA caché que no sea la actual (obrahub-v2), lo que
+     purga de raíz la obrahub-v1 envenenada en los dispositivos. */
+const CACHE = "obrahub-v2";
+const SHELL = ["/login", "/manifest.json", "/logo-obrahub.svg"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(SHELL))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (e) => {
@@ -23,7 +36,7 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return; // data is always live
 
-  // Immutable build assets / wasm / images: cache-first.
+  // Immutable build assets / wasm / images: cache-first (hash-safe).
   if (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/wasm/") ||
@@ -43,16 +56,13 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Navigations: network-first, offline fallback to cached shell.
+  // Navigations: red SIEMPRE. Sin caché de HTML de la app: una app vieja
+  // cacheada es peor que un error de red honesto. Offline → shell /login.
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req).then((hit) => hit ?? caches.match("/login"))),
+      fetch(req).catch(() =>
+        caches.match(req).then((hit) => hit ?? caches.match("/login")),
+      ),
     );
   }
 });
