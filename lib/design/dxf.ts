@@ -128,6 +128,20 @@ class DxfBuilder {
     for (const p of list) {
       if (p.t === "L") this.line(p.l, p.x1 + dx, p.y1 + dy, p.x2 + dx, p.y2 + dy);
       else if (p.t === "T") this.text(p.l, p.x + dx, p.y + dy, p.h, p.s, p.r ?? 0);
+      else if (p.t === "F") {
+        // Rect RELLENO → poché clásico: contorno + rayado 45° (Ching).
+        const x0 = p.x + dx, y0 = p.y + dy, x1 = x0 + p.w, y1 = y0 + p.h;
+        this.line(p.l, x0, y0, x1, y0);
+        this.line(p.l, x1, y0, x1, y1);
+        this.line(p.l, x1, y1, x0, y1);
+        this.line(p.l, x0, y1, x0, y0);
+        const step = 0.07;
+        for (let s = -p.h; s < p.w; s += step) {
+          const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h);
+          const bx = Math.min(x1, x0 + s + p.h), by = Math.max(y0, y0 + s);
+          if (ax < bx && by < ay) this.line(p.l, ax, by, bx, ay);
+        }
+      }
       else {
         // Rect hueco → contorno.
         this.line(p.l, p.x + dx, p.y + dy, p.x + p.w + dx, p.y + dy);

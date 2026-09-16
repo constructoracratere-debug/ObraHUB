@@ -130,8 +130,9 @@ check("determinismo byte a byte", dxf === dxf2);
 const clamped = sanitizeFloorPlan({ ...rawPlan, rooms: [{ ...rawPlan.rooms[0], x: 999, width: -5 }] });
 check("sanitizador clampa x y width", clamped.rooms[0].x <= clamped.outline.width && clamped.rooms[0].width >= 0.9);
 
-// Tamaño razonable (< 100 KB para 5 espacios).
-check(`tamaño razonable (${(dxf.length / 1024).toFixed(1)} KB)`, dxf.length < 100_000);
+// Tamaño razonable (< 300 KB — el poché 45° y las texturas Ching añaden
+// entidades legítimamente; una lámina de curaduría real pesa mucho más).
+check(`tamaño razonable (${(dxf.length / 1024).toFixed(1)} KB)`, dxf.length < 300_000);
 
 console.log(`\n${pass} pasan · ${fail} fallan`);
 if (fail > 0) {

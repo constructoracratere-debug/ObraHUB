@@ -761,32 +761,94 @@ const PRIM_COLORS: Record<string, string> = {
   EJES: "#f87171", COTAS: "#a78bfa", TEXTOS: "#cbd5e1",
 };
 
+// Jerarquía de línea (Ching §2): lo cortado manda; texturas/cotas finas.
+const PRIM_WEIGHT: Record<string, number> = {
+  CORTE: 0.07, MUROS: 0.07, PUERTAS: 0.05, VENTANAS: 0.04,
+  COTAS: 0.035, TEXTOS: 0.035, EJES: 0.035,
+};
+
 function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const dragRef = useRef<{ px: number; py: number; vx: number; vy: number } | null>(null);
+
   const b = primsBounds(prims);
-  const pad = 1.2;
-  const vb = { x: b.minX - pad, y: b.minY - pad, w: b.maxX - b.minX + pad * 2, h: b.maxY - b.minY + pad * 2 };
-  const sy = (y: number) => b.maxY + pad - (y - (b.minY - pad)); // invierte Y (CAD arriba)
+  const pad = fitSmall ? 0.8 : 1.2;
+  // sy() mapea CAD→SVG invirtiendo Y: el contenido vive en [minY-pad, maxY+pad].
+  const full = { x: b.minX - pad, y: b.minY - pad, w: b.maxX - b.minX + pad * 2, h: b.maxY - b.minY + pad * 2 };
+  const vb = view ?? full;
+
+  useEffect(() => { setView(null); }, [prims]);
+
+  // Pan/zoom IDÉNTICO al de la planta (misma experiencia en cortes/fachadas).
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const k = e.deltaY > 0 ? 1.12 : 0.89;
+    setView((v) => {
+      const base = v ?? full;
+      const cx = base.x + base.w / 2;
+      const cy = base.y + base.h / 2;
+      const w = Math.min(base.w * k, full.w * 4);
+      const h = w * (base.h / base.w);
+      return { x: cx - w / 2, y: cy - h / 2, w, h };
+    });
+  };
+
+  // SVG Y invertida respecto a CAD.
+  const sy = (y: number) => b.maxY + pad - (y - (b.minY - pad));
+
   return (
-    <div className="absolute inset-0 overflow-hidden">
-      <svg className="h-full w-full" viewBox={`${vb.x} ${0} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet">
-        <rect x={vb.x} y={0} width={vb.w} height={vb.h} fill="#0a1120" />
-        {prims.filter((p) => p.t === "L").map((p, i) => (
-          <line key={`l${i}`} x1={p.x1} y1={sy(p.y1)} x2={p.x2} y2={sy(p.y2)}
-            stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={0.05} />
-        ))}
-        {prims.filter((p) => p.t === "H").map((p, i) => (
-          <rect key={`h${i}`} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h}
-            fill="none" stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={0.05} />
-        ))}
-        {prims.filter((p) => p.t === "T").map((p, i) => (
-          <text key={`t${i}`} x={p.x} y={sy(p.y)} fontSize={p.h} fill={PRIM_COLORS[p.l] ?? "#cbd5e1"}>
-            {p.s}
-          </text>
-        ))}
+    <div
+      ref={hostRef}
+      className="absolute inset-0 overflow-hidden"
+      onWheel={onWheel}
+      onPointerDown={(e) => { dragRef.current = { px: e.clientX, py: e.clientY, vx: vb.x, vy: vb.y }; (e.target as HTMLElement).setPointerCapture?.(e.pointerId); }}
+      onPointerMove={(e) => {
+        const d = dragRef.current;
+        if (!d) return;
+        const rect = hostRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const scale = vb.w / rect.width;
+        setView({ ...vb, x: d.vx - (e.clientX - d.px) * scale, y: d.vy - (e.clientY - d.py) * scale });
+      }}
+      onPointerUp={() => { dragRef.current = null; }}
+      onDoubleClick={() => setView(null)}
+      style={{ cursor: dragRef.current ? "grabbing" : "grab", touchAction: "none" }}
+    >
+      <svg className="h-full w-full" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet">
+        <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="#0a1120" />
+        {prims.map((p, i) => {
+          if (p.t === "F") {
+            return (
+              <rect key={`f${i}`} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h}
+                fill={PRIM_COLORS[p.l] ?? "#94a3b8"} fillOpacity={0.9} />
+            );
+          }
+          if (p.t === "H") {
+            return (
+              <rect key={`h${i}`} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h}
+                fill="none" stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={PRIM_WEIGHT[p.l] ?? 0.05} />
+            );
+          }
+          if (p.t === "L") {
+            return (
+              <line key={`l${i}`} x1={p.x1} y1={sy(p.y1)} x2={p.x2} y2={sy(p.y2)}
+                stroke={PRIM_COLORS[p.l] ?? "#94a3b8"}
+                strokeWidth={(PRIM_WEIGHT[p.l] ?? 0.05) * (p.thin ? 0.5 : 1)}
+                strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
+            );
+          }
+          return (
+            <text key={`t${i}`} x={p.x} y={sy(p.y)} fontSize={p.h} fill={PRIM_COLORS[p.l] ?? "#cbd5e1"}
+              transform={p.r ? `rotate(${180 - p.r} ${p.x} ${sy(p.y)})` : undefined}>
+              {p.s}
+            </text>
+          );
+        })}
       </svg>
       <div className="pointer-events-none absolute right-2 bottom-16 rounded-lg bg-[#070d1a]/85 px-2.5 py-1.5 backdrop-blur sm:bottom-2">
         <p className="text-xs font-semibold text-slate-200">{title}</p>
-        <p className="text-[10px] text-slate-500">vista incluida en el DXF y en el expediente</p>
+        <p className="text-[10px] text-slate-500">arrastra para mover · rueda para zoom · doble clic reencuadra</p>
       </div>
     </div>
   );
