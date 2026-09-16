@@ -116,6 +116,41 @@ export const LINE_HIERARCHY: Record<string, { weight: "thick" | "medium" | "thin
   COTAS: { weight: "thin", colorNote: "línea de cota fina + ticks oblicuos 45°" },
 };
 
+/** ── PLUMAS ISO 128 / Ching §2 — jerarquía de grosor normativa ────────────
+ *  Serie ISO 128 (0.13/0.25/0.35/0.70 mm) con relación 2:1 entre niveles
+ *  (el ojo separa niveles solo si el salto es ≥2x). Valores en METROS DE
+ *  MODELO para ESC 1:75 (mm × 75/1000). En DXF R12 (sin lineweight por
+ *  entidad) el grosor se codifica por COLOR DE CAPA → plumilla al trazar
+ *  (plot style dependiente de color, flujo profesional clásico). */
+export const PENS = {
+  /** Corte: muros/placas/columnas cortados — lo más pesado del plano. */
+  cut: { mm: 0.7, m: 0.0525, dxfColor: 7 },
+  /** Perfil no cortado: vanos, mobiliario, sanitarios, envolvente de fachada. */
+  profile: { mm: 0.35, m: 0.0263, dxfColor: 3 },
+  /** Texturas: rayados, vidrio, tramas de mampostería, detalles internos. */
+  thin: { mm: 0.25, m: 0.0188, dxfColor: 1 },
+  /** Auxiliares: cotas, ejes, líneas de extensión, símbolos MEP. */
+  extra: { mm: 0.13, m: 0.0098, dxfColor: 2 },
+} as const;
+export type PenClass = keyof typeof PENS;
+
+/** Capa → clase de pluma (única fuente de verdad para SVG y DXF). */
+export const PEN_BY_LAYER: Record<string, PenClass> = {
+  MUROS: "cut", CORTE: "cut",
+  PUERTAS: "profile", VENTANAS: "profile",
+  "FACHADA-NORTE": "profile", "FACHADA-SUR": "profile",
+  "FACHADA-ESTE": "profile", "FACHADA-OESTE": "profile",
+  MOBILIARIO: "profile", SANITARIOS: "profile",
+  ELECTRICO: "thin", HIDROSANITARIO: "thin",
+  EJES: "extra", TEXTOS: "extra", COTAS: "extra",
+};
+
+/** Grosor de modelo para una capa (con degradación opcional `thin`). */
+export function penWidth(layer: string, thin = false): number {
+  const base = PENS[PEN_BY_LAYER[layer] ?? "profile"].m;
+  return thin ? base * 0.72 : base; // un paso abajo en la serie ≈ ×0.7
+}
+
 /** Poché de muros cortados: rayado a 45° (Ching) — espaciado en metros. */
 export const POCHÉ = { angleDeg: 45, spacing: 0.09, maxSegments: 1400 };
 

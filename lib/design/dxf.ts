@@ -11,7 +11,7 @@
  */
 
 import { roomArea, type FloorPlan, type Room } from "./schema";
-import { POCHÉ, NORTH_ARROW, SCALE_BAR } from "./knowledge";
+import { POCHÉ, NORTH_ARROW, SCALE_BAR, PENS } from "./knowledge";
 import { sheetPrimitives, type Prim } from "./views";
 
 type Entity = string; // pares "code\nvalue\n" acumulados
@@ -21,20 +21,27 @@ class DxfBuilder {
   private layers: Array<{ name: string; color: number }> = [];
 
   constructor(levels = 1) {
+    // Colores = CLASE DE PLUMA ISO 128 (knowledge.ts PENS): en DXF R12 no
+    // existe lineweight por entidad, así que el grosor se codifica por color
+    // de capa → plumilla en el plot (flujo CAD clásico):
+    //   7 (blanco)  = corte 0.70 mm · 3 (verde) = perfil 0.35 mm
+    //   1 (rojo)    = textura 0.25 mm · 2 (amarillo) = auxiliar 0.13 mm
     const base: Array<[string, number]> = [
-      ["MUROS", 7],          // blanco/negro
-      ["PUERTAS", 3],        // verde
-      ["VENTANAS", 4],       // cian
-      ["EJES", 1],           // rojo
-      ["ELECTRICO", 2],      // amarillo
-      ["HIDROSANITARIO", 5], // azul
-      ["TEXTOS", 8],         // gris
-      ["COTAS", 6],          // magenta
-      ["CORTE", 7],          // sección A-A'
-      ["FACHADA-NORTE", 4],
-      ["FACHADA-SUR", 4],
-      ["FACHADA-ESTE", 4],
-      ["FACHADA-OESTE", 4],
+      ["MUROS", PENS.cut.dxfColor],
+      ["CORTE", PENS.cut.dxfColor],
+      ["PUERTAS", PENS.profile.dxfColor],
+      ["VENTANAS", PENS.profile.dxfColor],
+      ["FACHADA-NORTE", PENS.profile.dxfColor],
+      ["FACHADA-SUR", PENS.profile.dxfColor],
+      ["FACHADA-ESTE", PENS.profile.dxfColor],
+      ["FACHADA-OESTE", PENS.profile.dxfColor],
+      ["MOBILIARIO", PENS.profile.dxfColor],
+      ["SANITARIOS", PENS.profile.dxfColor],
+      ["ELECTRICO", PENS.thin.dxfColor],
+      ["HIDROSANITARIO", PENS.thin.dxfColor],
+      ["EJES", PENS.extra.dxfColor],
+      ["TEXTOS", PENS.extra.dxfColor],
+      ["COTAS", PENS.extra.dxfColor],
     ];
     this.layers = [];
     for (const [name, color] of base) {

@@ -21,6 +21,7 @@ import {
 } from "@/lib/design/schema";
 import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
+import { penWidth } from "@/lib/design/knowledge";
 import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
@@ -763,12 +764,10 @@ const PRIM_COLORS: Record<string, string> = {
   MOBILIARIO: "#d4b483", SANITARIOS: "#7dd3fc", MUROS: "#e2e8f0",
 };
 
-// Jerarquía de línea (Ching §2): lo cortado manda; texturas/cotas finas.
-const PRIM_WEIGHT: Record<string, number> = {
-  CORTE: 0.07, MUROS: 0.07, PUERTAS: 0.05, VENTANAS: 0.04,
-  COTAS: 0.035, TEXTOS: 0.035, EJES: 0.035,
-  MOBILIARIO: 0.035, SANITARIOS: 0.035,
-};
+// Grosor de línea NORMATIVO: plumas ISO 128 a ESC 1:75 desde la KB
+// (knowledge.ts PENS + penWidth) — corte 0.70 mm, perfil 0.35, textura
+// 0.25, auxiliar 0.13. La jerarquía 2:1 hace que el plano se lea por
+// pesos, como enseña Ching §2. Nada de números mágicos aquí.
 
 function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -830,21 +829,21 @@ function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fi
           if (p.t === "H") {
             return (
               <rect key={`h${i}`} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h}
-                fill="none" stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={PRIM_WEIGHT[p.l] ?? 0.05} />
+                fill="none" stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={penWidth(p.l)} />
             );
           }
           if (p.t === "L") {
             return (
               <line key={`l${i}`} x1={p.x1} y1={sy(p.y1)} x2={p.x2} y2={sy(p.y2)}
                 stroke={PRIM_COLORS[p.l] ?? "#94a3b8"}
-                strokeWidth={(PRIM_WEIGHT[p.l] ?? 0.05) * (p.thin ? 0.5 : 1)}
+                strokeWidth={penWidth(p.l, p.thin)}
                 strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
             );
           }
           if (p.t === "C") {
             return (
               <circle key={`c${i}`} cx={p.x} cy={sy(p.y)} r={p.r}
-                fill="none" stroke={PRIM_COLORS[p.l] ?? "#f87171"} strokeWidth={PRIM_WEIGHT[p.l] ?? 0.035} />
+                fill="none" stroke={PRIM_COLORS[p.l] ?? "#f87171"} strokeWidth={penWidth(p.l)} />
             );
           }
           return (
@@ -1025,7 +1024,7 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
         {roomsByLevel.map(([level, rooms]) => (
           <g key={level} transform={plan.levels > 1 ? `translate(${(W + pad * 2) * level + pad * level}, 0)` : undefined}>
             {/* Envuelvente */}
-            <rect x={0} y={svgY(D)} width={W} height={D} fill="none" stroke="#e2e8f0" strokeWidth={0.09} />
+            <rect x={0} y={svgY(D)} width={W} height={D} fill="none" stroke="#e2e8f0" strokeWidth={penWidth("MUROS")} />
             {/* Espacios */}
             {rooms.map((r) => {
               const c = ROOM_COLORS[r.type];
@@ -1033,7 +1032,7 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
                 <g key={`${r.name}-${level}`}>
                   <rect
                     x={r.x} y={svgY(r.y + r.depth)} width={r.width} height={r.depth}
-                    fill={c} fillOpacity={0.16} stroke={c} strokeOpacity={0.85} strokeWidth={0.07}
+                    fill={c} fillOpacity={0.16} stroke={c} strokeOpacity={0.85} strokeWidth={penWidth("MUROS")}
                   />
                   <text x={r.x + r.width / 2} y={svgY(r.y + r.depth / 2) + 0.06} textAnchor="middle" fontSize={0.24} fill="#e2e8f0">
                     {r.name}
@@ -1050,11 +1049,11 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
               const hx = d.hinge === "left" ? d.x - d.width / 2 : d.x + d.width / 2;
               return (
                 <g key={`door-${i}`}>
-                  <line x1={d.x - d.width / 2} y1={svgY(d.y)} x2={d.x + d.width / 2} y2={svgY(d.y)} stroke="#34d399" strokeWidth={0.05} />
-                  <line x1={hx} y1={svgY(d.y)} x2={hx} y2={svgY(d.y + d.width * dir)} stroke="#34d399" strokeWidth={0.05} />
+                  <line x1={d.x - d.width / 2} y1={svgY(d.y)} x2={d.x + d.width / 2} y2={svgY(d.y)} stroke="#34d399" strokeWidth={penWidth("PUERTAS")} />
+                  <line x1={hx} y1={svgY(d.y)} x2={hx} y2={svgY(d.y + d.width * dir)} stroke="#34d399" strokeWidth={penWidth("PUERTAS")} />
                   <path
                     d={`M ${d.x + d.width / 2 - (d.hinge === "left" ? d.width : 0) * 0} ${svgY(d.y)} A ${d.width} ${d.width} 0 0 ${dir === 1 ? 1 : 0} ${hx} ${svgY(d.y + d.width * dir)}`}
-                    fill="none" stroke="#34d399" strokeWidth={0.04} strokeDasharray="0.15 0.1"
+                    fill="none" stroke="#34d399" strokeWidth={penWidth("PUERTAS", true)} strokeDasharray="0.15 0.1"
                   />
                 </g>
               );
@@ -1066,19 +1065,19 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
               const y2 = r.y + r.depth, x2 = r.x + r.width;
               if (w.wall === "norte" || w.wall === "sur") {
                 const yy = w.wall === "norte" ? y2 : r.y;
-                return <line key={`win-${i}`} x1={w.x - w.width / 2} y1={svgY(yy)} x2={w.x + w.width / 2} y2={svgY(yy)} stroke="#38bdf8" strokeWidth={0.1} />;
+                return <line key={`win-${i}`} x1={w.x - w.width / 2} y1={svgY(yy)} x2={w.x + w.width / 2} y2={svgY(yy)} stroke="#38bdf8" strokeWidth={penWidth("VENTANAS")} />;
               }
               const xx = w.wall === "este" ? x2 : r.x;
-              return <line key={`win-${i}`} x1={xx} y1={svgY(w.x - w.width / 2)} x2={xx} y2={svgY(w.x + w.width / 2)} stroke="#38bdf8" strokeWidth={0.1} />;
+              return <line key={`win-${i}`} x1={xx} y1={svgY(w.x - w.width / 2)} x2={xx} y2={svgY(w.x + w.width / 2)} stroke="#38bdf8" strokeWidth={penWidth("VENTANAS")} />;
             })}
             {/* Mobiliario simbólico — Neufert/Panero (Ching §symbol conventions) */}
             {(furnitureByLevel.get(level) ?? []).map((p, i) =>
               p.t === "L" ? (
                 <line key={`fur-${i}`} x1={p.x1} y1={svgY(p.y1)} x2={p.x2} y2={svgY(p.y2)}
-                  stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={0.038} strokeDasharray={p.dash ? "0.18 0.1" : undefined} />
+                  stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={penWidth(p.l, p.thin)} strokeDasharray={p.dash ? "0.18 0.1" : undefined} />
               ) : p.t === "H" ? (
                 <rect key={`fur-${i}`} x={p.x} y={svgY(p.y + p.h)} width={p.w} height={p.h}
-                  fill="none" stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={0.038} />
+                  fill="none" stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={penWidth(p.l)} />
               ) : p.t === "T" ? (
                 <text key={`fur-${i}`} x={p.x} y={svgY(p.y)} fontSize={p.h} fill="#a8a29e">{p.s}</text>
               ) : null
@@ -1087,12 +1086,12 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
             {plan.structure?.axes.filter((a) => plan.levels === 1 || true).map((a, i) =>
               a.orientation === "vertical" ? (
                 <g key={`ax-${i}`}>
-                  <line x1={a.at} y1={svgY(-1.2)} x2={a.at} y2={svgY(D + 1.2)} stroke="#f87171" strokeWidth={0.04} strokeDasharray="0.4 0.25" />
+                  <line x1={a.at} y1={svgY(-1.2)} x2={a.at} y2={svgY(D + 1.2)} stroke="#f87171" strokeWidth={penWidth("EJES")} strokeDasharray="0.4 0.25" />
                   <text x={a.at - 0.08} y={svgY(D + 1.5)} fontSize={0.26} fill="#f87171">{a.id}</text>
                 </g>
               ) : (
                 <g key={`ax-${i}`}>
-                  <line x1={-1.2} y1={svgY(a.at)} x2={W + 1.2} y2={svgY(a.at)} stroke="#f87171" strokeWidth={0.04} strokeDasharray="0.4 0.25" />
+                  <line x1={-1.2} y1={svgY(a.at)} x2={W + 1.2} y2={svgY(a.at)} stroke="#f87171" strokeWidth={penWidth("EJES")} strokeDasharray="0.4 0.25" />
                   <text x={-1.1} y={svgY(a.at) + 0.1} fontSize={0.26} fill="#f87171">{a.id}</text>
                 </g>
               ),
@@ -1100,7 +1099,7 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
             {/* Eléctrico */}
             {plan.electrical?.points.filter((p) => p.level === level).map((p, i) => (
               <g key={`el-${i}`}>
-                <circle cx={p.x} cy={svgY(p.y)} r={0.13} fill="none" stroke="#fbbf24" strokeWidth={0.05} />
+                <circle cx={p.x} cy={svgY(p.y)} r={0.13} fill="none" stroke="#fbbf24" strokeWidth={penWidth("ELECTRICO", true)} />
                 <text x={p.x} y={svgY(p.y) + 0.08} textAnchor="middle" fontSize={0.16} fill="#fbbf24">
                   {p.kind === "tablero" ? "TB" : p.kind === "iluminacion" ? "L" : p.kind === "interruptor" ? "I" : p.kind === "tomacorriente_especial" ? "TE" : "T"}
                 </text>
@@ -1109,14 +1108,14 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
             {/* Hidrosanitario */}
             {plan.hydro?.points.filter((p) => p.level === level).map((p, i) => (
               <g key={`hy-${i}`}>
-                <circle cx={p.x} cy={svgY(p.y)} r={0.14} fill="none" stroke="#60a5fa" strokeWidth={0.05} />
+                <circle cx={p.x} cy={svgY(p.y)} r={0.14} fill="none" stroke="#60a5fa" strokeWidth={penWidth("HIDROSANITARIO", true)} />
                 <text x={p.x} y={svgY(p.y) + 0.08} textAnchor="middle" fontSize={0.14} fill="#93c5fd">
                   {p.kind === "sanitario" ? "SA" : p.kind === "lavamanos" ? "LM" : p.kind === "ducha" ? "DU" : p.kind === "lavaplatos" ? "LP" : p.kind === "lavadero" ? "LD" : p.kind === "calentador" ? "CA" : "PH"}
                 </text>
               </g>
             ))}
             {/* Cotas totales */}
-            <g stroke="#a78bfa" strokeWidth={0.045} fill="#c4b5fd">
+            <g stroke="#a78bfa" strokeWidth={penWidth("COTAS")} fill="#c4b5fd">
               <line x1={0} y1={svgY(-0.9)} x2={W} y2={svgY(-0.9)} />
               <line x1={0} y1={svgY(-1.05)} x2={0} y2={svgY(-0.75)} />
               <line x1={W} y1={svgY(-1.05)} x2={W} y2={svgY(-0.75)} />
