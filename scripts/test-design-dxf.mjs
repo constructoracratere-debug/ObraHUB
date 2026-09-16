@@ -102,7 +102,7 @@ check("VERTEX balanceados", (() => {
   });
 })());
 check("ARC de giro de puertas", (dxf.match(/0\nARC\n/g) ?? []).length === rawPlan.doors.length);
-check("CIRCLE para instalaciones", (dxf.match(/0\nCIRCLE\n/g) ?? []).length === rawPlan.electrical.points.length + rawPlan.hydro.points.length);
+check("CIRCLE instalaciones + burbujas de ejes", (dxf.match(/0\nCIRCLE\n/g) ?? []).length >= rawPlan.electrical.points.length + rawPlan.hydro.points.length);
 check("TEXT con nombre de espacios", dxf.includes("ALCOBA PRINCIPAL") || dxf.includes("Alcoba Principal"));
 check("TEXT de área (m2)", dxf.includes("m2"));
 check("cota total presente", dxf.includes("8.50"));

@@ -15,6 +15,7 @@
 
 import type { FloorPlan, Room } from "./schema";
 import { WALL_ASSEMBLIES, CONCRETE, MEP_BLOCKS, MATERIALS } from "./materials";
+import { furniture3D } from "./symbols";
 
 type Line = string;
 
@@ -146,20 +147,89 @@ export function planToIfc(plan: FloorPlan): string {
       products.push(prod);
     };
 
+    // Muro con VANOS REALES: segmentos entre vanos + antepecho bajo ventana +
+    // dintel sobre vano (así se ve el hueco de verdad en el visor 3D, como
+    // un exportador BIM profesional — no muros que atraviesan puertas).
+    // openings: at = centro del vano a lo largo del muro (desde su inicio).
+    const wallWithOpenings = (
+      cx: number, cy: number, len: number, th: number, along: "x" | "y",
+      setName: number, name: string,
+      openings: Array<{ at: number; w: number; sill: number; head: number }>,
+    ) => {
+      const s0 = (along === "x" ? cx : cy) - len / 2;
+      const os = openings
+        .filter((o) => o.at - o.w / 2 > s0 + 0.02 && o.at + o.w / 2 < s0 + len - 0.02)
+        .sort((a, b) => a.at - b.at);
+      let segN = 0;
+      const seg = (a: number, b: number, zBot: number, h: number, tag: string) => {
+        const L = b - a;
+        if (L < 0.03 || h < 0.03) return;
+        const mid = a + L / 2;
+        const x = along === "x" ? mid : cx;
+        const y = along === "x" ? cy : mid;
+        wall(x, y, along === "x" ? L : th, along === "x" ? th : L, along, setName, `${name} ${tag}${segN}`);
+        segN++;
+      };
+      let cursor = s0;
+      for (const o of os) {
+        seg(cursor, o.at - o.w / 2, 0, fft, "tramo");
+        if (o.sill > 0.02) seg(o.at - o.w / 2, o.at + o.w / 2, 0, o.sill, "antepecho");
+        if (o.head < fft - 0.02) seg(o.at - o.w / 2, o.at + o.w / 2, o.head, fft - o.head, "dintel");
+        cursor = o.at + o.w / 2;
+      }
+      seg(cursor, s0 + len, 0, fft, "tramo");
+      if (segN === 0) wall(cx, cy, along === "x" ? len : th, along === "x" ? th : len, along, setName, name);
+    };
+
     // Muros exteriores (anillo) e interiores (bordes compartidos dedup).
     const te = extThickness(asm);
-    // Exterior: 4 bandas centradas en el eje medio del muro.
-    wall(W / 2, te / 2, W, te, "x", extSet, `Muro exterior sur N${lvl + 1}`);
-    wall(W / 2, D - te / 2, W, te, "x", extSet, `Muro exterior norte N${lvl + 1}`);
-    wall(te / 2, D / 2, D, te, "y", extSet, `Muro exterior oeste N${lvl + 1}`);
-    wall(W - te / 2, D / 2, D, te, "y", extSet, `Muro exterior este N${lvl + 1}`);
 
-    // Interiores: aristas horizontales y verticales compartidas.
+    // V诺s por muro exterior: puertas (sill 0, head 2.10) + ventanas (sill/head
+    // del JSON), solo si el espacio toca la envolvente (como en fachadas).
+    const extOpenings = (side: "sur" | "norte" | "oeste" | "este") => {
+      const ops: Array<{ at: number; w: number; sill: number; head: number }> = [];
+      for (const d of plan.doors.filter((x) => x.level === lvl)) {
+        let doorSide: "sur" | "norte" | "oeste" | "este" | null = null;
+        if (d.y < 0.35) doorSide = "sur";
+        else if (d.y > D - 0.35) doorSide = "norte";
+        else if (d.x < 0.35) doorSide = "oeste";
+        else if (d.x > W - 0.35) doorSide = "este";
+        if (doorSide !== side) continue;
+        ops.push({ at: side === "oeste" || side === "este" ? d.y : d.x, w: d.width, sill: 0, head: 2.1 });
+      }
+      for (const w of plan.windows.filter((x) => x.level === lvl)) {
+        if (w.wall !== side) continue;
+        const room = plan.rooms.find((r) => r.level === lvl && keyOf(r.name) === keyOf(w.room));
+        if (!room) continue;
+        const edgePos = side === "norte" ? room.y + room.depth : side === "sur" ? room.y : side === "este" ? room.x + room.width : room.x;
+        const buildingEdge = side === "norte" ? D : side === "sur" ? 0 : side === "este" ? W : 0;
+        if (Math.abs(edgePos - buildingEdge) > 0.35) continue;
+        ops.push({ at: w.x, w: w.width, sill: w.sill, head: w.sill + w.height });
+      }
+      return ops;
+    };
+
+    // Exterior: 4 bandas centradas en el eje medio del muro — CON VANOS.
+    wallWithOpenings(W / 2, te / 2, W, te, "x", extSet, `Muro exterior sur N${lvl + 1}`, extOpenings("sur"));
+    wallWithOpenings(W / 2, D - te / 2, W, te, "x", extSet, `Muro exterior norte N${lvl + 1}`, extOpenings("norte"));
+    wallWithOpenings(te / 2, D / 2, D, te, "y", extSet, `Muro exterior oeste N${lvl + 1}`, extOpenings("oeste"));
+    wallWithOpenings(W - te / 2, D / 2, D, te, "y", extSet, `Muro exterior este N${lvl + 1}`, extOpenings("este"));
+
+    // Interiores: aristas compartidas — cortadas en las puertas que las cruzan.
     const edges = interiorEdges(plan.rooms.filter((r) => r.level === lvl), W, D, te);
     const ti = intThickness(asm);
     for (const e of edges) {
-      if (e.along === "x") wall(e.cx, e.cy, e.len, ti, "x", intSet, `División N${lvl + 1} y=${f(e.cy)}`);
-      else wall(e.cx, e.cy, e.len, ti, "y", intSet, `División N${lvl + 1} x=${f(e.cx)}`);
+      const name = `División N${lvl + 1} ${e.along === "x" ? `y=${f(e.cy)}` : `x=${f(e.cx)}`}`;
+      const s0 = (e.along === "x" ? e.cx : e.cy) - e.len / 2;
+      // at = posición de la puerta a lo largo del muro (origen = inicio).
+      const ops2 = plan.doors
+        .filter((d) => d.level === lvl && (e.along === "x" ? Math.abs(d.y - e.cy) < 0.15 : Math.abs(d.x - e.cx) < 0.15))
+        .map((d) => ({ at: (e.along === "x" ? d.x : d.y) - s0, w: d.width, sill: 0, head: 2.1 }));
+      if (ops2.length === 0) {
+        wall(e.cx, e.cy, e.along === "x" ? e.len : ti, e.along === "x" ? ti : e.len, e.along === "x" ? "x" : "y", intSet, name);
+      } else {
+        wallWithOpenings(e.cx, e.cy, e.len, ti, e.along === "x" ? "x" : "y", intSet, name, ops2);
+      }
     }
 
     // Columnas en intersecciones de la retícula + vigas sobre ejes.
@@ -294,6 +364,21 @@ export function planToIfc(plan: FloorPlan): string {
       if (p.level !== lvl) continue;
       const b = MEP_BLOCKS[p.kind] ?? MEP_BLOCKS.punto_hidraulico;
       proxy(p.x, p.y, b.z, b.w, b.d, b.h, `[HIDROSANITARIO] ${b.kind} — ${p.room} (RAS)`, pvcMat, `HY${p.x},${p.y},${lvl},${p.kind}`);
+    }
+
+    // Mobiliario BIM (mismo anclaje que el 2D — la planta amueblada y el
+    // modelo cuentan la misma historia; dimensiones Neufert/Panero).
+    const maderaMat = material(MATERIALS.maderaMat);
+    for (const r of plan.rooms.filter((r) => r.level === lvl)) {
+      for (const fu of furniture3D(r, r.name.toLowerCase().includes("principal"))) {
+        const s6 = solidBox(fu.x, fu.y, z0, fu.w, fu.d, fu.h, "x");
+        const pr6 = shapeRep(s6, `FU${fu.x},${fu.y},${lvl}`);
+        const pl6 = ent(`FUPL:${fu.x},${fu.y},${lvl}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+        const fu6 = id();
+        lines.push(`#${fu6}= IFCFURNISHINGELEMENT('${guid(`FU${fu.x},${fu.y},${lvl}`)}',#${owner},'${esc(fu.name)} (Neufert)',$,$,#${pl6},#${pr6},$,.ELEMENT.);`);
+        relAssoc(fu6, maderaMat, `FUM${fu.x},${fu.y},${lvl}`);
+        products.push(fu6);
+      }
     }
 
     allProducts.push(...products);

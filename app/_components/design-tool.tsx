@@ -25,6 +25,7 @@ import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, type Prim } from "@/lib/design/views";
+import { furnishRoom } from "@/lib/design/symbols";
 import type { RevisionLog } from "@/lib/design/schema";
 
 type SiteMemo = {
@@ -759,12 +760,14 @@ const PRIM_COLORS: Record<string, string> = {
   "FACHADA-NORTE": "#38bdf8", "FACHADA-SUR": "#38bdf8",
   "FACHADA-ESTE": "#38bdf8", "FACHADA-OESTE": "#38bdf8",
   EJES: "#f87171", COTAS: "#a78bfa", TEXTOS: "#cbd5e1",
+  MOBILIARIO: "#d4b483", SANITARIOS: "#7dd3fc", MUROS: "#e2e8f0",
 };
 
 // Jerarquía de línea (Ching §2): lo cortado manda; texturas/cotas finas.
 const PRIM_WEIGHT: Record<string, number> = {
   CORTE: 0.07, MUROS: 0.07, PUERTAS: 0.05, VENTANAS: 0.04,
   COTAS: 0.035, TEXTOS: 0.035, EJES: 0.035,
+  MOBILIARIO: 0.035, SANITARIOS: 0.035,
 };
 
 function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {
@@ -836,6 +839,12 @@ function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fi
                 stroke={PRIM_COLORS[p.l] ?? "#94a3b8"}
                 strokeWidth={(PRIM_WEIGHT[p.l] ?? 0.05) * (p.thin ? 0.5 : 1)}
                 strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
+            );
+          }
+          if (p.t === "C") {
+            return (
+              <circle key={`c${i}`} cx={p.x} cy={sy(p.y)} r={p.r}
+                fill="none" stroke={PRIM_COLORS[p.l] ?? "#f87171"} strokeWidth={PRIM_WEIGHT[p.l] ?? 0.035} />
             );
           }
           return (
@@ -981,6 +990,18 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
     return [...map.entries()].sort((a, b) => a[0] - b[0]);
   }, [plan.rooms]);
 
+  // Mobiliario simbólico (Neufert/Panero) por nivel — la planta se lee
+  // "amueblada" como en las referencias de libro.
+  const furnitureByLevel = useMemo(() => {
+    const map = new Map<number, Prim[]>();
+    for (const [level, rooms] of roomsByLevel) {
+      const out: Prim[] = [];
+      for (const r of rooms) furnishRoom(out, r, r.name.toLowerCase().includes("principal"));
+      map.set(level, out);
+    }
+    return map;
+  }, [roomsByLevel]);
+
   return (
     <div
       ref={hostRef}
@@ -1050,6 +1071,18 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
               const xx = w.wall === "este" ? x2 : r.x;
               return <line key={`win-${i}`} x1={xx} y1={svgY(w.x - w.width / 2)} x2={xx} y2={svgY(w.x + w.width / 2)} stroke="#38bdf8" strokeWidth={0.1} />;
             })}
+            {/* Mobiliario simbólico — Neufert/Panero (Ching §symbol conventions) */}
+            {(furnitureByLevel.get(level) ?? []).map((p, i) =>
+              p.t === "L" ? (
+                <line key={`fur-${i}`} x1={p.x1} y1={svgY(p.y1)} x2={p.x2} y2={svgY(p.y2)}
+                  stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={0.038} strokeDasharray={p.dash ? "0.18 0.1" : undefined} />
+              ) : p.t === "H" ? (
+                <rect key={`fur-${i}`} x={p.x} y={svgY(p.y + p.h)} width={p.w} height={p.h}
+                  fill="none" stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={0.038} />
+              ) : p.t === "T" ? (
+                <text key={`fur-${i}`} x={p.x} y={svgY(p.y)} fontSize={p.h} fill="#a8a29e">{p.s}</text>
+              ) : null
+            )}
             {/* Retícula estructural */}
             {plan.structure?.axes.filter((a) => plan.levels === 1 || true).map((a, i) =>
               a.orientation === "vertical" ? (

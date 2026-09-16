@@ -15,13 +15,15 @@
  */
 
 import type { FloorPlan, Room, WallSide } from "./schema";
+import { furnishRoom } from "./symbols";
 
 /** Primitiva de dibujo (unidades: metros, CAD — Y hacia arriba). */
 export type Prim =
   | { t: "L"; l: string; x1: number; y1: number; x2: number; y2: number; dash?: boolean; thin?: boolean }
   | { t: "T"; l: string; x: number; y: number; h: number; s: string; r?: number }
   | { t: "H"; l: string; x: number; y: number; w: number; h: number } // rect hueco
-  | { t: "F"; l: string; x: number; y: number; w: number; h: number }; // rect RELLENO (poché/zócalo)
+  | { t: "F"; l: string; x: number; y: number; w: number; h: number } // rect RELLENO (poché/zócalo)
+  | { t: "C"; l: string; x: number; y: number; r: number };            // círculo (burbujas de eje)
 
 const DOOR_H = 2.1;
 /** Escala gráfica declarada (Plazola: cortes/fachadas 1:75, planta 1:75/1:100). */
@@ -182,6 +184,13 @@ function roomAt(plan: FloorPlan, name: string, level: number): (r: Room) => bool
   return (r) => r.level === level && r.name.toLowerCase().replace(/\s+/g, "") === key;
 }
 
+/** Burbuja de eje — círculo + letra (Ching: retícula con burbujas). */
+function axisBubble(l: string, x: number, y: number, id: string, out: Prim[]) {
+  out.push({ t: "C", l: "EJES", x, y, r: 0.28 });
+  out.push({ t: "T", l: "EJES", x: x - 0.09, y: y + 0.09, h: 0.2, s: id });
+  void l;
+}
+
 /** ── PLANTA como primitivas (para la LÁMINA compuesta). ─────────────────── */
 export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   const out: Prim[] = [];
@@ -189,23 +198,73 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   const L = "MUROS";
   const rooms = plan.rooms.filter((r) => r.level === level);
   out.push({ t: "H", l: L, x: 0, y: 0, w: W, h: D });
+  // Poché de muros exteriores: banda sólida perimetral con huecos de vanos.
+  const t = 0.12;
+  out.push({ t: "F", l: L, x: 0, y: 0, w: W, h: t });
+  out.push({ t: "F", l: L, x: 0, y: D - t, w: W, h: t });
+  out.push({ t: "F", l: L, x: 0, y: t, w: t, h: D - 2 * t });
+  out.push({ t: "F", l: L, x: W - t, y: t, w: t, h: D - 2 * t });
+  // Poché de particiones interiores: bordes compartidos entre espacios.
+  const seen = new Set<string>();
+  for (const r of rooms) {
+    for (const [ex1, ey1, ex2, ey2] of [
+      [r.x, r.y, r.x + r.width, r.y], // sur
+      [r.x, r.y + r.depth, r.x + r.width, r.y + r.depth], // norte
+      [r.x, r.y, r.x, r.y + r.depth], // oeste
+      [r.x + r.width, r.y, r.x + r.width, r.y + r.depth], // este
+    ] as Array<[number, number, number, number]>) {
+      const interior = ex1 > t && ex2 < W - t && ey1 > t && ey2 < D - t;
+      const key = interior
+        ? ex1 === ex2 ? `V:${ex1.toFixed(2)}:${Math.min(ey1, ey2)}:${Math.max(ey1, ey2)}`
+        : `H:${ey1.toFixed(2)}:${Math.min(ex1, ex2)}:${Math.max(ex1, ex2)}`
+        : null;
+      if (!interior || !key || seen.has(key)) continue;
+      seen.add(key);
+      const isV = ex1 === ex2;
+      if (isV) out.push({ t: "F", l: L, x: ex1 - 0.05, y: Math.min(ey1, ey2), w: 0.1, h: Math.abs(ey2 - ey1) });
+      else out.push({ t: "F", l: L, x: Math.min(ex1, ex2), y: ey1 - 0.05, w: Math.abs(ex2 - ex1), h: 0.1 });
+    }
+  }
   for (const r of rooms) {
     out.push({ t: "H", l: L, x: r.x, y: r.y, w: r.width, h: r.depth });
     const a = r.width * r.depth;
     out.push({ t: "T", l: "TEXTOS", x: r.x + r.width / 2 - r.name.length * 0.055, y: r.y + r.depth / 2 + 0.05, h: 0.14, s: r.name.toUpperCase() });
     out.push({ t: "T", l: "TEXTOS", x: r.x + r.width / 2 - 0.3, y: r.y + r.depth / 2 - 0.18, h: 0.11, s: `${a.toFixed(1)}` });
+    // Mobiliario simbólico (Neufert/Panero) — la referencia que lo cambia todo.
+    furnishRoom(out, r, r.name.toLowerCase().includes("principal"));
   }
-  // Ejes con etiquetas.
-  for (const ax of plan.structure?.axes ?? []) {
-    if (ax.orientation === "vertical") {
-      out.push({ t: "L", l: "EJES", x1: ax.at, y1: -0.9, x2: ax.at, y2: D + 0.9 });
-      out.push({ t: "T", l: "EJES", x: ax.at - 0.07, y: D + 1.05, h: 0.16, s: ax.id });
-    } else {
-      out.push({ t: "L", l: "EJES", x1: -0.9, y1: ax.at, x2: W + 0.9, y2: ax.at });
-      out.push({ t: "T", l: "EJES", x: -1.2, y: ax.at - 0.07, h: 0.16, s: ax.id });
+  // Hatch de piso cerámico en baños y cocina (cuadrícula 0.33).
+  for (const r of rooms) {
+    if (!/ba[nñ]o|bano|cocina|lavander/i.test(r.name)) continue;
+    for (let gx = r.x + 0.33; gx < r.x + r.width - 0.05; gx += 0.33) {
+      out.push({ t: "L", l: "TEXTOS", x1: gx, y1: r.y + 0.05, x2: gx, y2: r.y + r.depth - 0.05, thin: true });
+    }
+    for (let gy = r.y + 0.33; gy < r.y + r.depth - 0.05; gy += 0.33) {
+      out.push({ t: "L", l: "TEXTOS", x1: r.x + 0.05, y1: gy, x2: r.x + r.width - 0.05, y2: gy, thin: true });
     }
   }
-  // Ventanas (triple línea) y puertas (hoja + arco de giro — Ching).
+  // Ejes con burbujas + líneas dash-dot.
+  for (const ax of plan.structure?.axes ?? []) {
+    if (ax.orientation === "vertical") {
+      out.push({ t: "L", l: "EJES", x1: ax.at, y1: -1.1, x2: ax.at, y2: D + 1.1, dash: true, thin: true });
+      axisBubble("EJES", ax.at, D + 1.45, ax.id, out);
+    } else {
+      out.push({ t: "L", l: "EJES", x1: -1.1, y1: ax.at, x2: W + 1.1, y2: ax.at, dash: true, thin: true });
+      axisBubble("EJES", -1.45, ax.at, ax.id, out);
+    }
+  }
+  // Cotas de 3 niveles (Ching/Plazola): cadena de espacios + total.
+  const xs = [0, ...rooms.map((r) => r.x).concat(rooms.map((r) => r.x + r.width)).filter((v, i, arr) => v > 0.15 && v < W - 0.15 && arr.indexOf(v) === i).sort((a, b) => a - b), W];
+  dimChain("COTAS", xs, -0.55, out);
+  const ys = [0, ...rooms.map((r) => r.y).concat(rooms.map((r) => r.y + r.depth)).filter((v, i, arr) => v > 0.15 && v < D - 0.15 && arr.indexOf(v) === i).sort((a, b) => a - b), D];
+  out.push({ t: "L", l: "COTAS", x1: -0.55, y1: 0, x2: -0.55, y2: D });
+  for (const yv of ys) out.push({ t: "L", l: "COTAS", x1: -0.62, y1: yv - 0.07, x2: -0.48, y2: yv + 0.07 });
+  out.push({ t: "T", l: "COTAS", x: -0.5, y: D / 2, h: 0.16, s: fmt(D), r: 90 });
+  out.push({ t: "L", l: "COTAS", x1: -1.05, y1: 0, x2: -1.05, y2: D });
+  out.push({ t: "T", l: "COTAS", x: -1.0, y: D / 2, h: 0.18, s: fmt(W), r: 90 });
+  // Marca de nivel +0.00 del piso terminado.
+  levelMark("TEXTOS", W * 0.45, D * 0.12, out, "+0.00");
+  // Ventanas (triple línea) y puertas (hoja + arco — Ching).
   for (const w of plan.windows.filter((x) => x.level === level)) {
     const room = plan.rooms.find(roomAt(plan, w.room, level));
     if (!room) continue;
@@ -235,7 +294,20 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
       out.push({ t: "L", l: "PUERTAS", x1: hx, y1: tipY, x2: d.hinge === "left" ? d.x + d.width / 2 : d.x - d.width / 2, y2: d.y, dash: true, thin: true });
     }
   }
-  out.push({ t: "T", l: "TEXTOS", x: 0, y: D + 1.6, h: 0.22, s: plan.levels > 1 ? `PLANTA NIVEL ${level + 1}` : "PLANTA ARQUITECTÓNICA" });
+  // Marcas de CORTE A-A' y B-B' sobre la planta (Ching: triángulos + letras).
+  const cutMark = (label: [string, string], x1: number, y1: number, x2: number, y2: number) => {
+    out.push({ t: "L", l: "CORTE", x1, y1, x2, y2, dash: true, thin: true });
+    const mk = (lb: string, px: number, py: number, dx: number, dy: number) => {
+      out.push({ t: "F", l: "CORTE", x: px - 0.16 + dx * 0.3, y: py - 0.16, w: 0.32, h: 0.1 });
+      out.push({ t: "T", l: "CORTE", x: px + dx * 0.4, y: py + 0.12, h: 0.2, s: lb });
+    };
+    mk(label[0], x1, y1, -0.1, 0);
+    mk(label[1], x2, y2, 0.1, 0);
+  };
+  cutMark(["A", "A'"], -0.7, D / 2, W + 0.7, D / 2);
+  cutMark(["B", "B'"], W / 2, -0.7, W / 2, D + 0.7);
+  out.push({ t: "T", l: "TEXTOS", x: 0, y: D + 2.1, h: 0.22, s: plan.levels > 1 ? `PLANTA NIVEL ${level + 1}` : "PLANTA ARQUITECTÓNICA" });
+  out.push({ t: "T", l: "TEXTOS", x: 4.4, y: D + 2.1, h: 0.16, s: ESC });
   return out;
 }
 
@@ -387,6 +459,7 @@ export function primsBounds(prims: Prim[]): { minX: number; minY: number; maxX: 
   for (const p of prims) {
     if (p.t === "L") { see(p.x1, p.y1); see(p.x2, p.y2); }
     else if (p.t === "T") { see(p.x, p.y); see(p.x + p.s.length * p.h * 0.7, p.y + p.h); }
+    else if (p.t === "C") { see(p.x - p.r, p.y - p.r); see(p.x + p.r, p.y + p.r); }
     else { see(p.x, p.y); see(p.x + p.w, p.y + p.h); }
   }
   if (!Number.isFinite(minX)) return { minX: 0, minY: 0, maxX: 10, maxY: 10 };
@@ -394,8 +467,10 @@ export function primsBounds(prims: Prim[]): { minX: number; minY: number; maxX: 
 }
 
 /** ── LÁMINA COMPLETA de curaduría — todo el paquete en una vista ──────────
- *  Layout: planta + cuadro de áreas arriba · cortes A-A' y B-B' en fila ·
- *  4 fachadas en fila inferior. Determinista (para UI y DXF). */
+ *  Composición profesional (referencias Plazola/Ching): plantas apiladas
+ *  alineadas por eje · cortes en fila compartiendo línea de suelo · fachadas
+ *  sobre terreno común · MARCO doble con margen · CAJETÍN · escala gráfica ·
+ *  flecha norte. Determinista (para UI y DXF). */
 export function sheetPrimitives(plan: FloorPlan): Prim[] {
   const { width: W, depth: D } = plan.outline;
   const fft = plan.floorToFloor;
@@ -406,23 +481,29 @@ export function sheetPrimitives(plan: FloorPlan): Prim[] {
     prims.map((p) =>
       p.t === "L" ? { ...p, x1: p.x1 + dx, y1: p.y1 + dy, x2: p.x2 + dx, y2: p.y2 + dy }
       : p.t === "T" ? { ...p, x: p.x + dx, y: p.y + dy }
+      : p.t === "C" ? { ...p, x: p.x + dx, y: p.y + dy }
       : { ...p, x: p.x + dx, y: p.y + dy },
     );
 
-  // Fila 1: planta (0,0) + cuadro de áreas a su derecha.
-  const row1 = [
-    ...shift(plantaPrimitives(plan), 0, 0),
-    ...shift(areaTablePrimitives(plan), W + 2.5, D - 1),
-  ];
+  // Fila 1: plantas de TODOS los niveles apiladas (alineadas por eje) +
+  // cuadro de áreas a la derecha de la primera.
+  const row1: Prim[] = [];
+  let topY = 0;
+  for (let lvl = 0; lvl < levels; lvl++) {
+    row1.push(...shift(plantaPrimitives(plan, lvl), 0, topY));
+    topY -= D + 3.2;
+  }
+  row1.push(...shift(areaTablePrimitives(plan), W + 2.5, D - 1));
 
-  // Fila 2: cortes A-A' (longitudinal) y B-B' (transversal).
-  const corteAY0 = -(totalH + 3.2);
+  // Fila 2: cortes A-A' (longitudinal) y B-B' (transversal) — misma línea
+  // de suelo (-1.4 cimentación).
+  const corteAY0 = topY + (D + 3.2) - totalH - 3.4;
   const row2 = [
     ...shift(sectionPrimitives(plan), 0, corteAY0),
     ...shift(sectionPrimitives(plan, { transverse: true }), W + 3.5, corteAY0),
   ];
 
-  // Fila 3: fachadas en fila.
+  // Fila 3: fachadas en fila sobre terreno común.
   const fachY = corteAY0 - totalH - 3.0;
   const sides = ["sur", "oeste", "este", "norte"] as const;
   let fx = 0;
@@ -439,5 +520,50 @@ export function sheetPrimitives(plan: FloorPlan): Prim[] {
     { t: "T", l: "TEXTOS", x: 0, y: D + 1.9, h: 0.2, s: "PAQUETE ARQUITECTÓNICO — PLANTA · CORTES · FACHADAS · CUADRO DE ÁREAS" },
   ];
 
-  return [...title, ...row1, ...row2, ...row3];
+  const content = [...title, ...row1, ...row2, ...row3];
+
+  // ── MARCO de lámina (doble línea) + CAJETÍN + escala + norte ────────────
+  const b = primsBounds(content);
+  const m1 = 1.0, m2 = 1.6; // margen interior/exterior
+  const fx0 = b.minX - m2, fy0 = b.minY - m2, fx1 = b.maxX + m2, fy1 = b.maxY + m2;
+  const frame: Prim[] = [
+    { t: "H", l: "TEXTOS", x: fx0, y: fy0, w: fx1 - fx0, h: fy1 - fy0 },          // marco exterior
+    { t: "H", l: "TEXTOS", x: fx0 + (m2 - m1), y: fy0 + (m2 - m1), w: fx1 - fx0 - 2 * (m2 - m1), h: fy1 - fy0 - 2 * (m2 - m1) }, // marco interior
+  ];
+
+  // Cajetín (title block) pegado a la esquina inferior derecha del marco.
+  const cw = 9.0, ch = 3.2;
+  const cx0 = fx1 - m2 + (m2 - m1) - cw, cy0 = fy0 + (m2 - m1);
+  const rows: Array<[number, string]> = [
+    [0.62, plan.name.toUpperCase().slice(0, 38)],
+    [0.5, "UBICACIÓN: " + (plan.site?.city ?? "—")],
+    [0.5, "ESC 1:75 · UNIDADES: METROS · FECHA: 2026"],
+    [0.5, "LÁMINA A-01 — PAQUETE PARA LICENCIA"],
+    [0.5, "OBRAHUB · CRATERE S.A.S. — DISEÑO ASISTIDO POR IA"],
+  ];
+  const cajetin: Prim[] = [{ t: "H", l: "TEXTOS", x: cx0, y: cy0, w: cw, h: ch }];
+  let yy = cy0 + ch;
+  for (const [rh, label] of rows) {
+    yy -= rh;
+    cajetin.push({ t: "L", l: "TEXTOS", x1: cx0, y1: yy, x2: cx0 + cw, y2: yy, thin: true });
+    cajetin.push({ t: "T", l: "TEXTOS", x: cx0 + 0.25, y: yy + rh / 2 - 0.08, h: 0.18, s: label });
+  }
+
+  // Escala gráfica (0—1—2—5 m) y flecha N justo ENCIMA del cajetín, dentro
+  // del marco (composición: herramientas de lectura agrupadas, como Plazola).
+  const sx = cx0, sy2 = cy0 + ch + 0.8;
+  const scaleBar: Prim[] = [];
+  for (const [a, bl] of [[0, "0"], [1, "1"], [2, "2"], [5, "5 m"]] as Array<[number, string]>) {
+    scaleBar.push({ t: "L", l: "TEXTOS", x1: sx + a, y1: sy2, x2: sx + a, y2: sy2 + 0.18 });
+    scaleBar.push({ t: "T", l: "TEXTOS", x: sx + a - 0.1, y: sy2 + 0.3, h: 0.16, s: bl });
+  }
+  scaleBar.push({ t: "L", l: "TEXTOS", x1: sx, y1: sy2 + 0.09, x2: sx + 5, y2: sy2 + 0.09 });
+  const north: Prim[] = [
+    { t: "L", l: "TEXTOS", x1: cx0 - 1.6, y1: sy2, x2: cx0 - 1.6, y2: sy2 + 1.2 },
+    { t: "L", l: "TEXTOS", x1: cx0 - 1.6, y1: sy2 + 1.2, x2: cx0 - 1.78, y2: sy2 + 0.85 },
+    { t: "L", l: "TEXTOS", x1: cx0 - 1.6, y1: sy2 + 1.2, x2: cx0 - 1.42, y2: sy2 + 0.85 },
+    { t: "T", l: "TEXTOS", x: cx0 - 1.75, y: sy2 + 1.45, h: 0.2, s: "N" },
+  ];
+
+  return [...content, ...frame, ...cajetin, ...scaleBar, ...north];
 }

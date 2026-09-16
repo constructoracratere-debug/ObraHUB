@@ -128,6 +128,7 @@ class DxfBuilder {
     for (const p of list) {
       if (p.t === "L") this.line(p.l, p.x1 + dx, p.y1 + dy, p.x2 + dx, p.y2 + dy);
       else if (p.t === "T") this.text(p.l, p.x + dx, p.y + dy, p.h, p.s, p.r ?? 0);
+      else if (p.t === "C") this.circle(p.l, p.x + dx, p.y + dy, p.r);
       else if (p.t === "F") {
         // Rect RELLENO → poché clásico: contorno + rayado 45° (Ching).
         const x0 = p.x + dx, y0 = p.y + dy, x1 = x0 + p.w, y1 = y0 + p.h;
