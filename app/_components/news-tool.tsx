@@ -59,6 +59,9 @@ export function NewsTool() {
   const [days, setDays] = useState("7");
   const [q, setQ] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  // 6 visibles por defecto: 20 tarjetas apiladas saturan el Home —
+  // el usuario expande si quiere más.
+  const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -155,7 +158,7 @@ export function NewsTool() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {items.map((n) => (
+          {items.slice(0, expanded ? items.length : 6).map((n) => (
             <a
               key={n.id}
               href={n.link}
@@ -188,6 +191,15 @@ export function NewsTool() {
               </div>
             </a>
           ))}
+          {items.length > 6 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] py-2.5 text-xs font-semibold text-slate-400 transition hover:border-orange-500/25 hover:text-orange-200"
+            >
+              {expanded ? "Ver menos ▴" : `Ver ${items.length - 6} noticias más ▾`}
+            </button>
+          )}
         </div>
       )}
     </div>
