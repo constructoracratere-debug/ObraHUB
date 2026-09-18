@@ -278,22 +278,18 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
     }
   }
   for (const d of plan.doors.filter((x) => x.level === level)) {
-    // Muro vertical (E/O) si la puerta está pegada a un borde lateral del
-    // edificio; si no, muro horizontal (N/S). Hoja + cuerda de arco (Ching).
-    const vert = d.x < 0.35 || d.x > W - 0.35;
-    if (vert) {
-      const hy = d.hinge === "left" ? d.y - d.width / 2 : d.y + d.width / 2;
-      const tipX = d.x < W / 2 ? d.x + d.width : d.x - d.width; // hoja hacia adentro
-      out.push({ t: "L", l: "PUERTAS", x1: d.x, y1: d.y - d.width / 2, x2: d.x, y2: d.y + d.width / 2 });
-      out.push({ t: "L", l: "PUERTAS", x1: d.x, y1: hy, x2: tipX, y2: hy });
-      out.push({ t: "L", l: "PUERTAS", x1: tipX, y1: hy, x2: d.x, y2: d.hinge === "left" ? d.y + d.width / 2 : d.y - d.width / 2, dash: true, thin: true });
-    } else {
-      const hx = d.hinge === "left" ? d.x - d.width / 2 : d.x + d.width / 2;
-      const tipY = d.swing === "in" ? d.y - d.width : d.y + d.width;
-      out.push({ t: "L", l: "PUERTAS", x1: d.x - d.width / 2, y1: d.y, x2: d.x + d.width / 2, y2: d.y });
-      out.push({ t: "L", l: "PUERTAS", x1: hx, y1: d.y, x2: hx, y2: tipY });
-      out.push({ t: "L", l: "PUERTAS", x1: hx, y1: tipY, x2: d.hinge === "left" ? d.x + d.width / 2 : d.x - d.width / 2, y2: d.y, dash: true, thin: true });
-    }
+    // Geometría DERIVADA (axis/swingDir del sanitizador): vano sobre su muro,
+    // hoja perpendicular al interior, cuerda de giro discontinua (Ching).
+    const isY = d.axis === "y";
+    const sd = d.swingDir ?? 1;
+    const half = d.width / 2;
+    const o1: [number, number] = isY ? [d.x, d.y - half] : [d.x - half, d.y];
+    const o2: [number, number] = isY ? [d.x, d.y + half] : [d.x + half, d.y];
+    const hg: [number, number] = d.hinge === "left" ? o1 : o2;
+    const tip: [number, number] = isY ? [hg[0] + d.width * sd, hg[1]] : [hg[0], hg[1] + d.width * sd];
+    out.push({ t: "L", l: "PUERTAS", x1: o1[0], y1: o1[1], x2: o2[0], y2: o2[1] });
+    out.push({ t: "L", l: "PUERTAS", x1: hg[0], y1: hg[1], x2: tip[0], y2: tip[1] });
+    out.push({ t: "L", l: "PUERTAS", x1: tip[0], y1: tip[1], x2: o2[0], y2: o2[1], dash: true, thin: true });
   }
   // Marcas de CORTE A-A' y B-B' sobre la planta (Ching: triángulos + letras).
   const cutMark = (label: [string, string], x1: number, y1: number, x2: number, y2: number) => {
@@ -413,14 +409,17 @@ export function facadePrimitives(plan: FloorPlan, side: WallSide): Prim[] {
     out.push({ t: "L", l: L, x1: wx, y1: wy + w.height + 0.1, x2: wx + w.width, y2: wy + w.height + 0.1, thin: true });
   }
 
-  // Puerta principal (la que conecta con "exterior") proyectada al lado correcto.
+  // Puerta principal (conecta con "exterior") — lado por su EJE derivado.
   for (const d of plan.doors) {
     if (d.from !== "exterior" && d.to !== "exterior") continue;
     let doorSide: WallSide | null = null;
-    if (d.y < 0.35) doorSide = "sur";
-    else if (d.y > D - 0.35) doorSide = "norte";
-    else if (d.x < 0.35) doorSide = "oeste";
-    else if (d.x > W - 0.35) doorSide = "este";
+    if (d.axis !== "y") {
+      if (d.y < 0.35) doorSide = "sur";
+      else if (d.y > D - 0.35) doorSide = "norte";
+    } else {
+      if (d.x < 0.35) doorSide = "oeste";
+      else if (d.x > W - 0.35) doorSide = "este";
+    }
     if (doorSide !== side) continue;
     const pos = horizontal ? d.x : d.y;
     const px = pos - d.width / 2, py = d.level * fft;

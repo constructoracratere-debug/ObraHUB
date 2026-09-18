@@ -59,6 +59,13 @@ export type Door = {
   hinge: "left" | "right";
   swing: "in" | "out";
   level: number;
+  /** Orientación del vano: "x" corre sobre un muro N/S (abre hacia ±y),
+   *  "y" sobre un muro E/O (abre hacia ±x). Lo DERIVA el sanitizador de la
+   *  arista compartida — el LLM ya no decide esto. */
+  axis: "x" | "y";
+  /** Hacia qué lado perpendicular abre (+1 = norte/este, −1 = sur/oeste).
+   *  Derivado: siempre hacia el interior del espacio destino (Ching). */
+  swingDir: 1 | -1;
 };
 
 export type Window = {
@@ -222,6 +229,114 @@ export function roomKey(name: unknown): string {
 }
 
 /** Convierte un JSON crudo (del LLM o de disco) en un FloorPlan confiable. */
+/** Arista compartida entre dos espacios (muro): axis "x" = muro horizontal
+ *  (la puerta corre en X), "y" = muro vertical. null si no comparten muro. */
+function sharedEdge(a: Room, b: Room): { axis: "x" | "y"; at: number; lo: number; hi: number } | null {
+  const tol = 0.12;
+  // Muro vertical: cara este de uno ≈ cara oeste del otro.
+  const vAt = Math.abs(a.x + a.width - b.x) < tol ? a.x + a.width
+    : Math.abs(b.x + b.width - a.x) < tol ? b.x + b.width : null;
+  if (vAt != null) {
+    const lo = Math.max(a.y, b.y), hi = Math.min(a.y + a.depth, b.y + b.depth);
+    if (hi - lo >= 0.7) return { axis: "y", at: vAt, lo, hi };
+  }
+  // Muro horizontal: cara norte de uno ≈ cara sur del otro.
+  const hAt = Math.abs(a.y + a.depth - b.y) < tol ? a.y + a.depth
+    : Math.abs(b.y + b.depth - a.y) < tol ? b.y + b.depth : null;
+  if (hAt != null) {
+    const lo = Math.max(a.x, b.x), hi = Math.min(a.x + a.width, b.x + b.width);
+    if (hi - lo >= 0.7) return { axis: "x", at: hAt, lo, hi };
+  }
+  return null;
+}
+
+/** Arista del espacio contra el muro EXTERIOR (puerta principal). Los
+ *  espacios están retranqueados el espesor del muro (te): su cara sur está
+ *  en y≈te, no en 0. Prefiere la MÁS LARGA; empate → sur > este > norte >
+ *  oeste (convención de entrada). */
+function exteriorEdge(r: Room, W: number, D: number, te: number): { axis: "x" | "y"; at: number; lo: number; hi: number } | null {
+  const tol = 0.03;
+  const cands: Array<{ axis: "x" | "y"; at: number; lo: number; hi: number; prio: number }> = [];
+  if (r.y <= te + tol) cands.push({ axis: "x", at: r.y, lo: r.x, hi: r.x + r.width, prio: 4 });
+  if (r.y + r.depth >= D - te - tol) cands.push({ axis: "x", at: r.y + r.depth, lo: r.x, hi: r.x + r.width, prio: 2 });
+  if (r.x <= te + tol) cands.push({ axis: "y", at: r.x, lo: r.y, hi: r.y + r.depth, prio: 1 });
+  if (r.x + r.width >= W - te - tol) cands.push({ axis: "y", at: r.x + r.width, lo: r.y, hi: r.y + r.depth, prio: 3 });
+  if (cands.length === 0) return null;
+  cands.sort((a, b) => b.hi - b.lo - (a.hi - a.lo) || b.prio - a.prio);
+  const c = cands[0];
+  return { axis: c.axis, at: c.at, lo: c.lo, hi: c.hi };
+}
+
+/** ── DERIVACIÓN de puertas (anti-random) ───────────────────────────────────
+ *  Para cada conexión (from,to): arista compartida exacta; el vano se centra
+ *  en el segmento útil con margen de esquina 10 cm; la bisagra va hacia el
+ *  extremo MÁS CERCANO (la hoja abre contra la pared próxima — práctica
+ *  estándar, Ching); el giro apunta SIEMPRE al interior del espacio destino.
+ *  Dos puertas en la misma arista se reparten el segmento de forma
+ *  determinista; conexiones alucinadas (sin muro compartido) se descartan. */
+export function rederiveDoors(rooms: Room[], raw: Door[], W: number, D: number, te = 0.15): Door[] {
+  const byKey = new Map<string, Room>();
+  for (const r of rooms) byKey.set(roomKey(r.name), r);
+  const pairDone = new Set<string>();
+  const edgeCenters = new Map<string, number[]>();
+  const out: Door[] = [];
+
+  for (const d of raw) {
+    const extA = roomKey(d.from) === "exterior";
+    const A = extA ? null : byKey.get(roomKey(d.from)) ?? undefined;
+    const B = byKey.get(roomKey(d.to)) ?? undefined;
+    const pairKey = [roomKey(d.from), roomKey(d.to)].sort().join("↔") + `:${d.level}`;
+    if (pairDone.has(pairKey)) continue; // una puerta por conexión
+
+    let edge: ReturnType<typeof sharedEdge> = null;
+    let dest: Room | undefined;
+    if (A && B && A !== B && A.level === d.level && B.level === d.level) {
+      edge = sharedEdge(A, B);
+      dest = B;
+    }
+    if (!edge) {
+      const R = B?.level === d.level ? B : A?.level === d.level ? A : undefined;
+      if (R && (extA || roomKey(d.from) === roomKey(R.name))) {
+        edge = exteriorEdge(R, W, D, te);
+        dest = R;
+      }
+    }
+    if (!edge || !dest) continue; // sin muro compartido → puerta inválida, fuera
+
+    const w = Math.min(d.width, Math.max(0.6, edge.hi - edge.lo - 0.2));
+    const lo = edge.lo + 0.1 + w / 2, hi = edge.hi - 0.1 - w / 2;
+    if (hi < lo) continue; // muro demasiado corto para el vano
+    const key = `${edge.axis}:${edge.at.toFixed(2)}:${d.level}`;
+    const centers = edgeCenters.get(key) ?? [];
+    let c = lo + (hi - lo) / 2;
+    // Si ya hay puerta pegada, desplaza determinista hacia el extremo libre.
+    let shifted = false;
+    for (let i = 0; i < 4 && centers.some((cc) => Math.abs(cc - c) < w + 0.15); i++) {
+      c = i % 2 === 0 ? Math.min(hi, c + w + 0.2) : Math.max(lo, c - w - 0.2);
+      shifted = true;
+    }
+    if (centers.some((cc) => Math.abs(cc - c) < w + 0.1)) continue; // no cabe otra
+    centers.push(c);
+    edgeCenters.set(key, centers);
+    pairDone.add(pairKey);
+
+    // Bisagra hacia el extremo más cercano; giro hacia el interior de dest.
+    const hinge: "left" | "right" = c - edge.lo <= edge.hi - c ? "left" : "right";
+    let swingDir: 1 | -1 = 1;
+    if (edge.axis === "x") swingDir = dest.y + dest.depth / 2 >= edge.at ? 1 : -1;
+    else swingDir = dest.x + dest.width / 2 >= edge.at ? 1 : -1;
+
+    out.push({
+      from: d.from, to: d.to, width: w, hinge, swing: "in", level: d.level,
+      axis: edge.axis,
+      x: edge.axis === "x" ? c : edge.at,
+      y: edge.axis === "x" ? edge.at : c,
+      swingDir,
+    });
+  }
+  return out;
+}
+
 export function sanitizeFloorPlan(raw: unknown): FloorPlan {
   const o = (raw ?? {}) as Record<string, unknown>;
   const outlineW = dim((o.outline as any)?.width, 3, MAX_OUTLINE, 10);
@@ -254,7 +369,7 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
   const roomKeys = new Set(rooms.map((r) => keyOf(r.name)));
 
   const doorsRaw = Array.isArray(o.doors) ? o.doors.slice(0, 60) : [];
-  const doors: Door[] = doorsRaw
+  const rawDoors: Door[] = doorsRaw
     .map((d0) => {
       const d = (d0 ?? {}) as Record<string, unknown>;
       return {
@@ -266,9 +381,15 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
         hinge: enumOf(d.hinge, ["left", "right"] as const, "left"),
         swing: enumOf(d.swing, ["in", "out"] as const, "in"),
         level: Math.round(dim(d.level, 0, levels - 1, 0)),
+        axis: enumOf(d.axis, ["x", "y"] as const, "x"),
+        swingDir: d.swingDir === -1 || d.swingDir === 1 ? d.swingDir : 1,
       } satisfies Door;
     })
     .filter((d) => roomKeys.size === 0 || roomKeys.has(keyOf(d.from)) || roomKeys.has(keyOf(d.to)) || keyOf(d.from) === "exterior");
+  // GEOMETRÍA DERIVADA, no alucinada: el LLM propone CONEXIONES (from/to);
+  // la posición, el eje, la bisagra y el sentido de giro salen de la arista
+  // compartida entre los espacios. Se acabaron las puertas random.
+  const doors = rederiveDoors(rooms, rawDoors, outlineW, outlineD, wallExt);
 
   const windowsRaw = Array.isArray(o.windows) ? o.windows.slice(0, 80) : [];
   const windows: Window[] = windowsRaw

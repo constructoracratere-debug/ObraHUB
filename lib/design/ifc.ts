@@ -223,7 +223,8 @@ export function planToIfc(plan: FloorPlan): string {
       const s0 = (e.along === "x" ? e.cx : e.cy) - e.len / 2;
       // at = posición de la puerta a lo largo del muro (origen = inicio).
       const ops2 = plan.doors
-        .filter((d) => d.level === lvl && (e.along === "x" ? Math.abs(d.y - e.cy) < 0.15 : Math.abs(d.x - e.cx) < 0.15))
+        // Consistencia axis↔arista: muro "x" se corta con puertas axis "x".
+        .filter((d) => d.level === lvl && (e.along === "x") === (d.axis !== "y") && (e.along === "x" ? Math.abs(d.y - e.cy) < 0.15 : Math.abs(d.x - e.cx) < 0.15))
         .map((d) => ({ at: (e.along === "x" ? d.x : d.y) - s0, w: d.width, sill: 0, head: 2.1 }));
       if (ops2.length === 0) {
         wall(e.cx, e.cy, e.along === "x" ? e.len : ti, e.along === "x" ? ti : e.len, e.along === "x" ? "x" : "y", intSet, name);

@@ -95,5 +95,56 @@ const mkDoor = (over) => ({ from: "exterior", to: over.to ?? "Sala", x: over.x, 
   check("furnishRoom robusto en espacios extremos", out.length > 0);
 }
 
+// ── 8. DERIVACIÓN de puertas: geometría desde aristas compartidas ─────────
+{
+  const raw = {
+    version: 1, name: "T Puertas", units: "m", levels: 1, floorToFloor: 2.6,
+    outline: { width: 8, depth: 6 },
+    wallThickness: { exterior: 0.15, interior: 0.1 },
+    rooms: [
+      { name: "Sala", type: "sala", x: 0.15, y: 0.15, width: 3.7, depth: 2.85 },
+      { name: "Cocina", type: "cocina", x: 3.85, y: 0.15, width: 4.0, depth: 2.85 },
+      { name: "Alcoba", type: "habitacion", x: 1.95, y: 3.0, width: 5.9, depth: 2.85 },
+    ],
+    // x/y deliberadamente INSERVIBLES (random) — la derivación los ignora
+    doors: [
+      { from: "exterior", to: "Sala", x: 6.9, y: 5.9, width: 0.9, hinge: "right", swing: "out" },
+      { from: "Sala", to: "Cocina", x: 0.3, y: 4.1, width: 0.8 },
+      { from: "Sala", to: "Alcoba", x: 7.5, y: 1.0, width: 0.7 },
+      { from: "Fantasma", to: "Nada", x: 1, y: 1, width: 0.7 }, // alucinada → fuera
+    ],
+    windows: [],
+  };
+  const p = sanitizeFloorPlan(raw);
+  check("puertas: conexión alucinada descartada", p.doors.length === 3);
+
+  const ext = p.doors.find((d) => d.from === "exterior");
+  check("puerta principal: sobre cara interior del muro sur (y≈0.15)", ext && Math.abs(ext.y - 0.15) < 0.02);
+  check("puerta principal: dentro del ancho de Sala", ext && ext.x > 0.2 && ext.x < 3.8);
+  check("puerta principal: bisagra y swing derivados", ext && ext.swing === "in" && (ext.axis === "x" || ext.axis === "y"));
+
+  const sc = p.doors.find((d) => (d.from === "Sala" && d.to === "Cocina") || (d.from === "Cocina" && d.to === "Sala"));
+  // Arista compartida Sala/Cocina: muro vertical x≈3.85, y∈[0.15,3.0]
+  check("Sala→Cocina: sobre la arista compartida x≈3.85", sc && Math.abs(sc.x - 3.85) < 0.01);
+  check("Sala→Cocina: axis y (muro vertical)", sc && sc.axis === "y");
+  check("Sala→Cocina: centrada en el solape con margen", sc && sc.y > 0.15 + 0.1 && sc.y < 3.0 - 0.1);
+
+  const sa = p.doors.find((d) => (d.from === "Sala" && d.to === "Alcoba") || (d.from === "Alcoba" && d.to === "Sala"));
+  // Arista compartida Sala/Alcoba: muro horizontal y≈3.0, x∈[1.95,3.85]
+  check("Sala→Alcoba: sobre la arista compartida y≈3.0", sa && Math.abs(sa.y - 3.0) < 0.01);
+  check("Sala→Alcoba: axis x (muro horizontal)", sa && sa.axis === "x");
+  check("Sala→Alcoba: swingDir hacia Alcoba (+1 norte)", sa && sa.swingDir === 1);
+
+  // Bisagra hacia el extremo más cercano (determinista)
+  if (sc) {
+    const distLo = sc.y - 0.15, distHi = 3.0 - sc.y;
+    check("bisagra hacia el extremo cercano", (sc.hinge === "left") === (distLo <= distHi));
+  }
+
+  // Determinismo
+  const again = sanitizeFloorPlan(raw);
+  check("derivación determinista", JSON.stringify(p.doors) === JSON.stringify(again.doors));
+}
+
 console.log(`\n${pass} pasan · ${fail} fallan`);
 process.exit(fail > 0 ? 1 : 0);

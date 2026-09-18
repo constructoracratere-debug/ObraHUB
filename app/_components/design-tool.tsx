@@ -1049,18 +1049,27 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
                 </g>
               );
             })}
-            {/* Puertas: arco de giro */}
+            {/* Puertas: geometría DERIVADA (axis + swingDir del sanitizador) —
+                vano sobre su muro, hoja perpendicular al interior y cuerda
+                de giro discontinua (Ching). */}
             {plan.doors.filter((d) => d.level === level).map((d, i) => {
-              const dir = d.swing === "in" ? 1 : -1;
-              const hx = d.hinge === "left" ? d.x - d.width / 2 : d.x + d.width / 2;
+              const isY = d.axis === "y";
+              const sd = d.swingDir ?? 1;
+              const half = d.width / 2;
+              const [o1x, o1y] = isY ? [d.x, d.y - half] : [d.x - half, d.y];
+              const [o2x, o2y] = isY ? [d.x, d.y + half] : [d.x + half, d.y];
+              const [hgx, hgy] = d.hinge === "left"
+                ? (isY ? [d.x, d.y - half] : [d.x - half, d.y])
+                : (isY ? [d.x, d.y + half] : [d.x + half, d.y]);
+              const [tipx, tipy] = isY ? [hgx + d.width * sd, hgy] : [hgx, hgy + d.width * sd];
               return (
                 <g key={`door-${i}`}>
-                  <line x1={d.x - d.width / 2} y1={svgY(d.y)} x2={d.x + d.width / 2} y2={svgY(d.y)} stroke="#34d399" strokeWidth={penWidth("PUERTAS")} />
-                  <line x1={hx} y1={svgY(d.y)} x2={hx} y2={svgY(d.y + d.width * dir)} stroke="#34d399" strokeWidth={penWidth("PUERTAS")} />
-                  <path
-                    d={`M ${d.x + d.width / 2 - (d.hinge === "left" ? d.width : 0) * 0} ${svgY(d.y)} A ${d.width} ${d.width} 0 0 ${dir === 1 ? 1 : 0} ${hx} ${svgY(d.y + d.width * dir)}`}
-                    fill="none" stroke="#34d399" strokeWidth={penWidth("PUERTAS", true)} strokeDasharray="0.15 0.1"
-                  />
+                  {/* vano */}
+                  <line x1={o1x} y1={svgY(o1y)} x2={o2x} y2={svgY(o2y)} stroke="#34d399" strokeWidth={penWidth("PUERTAS")} />
+                  {/* hoja */}
+                  <line x1={hgx} y1={svgY(hgy)} x2={tipx} y2={svgY(tipy)} stroke="#34d399" strokeWidth={penWidth("PUERTAS")} />
+                  {/* cuerda de giro */}
+                  <line x1={tipx} y1={svgY(tipy)} x2={o2x} y2={svgY(o2y)} stroke="#34d399" strokeWidth={penWidth("PUERTAS", true)} strokeDasharray="0.15 0.1" />
                 </g>
               );
             })}

@@ -42,32 +42,39 @@ type Room = { name: string; type: string; x: number; y: number; width: number; d
 /** Mueble colocado por el solver (bbox + kind + muro de respaldo). */
 export type PlacedFurniture = Rect & { kind: string; wall: "N" | "S" | "E" | "W" | "C" };
 
-/** Zonas donde NO se puede poner mobiliario: paso de vanos + giro de hojas. */
+/** Zonas donde NO se puede poner mobiliario: paso de vanos (ambos lados,
+ *  0.45 m) + bbox del giro de la hoja en el espacio hacia el que abre.
+ *  Usa la geometría DERIVADA del sanitizador (axis + swingDir) — exacta. */
 export function doorZones(room: Room, doors: Door[]): Rect[] {
   const zones: Rect[] = [];
-  const inRoom = (d: Door) =>
-    d.from.toLowerCase().replace(/\s+/g, "") === room.name.toLowerCase().replace(/\s+/g, "") ||
-    d.to.toLowerCase().replace(/\s+/g, "") === room.name.toLowerCase().replace(/\s+/g, "");
+  const roomKey = room.name.toLowerCase().replace(/\s+/g, "");
+  const key = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+  const tol = 0.06;
   for (const d of doors) {
-    const onSouth = Math.abs(d.y - room.y) < 0.25;
-    const onNorth = Math.abs(d.y - (room.y + room.depth)) < 0.25;
-    const onWest = Math.abs(d.x - room.x) < 0.25;
-    const onEast = Math.abs(d.x - (room.x + room.width)) < 0.25;
-    if (!onSouth && !onNorth && !onWest && !onEast && !inRoom(d)) continue;
-    const w = d.width;
-    // Paso junto al vano (0.45 hacia adentro) — aunque la hoja gire afuera.
-    if (onSouth) zones.push({ x: d.x - w / 2, y: room.y, w, d: 0.45 });
-    if (onNorth) zones.push({ x: d.x - w / 2, y: room.y + room.depth - 0.45, w, d: 0.45 });
-    if (onWest) zones.push({ x: room.x, y: d.y - w / 2, w: 0.45, d: w });
-    if (onEast) zones.push({ x: room.x + room.width - 0.45, y: d.y - w / 2, w: 0.45, d: w });
-    // Giro de la hoja hacia dentro (bbox del cuarto de círculo — Ching).
-    if (d.swing !== "in") continue;
-    const hx = d.hinge === "left" ? d.x - w / 2 : d.x + w / 2;
-    const hy = d.hinge === "left" ? d.y - w / 2 : d.y + w / 2;
-    if (onSouth) zones.push({ x: d.hinge === "left" ? hx : hx - w, y: room.y, w, d: w });
-    if (onNorth) zones.push({ x: d.hinge === "left" ? hx : hx - w, y: room.y + room.depth - w, w, d: w });
-    if (onWest) zones.push({ x: room.x, y: d.hinge === "left" ? hy : hy - w, w, d: w });
-    if (onEast) zones.push({ x: room.x + room.width - w, y: d.hinge === "left" ? hy : hy - w, w, d: w });
+    // ¿El vano está sobre un borde de ESTE espacio?
+    let onEdge = false;
+    if (d.axis !== "y") {
+      onEdge = (Math.abs(d.y - room.y) < tol || Math.abs(d.y - (room.y + room.depth)) < tol) &&
+        d.x >= room.x - tol && d.x <= room.x + room.width + tol;
+    } else {
+      onEdge = (Math.abs(d.x - room.x) < tol || Math.abs(d.x - (room.x + room.width)) < tol) &&
+        d.y >= room.y - tol && d.y <= room.y + room.depth + tol;
+    }
+    if (!onEdge) continue;
+    const half = d.width / 2;
+    // Paso: banda del vano ±0.45 a cada lado del muro.
+    if (d.axis !== "y") zones.push({ x: d.x - half, y: d.y - 0.45, w: d.width, d: 0.9 });
+    else zones.push({ x: d.x - 0.45, y: d.y - half, w: 0.9, d: d.width });
+    // Giro de la hoja: SOLO en el espacio destino (hacia donde abre).
+    if (key(d.to) !== roomKey) continue;
+    const sd = d.swingDir ?? 1;
+    if (d.axis !== "y") {
+      const y = sd === 1 ? d.y : d.y - d.width;
+      zones.push({ x: d.hinge === "left" ? d.x - half : d.x, y, w: d.width, d: d.width });
+    } else {
+      const x = sd === 1 ? d.x : d.x - d.width;
+      zones.push({ x, y: d.hinge === "left" ? d.y - half : d.y, w: d.width, d: d.width });
+    }
   }
   return zones;
 }
