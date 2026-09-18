@@ -26,7 +26,7 @@ import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, type Prim } from "@/lib/design/views";
-import { furnishRoom } from "@/lib/design/symbols";
+import { furnishRoom, labelSpot } from "@/lib/design/symbols";
 import type { RevisionLog } from "@/lib/design/schema";
 
 type SiteMemo = {
@@ -989,17 +989,22 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
     return [...map.entries()].sort((a, b) => a[0] - b[0]);
   }, [plan.rooms]);
 
-  // Mobiliario simbólico (Neufert/Panero) por nivel — la planta se lee
-  // "amueblada" como en las referencias de libro.
-  const furnitureByLevel = useMemo(() => {
-    const map = new Map<number, Prim[]>();
+  // Mobiliario simbólico (Neufert/Panero) por nivel con el SOLVER
+  // anti-amontonamiento (puertas + colisiones) + spots de etiqueta libres.
+  const layoutByLevel = useMemo(() => {
+    const fur = new Map<number, Prim[]>();
+    const spots = new Map<string, { x: number; y: number }>();
     for (const [level, rooms] of roomsByLevel) {
       const out: Prim[] = [];
-      for (const r of rooms) furnishRoom(out, r, r.name.toLowerCase().includes("principal"));
-      map.set(level, out);
+      const doors = plan.doors.filter((d) => d.level === level);
+      for (const r of rooms) {
+        const placed = furnishRoom(out, r, doors, r.name.toLowerCase().includes("principal"));
+        spots.set(`${level}:${r.name}`, labelSpot(r, placed));
+      }
+      fur.set(level, out);
     }
-    return map;
-  }, [roomsByLevel]);
+    return { fur, spots };
+  }, [roomsByLevel, plan.doors]);
 
   return (
     <div
@@ -1025,19 +1030,20 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
           <g key={level} transform={plan.levels > 1 ? `translate(${(W + pad * 2) * level + pad * level}, 0)` : undefined}>
             {/* Envuelvente */}
             <rect x={0} y={svgY(D)} width={W} height={D} fill="none" stroke="#e2e8f0" strokeWidth={penWidth("MUROS")} />
-            {/* Espacios */}
+            {/* Espacios — etiqueta en hueco libre (anti-tapado por muebles) */}
             {rooms.map((r) => {
               const c = ROOM_COLORS[r.type];
+              const spot = layoutByLevel.spots.get(`${level}:${r.name}`) ?? { x: r.x + r.width / 2, y: r.y + r.depth / 2 };
               return (
                 <g key={`${r.name}-${level}`}>
                   <rect
                     x={r.x} y={svgY(r.y + r.depth)} width={r.width} height={r.depth}
                     fill={c} fillOpacity={0.16} stroke={c} strokeOpacity={0.85} strokeWidth={penWidth("MUROS")}
                   />
-                  <text x={r.x + r.width / 2} y={svgY(r.y + r.depth / 2) + 0.06} textAnchor="middle" fontSize={0.24} fill="#e2e8f0">
+                  <text x={spot.x} y={svgY(spot.y) + 0.06} textAnchor="middle" fontSize={0.24} fill="#e2e8f0">
                     {r.name}
                   </text>
-                  <text x={r.x + r.width / 2} y={svgY(r.y + r.depth / 2) - 0.28} textAnchor="middle" fontSize={0.19} fill="#94a3b8">
+                  <text x={spot.x} y={svgY(spot.y) - 0.28} textAnchor="middle" fontSize={0.19} fill="#94a3b8">
                     {roomArea(r).toFixed(1)} m²
                   </text>
                 </g>
@@ -1071,7 +1077,7 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
               return <line key={`win-${i}`} x1={xx} y1={svgY(w.x - w.width / 2)} x2={xx} y2={svgY(w.x + w.width / 2)} stroke="#38bdf8" strokeWidth={penWidth("VENTANAS")} />;
             })}
             {/* Mobiliario simbólico — Neufert/Panero (Ching §symbol conventions) */}
-            {(furnitureByLevel.get(level) ?? []).map((p, i) =>
+            {(layoutByLevel.fur.get(level) ?? []).map((p, i) =>
               p.t === "L" ? (
                 <line key={`fur-${i}`} x1={p.x1} y1={svgY(p.y1)} x2={p.x2} y2={svgY(p.y2)}
                   stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={penWidth(p.l, p.thin)} strokeDasharray={p.dash ? "0.18 0.1" : undefined} />

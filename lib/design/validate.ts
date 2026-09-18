@@ -16,6 +16,7 @@ import {
   roomKey,
 } from "./schema";
 import { DIMENSIONAL_STANDARDS, CLEARANCES } from "./knowledge";
+import { layoutFurniture } from "./symbols";
 
 /**
  * Mínimos por tipo de espacio — fuente única: lib/design/knowledge.ts
@@ -99,6 +100,49 @@ function overlapChecks(rooms: Room[]): GateCheck[] {
   return checks;
 }
 
+/** Programa AMUEBLABLE: el mismo solver que dibuja el mobiliario decide si
+ *  el programa cabe. Si un mueble prioritario no encuentra posición válida
+ *  (puertas + circulación + colisiones), el espacio es funcionalmente
+ *  insuficiente — Neufert/Panero, no una corazonada. */
+function furnishabilityChecks(plan: FloorPlan): GateCheck[] {
+  const checks: GateCheck[] = [];
+  const PRIORITY: Record<string, string[]> = {
+    habitacion: ["cama"],
+    "habitacion_principal": ["cama"],
+    baño: ["wc", "lavamanos"],
+    cocina: ["mostrador", "estufa"],
+    sala: ["sofa"],
+    comedor: ["comedor"],
+    lavanderia: ["lavadora"],
+  };
+  for (const r of plan.rooms) {
+    const wants = PRIORITY[r.type] ?? (/alcoba|habita|dormitorio|recamara/i.test(r.name) ? ["cama"] : null);
+    if (!wants) continue;
+    const placed = layoutFurniture(r, plan.doors, r.name.toLowerCase().includes("principal"));
+    for (const kind of wants) {
+      if (placed.some((p) => p.kind === kind)) continue;
+      const LABEL: Record<string, string> = {
+        cama: "la cama no cabe con circulación",
+        wc: "el inodoro no cabe",
+        lavamanos: "el lavamanos no cabe",
+        mostrador: "el mostrador no cabe",
+        estufa: "la estufa no cabe",
+        sofa: "el sofá no cabe",
+        comedor: "el comedor no cabe",
+        lavadora: "la lavadora no cabe",
+      };
+      checks.push({
+        id: `amuebla-${roomKey(r.name)}-${kind}`,
+        label: `${r.name}: ${LABEL[kind] ?? kind}`,
+        pass: false,
+        detail: "El solver de mobiliario no encuentra posición válida (puertas, circulación 60 cm y colisiones). Amplía el espacio o reduce el programa.",
+        ref: "Neufert — dimensiones de muebles y circulación; Panero — espacios interiores",
+      });
+    }
+  }
+  return checks;
+}
+
 function doorChecks(plan: FloorPlan): GateCheck[] {
   const checks: GateCheck[] = [];
   // Mínimo según tipo de puerta (Neufert/NSR-10 A.6 solo para la principal):
@@ -146,6 +190,7 @@ export function gateDraft(plan: FloorPlan): Gate {
   const checks = [
     ...roomChecks(plan, plan.rooms),
     ...overlapChecks(plan.rooms),
+    ...furnishabilityChecks(plan),
     coverageCheck(plan, rooms0),
     {
       id: "espacios",

@@ -370,7 +370,7 @@ export function planToIfc(plan: FloorPlan): string {
     // modelo cuentan la misma historia; dimensiones Neufert/Panero).
     const maderaMat = material(MATERIALS.maderaMat);
     for (const r of plan.rooms.filter((r) => r.level === lvl)) {
-      for (const fu of furniture3D(r, r.name.toLowerCase().includes("principal"))) {
+      for (const fu of furniture3D(r, plan.doors.filter((d) => d.level === lvl), r.name.toLowerCase().includes("principal"))) {
         const s6 = solidBox(fu.x, fu.y, z0, fu.w, fu.d, fu.h, "x");
         const pr6 = shapeRep(s6, `FU${fu.x},${fu.y},${lvl}`);
         const pl6 = ent(`FUPL:${fu.x},${fu.y},${lvl}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);

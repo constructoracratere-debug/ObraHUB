@@ -1,224 +1,303 @@
 /**
- * ✏️ Diseño IA — Librería de SÍMBOLOS de mobiliario y aparatos.
+ * ✏️ Diseño IA — Librería de SÍMBOLOS + MOTOR DE COLOCACIÓN.
  *
  * Dimensiones de Neufert "Datos de proyecto" y Panero "Las dimensiones
  * humanas en los espacios interiores". Todo determinista: mismas entradas,
  * mismo dibujo. Los símbolos son primitivas (Prim) que consumen los DOS
  * renderizadores (SVG en pantalla y DXF por capas).
  *
- * Convenciones Ching §simbología:
- *  · Mobiliario en línea MEDIA (no compite con el muro cortado).
- *  · Aparatos sanitarios con su trazo característico (taza, sifón, desagüe).
- *  · Cocina: mostrador continuo + estufa (4 quemadores) + nevera.
+ * ── MOTOR ANTI-AMONTONAMIENTO ─────────────────────────────────────────────
+ * La 1ª versión pegaba muebles a anclas fijas sin mirar nada: camas sobre
+ * puertas, WC sobre ducha, etiquetas tapadas. Ahora `layoutFurniture` es un
+ * mini-solver:
+ *  1. Calcula las ZONAS EXCLUIDAS del espacio: vanos de puertas (paso) y el
+ *     cuarto de círculo de giro de cada hoja que abre hacia dentro.
+ *  2. Por cada mueble (en orden de prioridad del programa) escanea anclas
+ *     deterministas contra cada muro (esquinas → centro → barrido de 15 cm).
+ *  3. Acepta la primera posición que no choque con zonas ni con muebles ya
+ *     puestos (holgura 4 cm). Si NINGUNA vale, el mueble NO se dibuja: un
+ *     espacio pequeño muestra menos mobiliario, nunca mobiliario amontonado.
+ *  4. `labelSpot` hace lo mismo con las etiquetas nombre/área: buscan hueco
+ *     libre (centro → arriba → abajo → esquinas).
+ * El 2D (furnishRoom) y el 3D (furniture3D) consumen el MISMO resultado del
+ * solver — plano y modelo cuentan la misma historia.
  */
 
 import type { Prim } from "./views";
+import type { FloorPlan } from "./schema";
 
 const L = "MOBILIARIO";   // capa general de mobiliario
 const S = "SANITARIOS";   // aparatos sanitarios (hidrosanitario)
 
-function lines(out: Prim[], x: number, y: number, w: number, h: number, layer = L) {
-  out.push({ t: "H", l: layer, x, y, w, h });
-}
+/** Rectángulo en coordenadas de espacio (metros). */
+export type Rect = { x: number; y: number; w: number; d: number };
 
-/** Inodoro (WC) — 0.35×0.60: tanque + taza (Neufert). */
-export function wc(out: Prim[], x: number, y: number, dir: "n" | "s" | "e" | "o" = "n") {
-  const vert = dir === "n" || dir === "s";
-  const w = vert ? 0.36 : 0.62, h = vert ? 0.62 : 0.36;
-  const yy = dir === "n" ? y + h - 0.18 : y; // tanque pegado al muro
-  lines(out, x, yy, w, 0.18, S);             // tanque
-  lines(out, vert ? x + 0.03 : x + 0.18, vert ? (dir === "n" ? y : y + 0.18) : y + 0.03,
-        vert ? 0.3 : 0.44, vert ? 0.44 : 0.3, S); // taza
-  out.push({ t: "L", l: S, x1: x + (vert ? 0.18 : 0.4), y1: y + (vert ? (dir === "n" ? 0.1 : h - 0.1) : 0.18),
-             x2: x + (vert ? 0.18 : 0.4), y2: y + (vert ? (dir === "n" ? 0.44 : h - 0.44) : 0.18) }); // sifón
-}
+const intersects = (a: Rect, b: Rect, pad = 0) =>
+  a.x < b.x + b.w + pad && a.x + a.w + pad > b.x &&
+  a.y < b.y + b.d + pad && a.y + a.d + pad > b.y;
 
-/** Lavamanos 0.50×0.40 sobre muro. */
-export function lavamanos(out: Prim[], x: number, y: number, dir: "n" | "s" | "e" | "o" = "n") {
-  const vert = dir === "n" || dir === "s";
-  const w = vert ? 0.5 : 0.4, h = vert ? 0.4 : 0.5;
-  lines(out, x, y, w, h, S);
-  lines(out, x + 0.07, y + 0.07, w - 0.14, h - 0.14, S); // cuenca
-  // grifería: tick al muro
-  const gx = dir === "n" ? x + w / 2 : dir === "s" ? x + w / 2 : dir === "e" ? x + w - 0.06 : x + 0.06;
-  const gy = dir === "n" ? y + h - 0.06 : dir === "s" ? y + 0.06 : y + h / 2;
-  out.push({ t: "L", l: S, x1: gx, y1: gy, x2: gx, y2: gy - 0.08 });
-}
+type Door = FloorPlan["doors"][number];
+type Room = { name: string; type: string; x: number; y: number; width: number; depth: number; level: number };
 
-/** Ducha 0.90×0.90 con desagüe y rejilla. */
-export function ducha(out: Prim[], x: number, y: number, size = 0.9) {
-  lines(out, x, y, size, size, S);
-  out.push({ t: "H", l: S, x: x + size / 2 - 0.12, y: y + size / 2 - 0.12, w: 0.24, h: 0.24 }); // desagüe
-  out.push({ t: "L", l: S, x1: x + size / 2 - 0.12, y1: y + size / 2, x2: x + size / 2 + 0.12, y2: y + size / 2, thin: true });
-}
+/** Mueble colocado por el solver (bbox + kind + muro de respaldo). */
+export type PlacedFurniture = Rect & { kind: string; wall: "N" | "S" | "E" | "W" | "C" };
 
-/** Lavaplatos doble 0.80×0.50. */
-export function lavaplatos(out: Prim[], x: number, y: number) {
-  lines(out, x, y, 0.8, 0.5, S);
-  lines(out, x + 0.06, y + 0.07, 0.32, 0.36, S);
-  lines(out, x + 0.42, y + 0.07, 0.32, 0.36, S);
-}
-
-/** Estufa 0.60×0.55 con 4 quemadores. */
-export function estufa(out: Prim[], x: number, y: number) {
-  lines(out, x, y, 0.6, 0.55, L);
-  const q = 0.16;
-  for (const [dx, dy] of [[0.09, 0.09], [0.35, 0.09], [0.09, 0.31], [0.35, 0.31]]) {
-    lines(out, x + dx, y + dy, q, q, L);
-    out.push({ t: "L", l: L, x1: x + dx + q / 2 - 0.04, y1: y + dy + q / 2, x2: x + dx + q / 2 + 0.04, y2: y + dy + q / 2, thin: true });
+/** Zonas donde NO se puede poner mobiliario: paso de vanos + giro de hojas. */
+export function doorZones(room: Room, doors: Door[]): Rect[] {
+  const zones: Rect[] = [];
+  const inRoom = (d: Door) =>
+    d.from.toLowerCase().replace(/\s+/g, "") === room.name.toLowerCase().replace(/\s+/g, "") ||
+    d.to.toLowerCase().replace(/\s+/g, "") === room.name.toLowerCase().replace(/\s+/g, "");
+  for (const d of doors) {
+    const onSouth = Math.abs(d.y - room.y) < 0.25;
+    const onNorth = Math.abs(d.y - (room.y + room.depth)) < 0.25;
+    const onWest = Math.abs(d.x - room.x) < 0.25;
+    const onEast = Math.abs(d.x - (room.x + room.width)) < 0.25;
+    if (!onSouth && !onNorth && !onWest && !onEast && !inRoom(d)) continue;
+    const w = d.width;
+    // Paso junto al vano (0.45 hacia adentro) — aunque la hoja gire afuera.
+    if (onSouth) zones.push({ x: d.x - w / 2, y: room.y, w, d: 0.45 });
+    if (onNorth) zones.push({ x: d.x - w / 2, y: room.y + room.depth - 0.45, w, d: 0.45 });
+    if (onWest) zones.push({ x: room.x, y: d.y - w / 2, w: 0.45, d: w });
+    if (onEast) zones.push({ x: room.x + room.width - 0.45, y: d.y - w / 2, w: 0.45, d: w });
+    // Giro de la hoja hacia dentro (bbox del cuarto de círculo — Ching).
+    if (d.swing !== "in") continue;
+    const hx = d.hinge === "left" ? d.x - w / 2 : d.x + w / 2;
+    const hy = d.hinge === "left" ? d.y - w / 2 : d.y + w / 2;
+    if (onSouth) zones.push({ x: d.hinge === "left" ? hx : hx - w, y: room.y, w, d: w });
+    if (onNorth) zones.push({ x: d.hinge === "left" ? hx : hx - w, y: room.y + room.depth - w, w, d: w });
+    if (onWest) zones.push({ x: room.x, y: d.hinge === "left" ? hy : hy - w, w, d: w });
+    if (onEast) zones.push({ x: room.x + room.width - w, y: d.hinge === "left" ? hy : hy - w, w, d: w });
   }
+  return zones;
 }
 
-/** Nevera 0.70×0.68 con línea de puerta. */
-export function nevera(out: Prim[], x: number, y: number) {
-  lines(out, x, y, 0.7, 0.68, L);
-  out.push({ t: "L", l: L, x1: x, y1: y + 0.46, x2: x + 0.7, y2: y + 0.46, thin: true });
+/** Anclas deterministas para un mueble de ancho w sobre un muro:
+ *  esquina izquierda → derecha → centro → barrido cada 0.15 m. */
+function anchors(from: number, to: number, size: number): number[] {
+  const lo = from + 0.04, hi = to - size - 0.04;
+  if (hi < lo) return [];
+  const list = [lo, hi, (from + to - size) / 2];
+  for (let p = lo; p <= hi; p += 0.15) list.push(p);
+  return list;
 }
 
-/** Mostrador de cocina en L (0.60 de fondo) esquina noroeste del espacio. */
-export function mostradorL(out: Prim[], x: number, y: number, w: number, d: number) {
-  const f = 0.6;
-  if (w < 1.4 || d < 1.4) { lines(out, x, y, Math.min(w, 2.4), f, L); return; }
-  lines(out, x, y, w, f, L);          // tramo norte
-  lines(out, x, y + f, f, d - f, L);  // tramo oeste
+/** ── EL SOLVER ──────────────────────────────────────────────────────────── */
+export function layoutFurniture(room: Room, doors: Door[], isPrincipal = false): PlacedFurniture[] {
+  const zones = doorZones(room, doors);
+  const placed: PlacedFurniture[] = [];
+
+  const tryPlace = (kind: string, w: number, d: number, prefs: Array<"N" | "S" | "E" | "W" | "C">): boolean => {
+    // Mueble que no cabe ni en el espacio: fuera (mejor vacío que amontonado).
+    if (w > room.width - 0.08 || d > room.depth - 0.08) return false;
+    for (const p of prefs) {
+      const cands: Rect[] = [];
+      if (p === "N") for (const x of anchors(room.x, room.x + room.width, w)) cands.push({ x, y: room.y + 0.04, w, d });
+      else if (p === "S") for (const x of anchors(room.x, room.x + room.width, w)) cands.push({ x, y: room.y + room.depth - d - 0.04, w, d });
+      else if (p === "W") for (const y of anchors(room.y, room.y + room.depth, d)) cands.push({ x: room.x + 0.04, y, w, d });
+      else if (p === "E") for (const y of anchors(room.y, room.y + room.depth, d)) cands.push({ x: room.x + room.width - w - 0.04, y, w, d });
+      else cands.push({ x: room.x + (room.width - w) / 2, y: room.y + (room.depth - d) / 2, w, d });
+      for (const c of cands) {
+        if (c.x < room.x - 0.01 || c.y < room.y - 0.01 ||
+            c.x + c.w > room.x + room.width + 0.01 || c.y + c.d > room.y + room.depth + 0.01) continue;
+        if (zones.some((z) => intersects(c, z, 0.02))) continue;
+        if (placed.some((pf) => intersects(c, pf, 0.04))) continue;
+        placed.push({ kind, ...c, wall: p });
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const t = room.type;
+  const nm = room.name.toLowerCase();
+  if (t === "baño" || /ba[nñ]o|bano/.test(nm)) {
+    tryPlace("wc", 0.36, 0.62, ["W", "N", "E", "S"]);
+    tryPlace("lavamanos", 0.5, 0.4, ["N", "E", "W", "S"]);
+    tryPlace("ducha", 0.9, 0.9, ["E", "W", "N", "S"]); // solo si queda hueco
+  } else if (t === "cocina" || /cocina/.test(nm)) {
+    // Mostrador en módulos estándar descendentes (2.40→2.00→1.60→1.20→0.80):
+    // si el ancho completo choca con una puerta, una cocina de módulo corto
+    // sí cabe — mejor que quedarse sin mostrador.
+    for (const len of [2.4, 2.0, 1.6, 1.2, 0.8]) {
+      if (tryPlace("mostrador", Math.min(room.width - 0.08, len), 0.6, ["N", "E", "W", "S"])) break;
+    }
+    tryPlace("estufa", 0.6, 0.55, ["N", "W", "E", "S"]);
+    tryPlace("nevera", 0.7, 0.68, ["E", "W", "N", "S"]);
+    tryPlace("lavaplatos", 0.8, 0.5, ["N", "W", "E", "S"]);
+  } else if (t === "habitacion" || /alcoba|habita|dormitorio|recamara/.test(nm)) {
+    const doble = isPrincipal || room.width >= 2.9;
+    // Cama: cabecero contra muro; holgura de circulación 60 cm (Neufert).
+    const bw = doble ? 1.4 : 0.9;
+    tryPlace("cama", bw, 1.9, ["N", "E", "W", "S"]);
+    tryPlace("closet", Math.max(0.8, Math.min(room.width - 0.2, 1.6)), 0.55, ["S", "E", "W", "N"]);
+    if (!doble && room.width > 2.6) tryPlace("escritorio", 1.0, 0.5, ["W", "E", "N"]);
+  } else if (t === "sala" || /sala|estar/.test(nm)) {
+    tryPlace("sofa", 1.9, 0.85, ["S", "N", "W", "E"]);
+    tryPlace("mesa_centro", 0.9, 0.5, ["C"]);
+    tryPlace("tv", 1.2, 0.35, ["N", "S", "E", "W"]);
+  } else if (t === "comedor" || /comedor/.test(nm)) {
+    tryPlace("comedor", 1.2, 0.8, ["C", "N", "S"]);
+  } else if (t === "lavanderia" || /lavander/.test(nm)) {
+    tryPlace("lavadora", 0.62, 0.62, ["W", "N", "E", "S"]);
+    tryPlace("lavadero", 0.6, 0.5, ["N", "E", "W", "S"]);
+  } else if (t === "estudio" || /estudio|oficina/.test(nm)) {
+    tryPlace("escritorio", 1.4, 0.6, ["N", "W", "E"]);
+    tryPlace("silla", 0.45, 0.45, ["C"]);
+  } else if (t === "garaje" || /garaje|parqueadero|estacionamiento/.test(nm)) {
+    tryPlace("auto", 1.8, Math.min(4.5, room.depth - 0.2), ["N", "S"]);
+  }
+  return placed;
 }
 
-/** Cama — doble 1.40×1.90 / individual 0.90×1.90, con almohadas. */
-export function cama(out: Prim[], x: number, y: number, doble = true) {
-  const w = doble ? 1.4 : 0.9;
-  lines(out, x, y, w, 1.9, L);
-  const pw = doble ? 0.56 : 0.36; // almohadas
-  lines(out, x + 0.08, y + 1.9 - 0.42, pw, 0.3, L);
-  if (doble) lines(out, x + 0.08 + pw + 0.08, y + 1.9 - 0.42, pw, 0.3, L);
-  out.push({ t: "L", l: L, x1: x + 0.12, y1: y + 1.9 - 0.62, x2: x + w - 0.12, y2: y + 1.9 - 0.62, thin: true }); // sábana
+/** Hueco libre para la etiqueta nombre/área del espacio (centro → bordes). */
+export function labelSpot(room: Room, furniture: PlacedFurniture[]): { x: number; y: number } {
+  const cx = room.x + room.width / 2;
+  const cy = room.y + room.depth / 2;
+  const labelBox = (x: number, y: number): Rect => ({ x: x - 0.6, y: y - 0.3, w: 1.2, d: 0.6 });
+  const cands: Array<{ x: number; y: number }> = [
+    { x: cx, y: cy },
+    { x: cx, y: room.y + 0.42 },
+    { x: cx, y: room.y + room.depth - 0.42 },
+    { x: room.x + 0.75, y: room.y + 0.45 },
+    { x: room.x + room.width - 0.75, y: room.y + room.depth - 0.45 },
+    { x: room.x + 0.75, y: room.y + room.depth - 0.45 },
+    { x: room.x + room.width - 0.75, y: room.y + 0.45 },
+  ];
+  for (const c of cands) {
+    if (!furniture.some((f) => intersects(labelBox(c.x, c.y), f, 0.05))) return c;
+  }
+  return { x: cx, y: cy }; // espacio saturado: centro (la etiqueta manda)
 }
 
-/** Sofá 3 puestos 1.90×0.85 con respaldo y brazos. */
-export function sofa(out: Prim[], x: number, y: number) {
-  lines(out, x, y, 1.9, 0.85, L);
-  lines(out, x + 0.14, y + 0.14, 1.62, 0.71, L); // asiento
-  out.push({ t: "L", l: L, x1: x + 0.14, y1: y + 0.14, x2: x + 0.14, y2: y + 0.85, thin: true }); // brazo
-  out.push({ t: "L", l: L, x1: x + 1.76, y1: y + 0.14, x2: x + 1.76, y2: y + 0.85, thin: true });
-  for (const dx of [0.32, 0.76, 1.2]) out.push({ t: "L", l: L, x1: x + dx, y1: y + 0.14, x2: x + dx, y2: y + 0.5, thin: true });
+// ── Símbolos 2D (Ching §simbología) ─────────────────────────────────────────
+
+function box(out: Prim[], r: Rect, layer = L) {
+  out.push({ t: "H", l: layer, x: r.x, y: r.y, w: r.w, h: r.d });
 }
 
-/** Comedor: mesa 1.20×0.80 + 4 sillas 0.45². */
-export function comedor(out: Prim[], x: number, y: number) {
-  const mw = 1.2, mh = 0.8;
-  const cx = x - mw / 2, cy = y - mh / 2;
-  lines(out, cx, cy, mw, mh, L);
-  for (const [dx, dy] of [[-0.58, 0.08], [mw + 0.13, 0.08], [-0.58, mh - 0.53], [mw + 0.13, mh - 0.53]]) {
-    lines(out, cx + dx, cy + dy, 0.45, 0.45, L);
+/** Dibuja los muebles colocados por el solver — 2D simbólico. */
+export function furnishRoom(out: Prim[], room: Room, doors: Door[], isPrincipal = false) {
+  const placed = layoutFurniture(room, doors, isPrincipal);
+  for (const f of placed) {
+    switch (f.kind) {
+      case "wc": {
+        const vert = f.wall === "N" || f.wall === "S";
+        box(out, vert ? { x: f.x + (f.w - 0.36) / 2, y: f.wall === "N" ? f.y : f.y + f.d - 0.18, w: 0.36, d: 0.18 } : { x: f.wall === "W" ? f.x : f.x + f.w - 0.18, y: f.y + (f.d - 0.36) / 2, w: 0.18, d: 0.36 }, S);
+        box(out, f, S); // taza (bbox)
+        out.push({ t: "L", l: S, x1: f.x + f.w / 2, y1: f.y + f.d / 2 - 0.12, x2: f.x + f.w / 2, y2: f.y + f.d / 2 + 0.12, thin: true });
+        break;
+      }
+      case "lavamanos": {
+        box(out, f, S);
+        box(out, { x: f.x + 0.06, y: f.y + 0.06, w: f.w - 0.12, d: f.d - 0.12 }, S);
+        break;
+      }
+      case "ducha": {
+        box(out, f, S);
+        box(out, { x: f.x + f.w / 2 - 0.12, y: f.y + f.d / 2 - 0.12, w: 0.24, d: 0.24 }, S);
+        out.push({ t: "L", l: S, x1: f.x + f.w / 2 - 0.12, y1: f.y + f.d / 2, x2: f.x + f.w / 2 + 0.12, y2: f.y + f.d / 2, thin: true });
+        break;
+      }
+      case "lavaplatos": {
+        box(out, f, S);
+        box(out, { x: f.x + 0.06, y: f.y + 0.07, w: f.w / 2 - 0.1, d: f.d - 0.14 }, S);
+        box(out, { x: f.x + f.w / 2 + 0.04, y: f.y + 0.07, w: f.w / 2 - 0.1, d: f.d - 0.14 }, S);
+        break;
+      }
+      case "estufa": {
+        box(out, f, L);
+        const q = Math.min(0.16, f.w / 4);
+        for (const [dx, dy] of [[0.09, 0.09], [f.w - q - 0.09, 0.09], [0.09, f.d - q - 0.09], [f.w - q - 0.09, f.d - q - 0.09]]) {
+          box(out, { x: f.x + dx, y: f.y + dy, w: q, d: q }, L);
+        }
+        break;
+      }
+      case "cama": {
+        box(out, f, L);
+        const pw = Math.min(0.56, (f.w - 0.24) / 2);
+        // almohadas al cabecero (pared de respaldo)
+        const headN = f.wall === "N";
+        const py = headN ? f.y + f.d - 0.42 : f.y + 0.12;
+        box(out, { x: f.x + 0.08, y: py, w: pw, d: 0.3 }, L);
+        if (f.w >= 1.3) box(out, { x: f.x + f.w - pw - 0.08, y: py, w: pw, d: 0.3 }, L);
+        const ly = headN ? f.y + f.d - 0.62 : f.y + 0.62;
+        out.push({ t: "L", l: L, x1: f.x + 0.1, y1: ly, x2: f.x + f.w - 0.1, y2: ly, thin: true });
+        break;
+      }
+      case "closet": {
+        box(out, f, L);
+        const vert = f.d >= f.w;
+        if (vert) out.push({ t: "L", l: L, x1: f.x + f.w / 2, y1: f.y + 0.05, x2: f.x + f.w / 2, y2: f.y + f.d - 0.05, thin: true });
+        else out.push({ t: "L", l: L, x1: f.x + 0.05, y1: f.y + f.d / 2, x2: f.x + f.w - 0.05, y2: f.y + f.d / 2, thin: true });
+        break;
+      }
+      case "sofa": {
+        box(out, f, L);
+        box(out, { x: f.x + 0.14, y: f.y + 0.14, w: f.w - 0.28, d: f.d - 0.14 }, L);
+        break;
+      }
+      case "comedor": {
+        box(out, f, L);
+        for (const [dx, dy] of [[-0.58, 0.08], [f.w + 0.13, 0.08], [-0.58, f.d - 0.53], [f.w + 0.13, f.d - 0.53]]) {
+          const c = { x: f.x + dx, y: f.y + dy, w: 0.45, d: 0.45 };
+          if (c.x >= room.x && c.y >= room.y && c.x + 0.45 <= room.x + room.width && c.y + 0.45 <= room.y + room.depth) box(out, c, L);
+        }
+        break;
+      }
+      case "lavadora": {
+        box(out, f, S);
+        box(out, { x: f.x + 0.1, y: f.y + 0.1, w: f.w - 0.2, d: f.d - 0.2 }, S);
+        out.push({ t: "L", l: S, x1: f.x + f.w / 2, y1: f.y + 0.1, x2: f.x + f.w / 2, y2: f.y + f.d - 0.1, thin: true });
+        break;
+      }
+      case "lavadero":
+      case "escritorio":
+      case "mesa_centro":
+      case "tv":
+      case "silla":
+      case "nevera": {
+        box(out, f, L);
+        if (f.kind === "nevera") out.push({ t: "L", l: L, x1: f.x, y1: f.y + f.d * 0.68, x2: f.x + f.w, y2: f.y + f.d * 0.68, thin: true });
+        break;
+      }
+      case "mostrador": {
+        box(out, f, L);
+        for (let xx = f.x + 0.45; xx < f.x + f.w - 0.1; xx += 0.6) {
+          out.push({ t: "L", l: L, x1: xx, y1: f.y + 0.04, x2: xx, y2: f.y + f.d - 0.04, thin: true });
+        }
+        break;
+      }
+      case "auto": {
+        box(out, f, L);
+        box(out, { x: f.x + 0.25, y: f.y + 0.7, w: f.w - 0.5, d: Math.min(1.1, f.d - 1.5) }, L); // cabina
+        break;
+      }
+    }
   }
+  return placed;
 }
 
-/** Closet: rectángulo + barra de colgado + divisiones cada 0.80. */
-export function closet(out: Prim[], x: number, y: number, w: number, d: number) {
-  lines(out, x, y, w, d, L);
-  const vert = d >= w;
-  if (vert) {
-    out.push({ t: "L", l: L, x1: x + w / 2, y1: y + 0.06, x2: x + w / 2, y2: y + d - 0.06, thin: true });
-    for (let yy = y + 0.8; yy < y + d - 0.1; yy += 0.8) out.push({ t: "L", l: L, x1: x + 0.05, y1: yy, x2: x + w - 0.05, y2: yy, thin: true });
-  } else {
-    out.push({ t: "L", l: L, x1: x + 0.06, y1: y + d / 2, x2: x + w - 0.06, y2: y + d / 2, thin: true });
-    for (let xx = x + 0.8; xx < x + w - 0.1; xx += 0.8) out.push({ t: "L", l: L, x1: xx, y1: y + 0.05, x2: xx, y2: y + d - 0.05, thin: true });
-  }
-}
-
-/** Lavadora 0.62×0.62 con tambor. */
-export function lavadora(out: Prim[], x: number, y: number) {
-  lines(out, x, y, 0.62, 0.62, S);
-  lines(out, x + 0.1, y + 0.1, 0.42, 0.42, S);
-  out.push({ t: "L", l: S, x1: x + 0.31, y1: y + 0.1, x2: x + 0.31, y2: y + 0.52, thin: true });
-}
-
-/** Escalera: peldaños de 0.28 + flecha SUBE + línea de corte (Ching). */
-export function escalera(out: Prim[], x: number, y: number, w: number, length: number, sube = true) {
-  const n = Math.max(3, Math.floor(length / 0.28));
-  for (let i = 0; i <= n; i++) {
-    const yy = y + (i * length) / n;
-    out.push({ t: "L", l: L, x1: x, y1: yy, x2: x + w, y2: yy, thin: i > n - 3 });
-  }
-  // Flecha direccional (siempre — Ching).
-  const cx = x + w / 2;
-  out.push({ t: "L", l: L, x1: cx, y1: y + 0.15, x2: cx, y2: y + length - 0.3, thin: true });
-  out.push({ t: "L", l: L, x1: cx - 0.1, y1: y + length - 0.42, x2: cx, y2: y + length - 0.3, thin: true });
-  out.push({ t: "L", l: L, x1: cx + 0.1, y1: y + length - 0.42, x2: cx, y2: y + length - 0.3, thin: true });
-  out.push({ t: "T", l: "TEXTOS", x: cx + 0.12, y: y + 0.35, h: 0.14, s: sube ? "SUBE" : "BAJA" });
-  // Línea de corte diagonal (convención planta).
-  out.push({ t: "L", l: L, x1: x + 0.05, y1: y + length * 0.72, x2: x + w - 0.05, y2: y + length * 0.62, dash: true, thin: true });
-}
-
-/** Mobiliario completo de un espacio según su tipo (dimensiones Neufert/Panero).
- *  Colocación determinista: pegado a muros, puertas despejadas. */
-export function furnishRoom(out: Prim[], r: { name: string; type: string; x: number; y: number; width: number; depth: number }, isPrincipal = false) {
-  const { x, y, width: w, depth: d } = r;
-  const t = r.type;
-  if (t === "baño" || /ba[nñ]o|bano/i.test(r.name)) {
-    wc(out, x + 0.12, y + 0.12, "n");
-    lavamanos(out, x + w - 0.62, y + 0.12, "n");
-    if (w > 1.8 && d > 1.4) ducha(out, x + w - 1.02, y + d - 1.02, Math.min(0.9, w - 1, d - 0.5));
-  } else if (t === "cocina" || /cocina/i.test(r.name)) {
-    mostradorL(out, x, y, w, d);
-    estufa(out, x + Math.min(w - 0.62, 0.75), y + 0.03);
-    if (w > 2.2) nevera(out, x + w - 0.74, y + 0.03);
-    lavaplatos(out, x + 0.7, y + 0.06);
-  } else if (t === "habitacion" || /alcoba|habita|dormitorio|recamara/i.test(r.name)) {
-    const doble = isPrincipal || w >= 2.9;
-    cama(out, x + (w - (doble ? 1.4 : 0.9)) / 2, y + 0.1, doble);
-    if (d > 2.6) closet(out, x + 0.1, y + d - 0.62, Math.max(w - 0.2, 0.8), 0.55);
-  } else if (t === "sala" || /sala|estar/i.test(r.name)) {
-    sofa(out, x + Math.max(0.1, (w - 1.9) / 2), y + 0.12);
-  } else if (t === "comedor" || /comedor/i.test(r.name)) {
-    comedor(out, x + w / 2, y + d / 2);
-  } else if (t === "lavanderia" || /lavander/i.test(r.name)) {
-    lavadora(out, x + 0.12, y + 0.12);
-    lines(out, x + w - 0.75, y + 0.12, 0.6, 0.5, S); // lavadero
-  } else if (t === "estudio" || /estudio|oficina/i.test(r.name)) {
-    lines(out, x + 0.12, y + 0.12, Math.min(1.4, w - 0.24), 0.6, L); // escritorio
-  } else if (t === "garaje" || /garaje|parqueadero|estacionamiento/i.test(r.name)) {
-    // Auto simbólico 1.80×4.50 (Panero)
-    lines(out, x + (w - 1.8) / 2, y + Math.max(0.1, (d - 4.5) / 2), 1.8, Math.min(4.5, d - 0.2), L);
-  }
-}
-
-/** El mismo mobiliario como VOLÚMENES para el modelo IFC (mismo anclaje
- *  determinista que furnishRoom — el 2D y el 3D cuentan la misma historia). */
-export function furniture3D(
-  r: { name: string; type: string; x: number; y: number; width: number; depth: number },
-  isPrincipal = false,
-): Array<{ x: number; y: number; w: number; d: number; h: number; name: string }> {
-  const { x, y, width: w, depth: d } = r;
-  const t = r.type;
-  if (t === "baño" || /ba[nñ]o|bano/i.test(r.name)) {
-    return [
-      { x: x + 0.3, y: y + 0.43, w: 0.36, d: 0.62, h: 0.42, name: `Inodoro — ${r.name}` },
-      { x: x + w - 0.37, y: y + 0.32, w: 0.5, d: 0.4, h: 0.85, name: `Lavamanos — ${r.name}` },
-    ];
-  }
-  if (t === "cocina" || /cocina/i.test(r.name)) {
-    const out = [
-      { x: x + w / 2, y: y + 0.3, w: Math.min(w, 2.4), d: 0.6, h: 0.9, name: "Mostrador de cocina" },
-      { x: x + 1.05, y: y + 0.3, w: 0.6, d: 0.55, h: 0.95, name: "Estufa 4 quemadores" },
-    ];
-    if (w > 2.2) out.push({ x: x + w - 0.39, y: y + 0.37, w: 0.7, d: 0.68, h: 1.75, name: "Nevera" });
-    return out;
-  }
-  if (t === "habitacion" || /alcoba|habita|dormitorio|recamara/i.test(r.name)) {
-    const doble = isPrincipal || w >= 2.9;
-    return [{ x: x + w / 2, y: y + 0.1 + 1.9 / 2, w: doble ? 1.4 : 0.9, d: 1.9, h: 0.45, name: `Cama ${doble ? "doble" : "sencilla"} — ${r.name}` }];
-  }
-  if (t === "sala" || /sala|estar/i.test(r.name)) {
-    return [{ x: x + w / 2, y: y + 0.55, w: 1.9, d: 0.85, h: 0.75, name: "Sofá 3 puestos" }];
-  }
-  if (t === "comedor" || /comedor/i.test(r.name)) {
-    return [{ x: x + w / 2, y: y + d / 2, w: 1.2, d: 0.8, h: 0.75, name: "Comedor 4 puestos" }];
-  }
-  if (t === "lavanderia" || /lavander/i.test(r.name)) {
-    return [{ x: x + 0.43, y: y + 0.43, w: 0.62, d: 0.62, h: 0.85, name: "Lavadora" }];
-  }
-  if (t === "estudio" || /estudio|oficina/i.test(r.name)) {
-    return [{ x: x + 0.12 + Math.min(1.4, w - 0.24) / 2, y: y + 0.42, w: Math.min(1.4, w - 0.24), d: 0.6, h: 0.75, name: "Escritorio" }];
-  }
-  return [];
+/** El mismo mobiliario como VOLÚMENES para el IFC (desde el solver). */
+export function furniture3D(room: Room, doors: Door[], isPrincipal = false): Array<{ x: number; y: number; w: number; d: number; h: number; name: string }> {
+  const H: Record<string, number> = {
+    wc: 0.42, lavamanos: 0.85, ducha: 0.05, lavaplatos: 0.9, estufa: 0.95,
+    nevera: 1.75, mostrador: 0.9, cama: 0.45, closet: 2.1, sofa: 0.75,
+    comedor: 0.75, mesa_centro: 0.42, tv: 0.5, lavadora: 0.85, lavadero: 0.9,
+    escritorio: 0.75, silla: 0.85, auto: 1.5,
+  };
+  const NAMES: Record<string, string> = {
+    wc: "Inodoro", lavamanos: "Lavamanos", ducha: "Zona de ducha", lavaplatos: "Lavaplatos",
+    estufa: "Estufa 4 quemadores", nevera: "Nevera", mostrador: "Mostrador de cocina",
+    cama: "Cama", closet: "Closet", sofa: "Sofá", comedor: "Comedor", mesa_centro: "Mesa de centro",
+    tv: "Mueble TV", lavadora: "Lavadora", lavadero: "Lavadero", escritorio: "Escritorio",
+    silla: "Silla", auto: "Parqueadero",
+  };
+  return layoutFurniture(room, doors, isPrincipal)
+    .filter((f) => f.kind !== "ducha") // la ducha es zona, no volumen
+    .map((f) => ({
+      x: f.x + f.w / 2, y: f.y + f.d / 2, w: f.w, d: f.d,
+      h: H[f.kind] ?? 0.75,
+      name: `${NAMES[f.kind] ?? f.kind} — ${room.name}`,
+    }));
 }

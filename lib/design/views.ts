@@ -15,7 +15,7 @@
  */
 
 import type { FloorPlan, Room, WallSide } from "./schema";
-import { furnishRoom } from "./symbols";
+import { furnishRoom, labelSpot } from "./symbols";
 
 /** Primitiva de dibujo (unidades: metros, CAD — Y hacia arriba). */
 export type Prim =
@@ -228,10 +228,11 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   for (const r of rooms) {
     out.push({ t: "H", l: L, x: r.x, y: r.y, w: r.width, h: r.depth });
     const a = r.width * r.depth;
-    out.push({ t: "T", l: "TEXTOS", x: r.x + r.width / 2 - r.name.length * 0.055, y: r.y + r.depth / 2 + 0.05, h: 0.14, s: r.name.toUpperCase() });
-    out.push({ t: "T", l: "TEXTOS", x: r.x + r.width / 2 - 0.3, y: r.y + r.depth / 2 - 0.18, h: 0.11, s: `${a.toFixed(1)}` });
-    // Mobiliario simbólico (Neufert/Panero) — la referencia que lo cambia todo.
-    furnishRoom(out, r, r.name.toLowerCase().includes("principal"));
+    // Etiqueta en hueco LIBRE (anti-tapado por mobiliario — Ching).
+    const placed = furnishRoom(out, r, plan.doors.filter((d) => d.level === level), r.name.toLowerCase().includes("principal"));
+    const spot = labelSpot(r, placed);
+    out.push({ t: "T", l: "TEXTOS", x: spot.x - r.name.length * 0.055, y: spot.y + 0.05, h: 0.14, s: r.name.toUpperCase() });
+    out.push({ t: "T", l: "TEXTOS", x: spot.x - 0.3, y: spot.y - 0.18, h: 0.11, s: `${a.toFixed(1)}` });
   }
   // Hatch de piso cerámico en baños y cocina (cuadrícula 0.33).
   for (const r of rooms) {
