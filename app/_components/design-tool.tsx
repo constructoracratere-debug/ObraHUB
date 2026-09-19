@@ -137,6 +137,9 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
   const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina">("planta");
+  // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
+  // negro — así se ve si el plano sobrevive la fotocopiadora.
+  const [printMode, setPrintMode] = useState(false);
   // El PLANO es el protagonista: paneles como drawers overlay (estilo Figma).
   // Sin plan aún, el estudio (form) ocupa el centro.
   // El estudio arranca ABIERTO: antes, al aparecer el plan el panel se
@@ -570,7 +573,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
         </div>
 
         {/* Centro: plano SVG + consola de agentes en vivo */}
-        <div className="absolute inset-0 bg-[#0a1120]">
+        <div className={`absolute inset-0 ${printMode ? "bg-white" : "bg-[#0a1120]"}`} style={printMode ? { filter: "invert(1) hue-rotate(180deg)" } : undefined}>
           {plan && (
             <div className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5 backdrop-blur">
               {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"]] as const).map(([id, label]) => (
@@ -579,6 +582,12 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                   {label}
                 </button>
               ))}
+              <button
+                type="button" onClick={() => setPrintMode((v) => !v)}
+                title="Vista previa de impresión B/N — como la ve curaduría"
+                className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${printMode ? "bg-zinc-400/30 text-zinc-100 ring-1 ring-zinc-300/40" : "text-slate-400 hover:bg-white/[0.06]"}`}>
+                🖨️ B/N
+              </button>
             </div>
           )}
           {plan ? (
@@ -873,6 +882,13 @@ function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fi
       style={{ cursor: dragRef.current ? "grabbing" : "grab", touchAction: "none" }}
     >
       <svg className="h-full w-full" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet">
+        <defs>
+          {/* Sombra proyectada 45° (Ching §shades): profundidad inmediata,
+              unidades de MODELO para escalar con el zoom. */}
+          <filter id="plan-shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0.09" dy="-0.09" stdDeviation="0.035" floodOpacity="0.38" />
+          </filter>
+        </defs>
         <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="#0a1120" />
         {prims.map((p, i) => {
           if (p.t === "F") {
@@ -1082,11 +1098,18 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
       style={{ cursor: dragRef.current ? "grabbing" : "grab", touchAction: "none" }}
     >
       <svg className="h-full w-full" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet">
+        <defs>
+          {/* Sombra proyectada 45° (Ching §shades): profundidad inmediata,
+              unidades de MODELO para escalar con el zoom. */}
+          <filter id="plan-shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0.09" dy="-0.09" stdDeviation="0.035" floodOpacity="0.38" />
+          </filter>
+        </defs>
         <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="#0a1120" />
         {roomsByLevel.map(([level, rooms]) => (
           <g key={level} transform={plan.levels > 1 ? `translate(${(W + pad * 2) * level + pad * level}, 0)` : undefined}>
             {/* Envuelvente */}
-            <rect x={0} y={svgY(D)} width={W} height={D} fill="none" stroke="#e2e8f0" strokeWidth={penWidth("MUROS")} />
+            <rect x={0} y={svgY(D)} width={W} height={D} fill="none" stroke="#e2e8f0" filter="url(#plan-shadow)" strokeWidth={penWidth("MUROS")} />
             {/* Espacios — etiqueta en hueco libre (anti-tapado por muebles) */}
             {rooms.map((r) => {
               const c = ROOM_COLORS[r.type];
@@ -1143,7 +1166,9 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
               return <line key={`win-${i}`} x1={xx} y1={svgY(w.x - w.width / 2)} x2={xx} y2={svgY(w.x + w.width / 2)} stroke="#38bdf8" strokeWidth={penWidth("VENTANAS")} />;
             })}
             {/* Mobiliario simbólico — Neufert/Panero (Ching §symbol conventions) */}
-            {(layoutByLevel.fur.get(level) ?? []).map((p, i) =>
+            {(layoutByLevel.fur.get(level) ?? []).length > 0 && (
+              <g filter="url(#plan-shadow)">
+              {(layoutByLevel.fur.get(level) ?? []).map((p, i) =>
               p.t === "L" ? (
                 <line key={`fur-${i}`} x1={p.x1} y1={svgY(p.y1)} x2={p.x2} y2={svgY(p.y2)}
                   stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={penWidth(p.l, p.thin)} strokeDasharray={p.dash ? "0.18 0.1" : undefined} />
@@ -1153,6 +1178,8 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
               ) : p.t === "T" ? (
                 <text key={`fur-${i}`} x={p.x} y={svgY(p.y)} fontSize={p.h} fill="#a8a29e">{p.s}</text>
               ) : null
+            )}
+            </g>
             )}
             {/* Retícula estructural */}
             {plan.structure?.axes.filter((a) => plan.levels === 1 || true).map((a, i) =>
