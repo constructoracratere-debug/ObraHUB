@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
   let body: {
     stage?: Stage;
     prompt?: string;
+    /** 🖼️ Referencias visuales del cliente (data URLs ≤1024px) — solo draft. */
+    referenceImages?: string[];
     location?: string;
     previousPlan?: unknown;
     constructorMemo?: ConstructorMemo;
@@ -145,12 +147,25 @@ export async function POST(req: NextRequest) {
         if (!prompt) throw new Error("Describe el proyecto a diseñar");
         say("🏛️ Arquitecto: interpretando el encargo del cliente…", "arquitecto");
         if (b.siteMemo) say("📍 Aplicando directrices de la ficha de sitio (POT/clima/materiales).", "arquitecto");
+        // 🖼️ Imagen de referencia del cliente: el arquitecto la MIRA y extrae
+        // el patrón (distribución, proporciones, estilo) que el texto no logra
+        // describir — "lo que tengo en la mente".
+        const refImages = Array.isArray(b.referenceImages)
+          ? b.referenceImages.filter((x: unknown) => typeof x === "string" && x.startsWith("data:image/")).slice(0, 3)
+          : [];
+        if (refImages.length > 0) {
+          say("🖼️ Analizando tu imagen de referencia (distribución, proporciones, estilo)…", "arquitecto");
+        }
         say("📐 Dimensionando espacios con la tabla Neufert/Plazola/Panero…", "arquitecto");
         say("🚪 Ubicando puertas (≥0.90 m accesible) y ventilación cruzada…", "arquitecto");
         const ficha = b.siteMemo ? JSON.stringify(b.siteMemo).slice(0, 2200) : "";
+        const refNote = refImages.length > 0
+          ? `\n\nREFERENCIA VISUAL DEL CLIENTE (adjunta como imagen): aplícala como guía de DISEÑO — respeta su patrón de distribución, proporciones de espacios, jerarquía y estilo en la medida del programa y la normativa. Si contradice un mínimo normativo, gana la norma y lo notas en designReport.notes.`
+          : "";
         const res = await llmJson<Record<string, unknown>>("structure", {
           system: AGENT_ARCHITECT_DRAFT,
-          user: `ENCARGO DEL CLIENTE:\n${prompt}\n\nFICHA DE SITIO (si hay): ${ficha || "no disponible"}`,
+          user: `ENCARGO DEL CLIENTE:\n${prompt}\n\nFICHA DE SITIO (si hay): ${ficha || "no disponible"}${refNote}`,
+          ...(refImages.length > 0 ? { images: refImages as string[] } : {}),
           maxTokens: 4500,
           temperature: 0.5,
           timeoutMs: 18000,

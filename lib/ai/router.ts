@@ -177,6 +177,15 @@ export async function llmComplete(
   }
 
   const failures: LlmResult["failures"] = [];
+  // Visión: si un proveedor rechaza las imágenes (400/415), los siguientes
+  // de la cadena van SIN ellas — degrada a texto en vez de morir.
+  let msgs = params.messages;
+  const stripImages = () => {
+    msgs = msgs.map((m): LlmMessage =>
+      typeof m.content === "string" || !Array.isArray(m.content)
+        ? m
+        : ({ ...m, content: m.content.filter((c) => !("image_url" in c)) } as LlmMessage));
+  };
   for (const spec of chain) {
     const t0 = Date.now();
     // El modo json_object no es universal: solo el proveedor primario de la
@@ -197,7 +206,7 @@ export async function llmComplete(
         const stream = await clientFor(spec).chat.completions.create(
           {
             model: spec.model,
-            messages: params.messages,
+            messages: msgs,
             ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
             ...(params.temperature != null ? { temperature: params.temperature } : {}),
             ...(wantsJson ? { response_format: { type: "json_object" as const } } : {}),
@@ -218,7 +227,7 @@ export async function llmComplete(
         const completion = await clientFor(spec).chat.completions.create(
           {
             model: spec.model,
-            messages: params.messages,
+            messages: msgs,
             ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
             ...(params.temperature != null ? { temperature: params.temperature } : {}),
             ...(wantsJson ? { response_format: { type: "json_object" as const } } : {}),
@@ -239,6 +248,7 @@ export async function llmComplete(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       failures.push({ provider: spec.label, error: msg.slice(0, 200) });
+      if (msgs.some((m) => Array.isArray(m.content) && m.content.some((c) => "image_url" in c))) stripImages();
       console.warn(`[llm:${task}] ${spec.label} falló (${spec.paid ? "pagado" : "gratis"}): ${msg.slice(0, 160)}`);
       if (params.onEvent && chain.indexOf(spec) < chain.length - 1) {
         params.onEvent({

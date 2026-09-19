@@ -21,7 +21,7 @@ import {
 } from "@/lib/design/schema";
 import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
-import { penWidth } from "@/lib/design/knowledge";
+import { penWidth, PEN_BY_LAYER } from "@/lib/design/knowledge";
 import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
@@ -115,6 +115,8 @@ class DesignErrorBoundary extends React.Component<
 
 function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string; initialPrompt?: string }) {
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
+  // 🖼️ Referencia visual del cliente para el boceto (data URL ≤1024px).
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
   const [location, setLocation] = useState("");
   const [stage, setStage] = useState<Stage>(0);
   const [busy, setBusy] = useState<Stage | null>(null);
@@ -247,7 +249,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const runDraft = async () => {
     setBusy(1); setError(null);
     try {
-      const data = await callWithRetries({ stage: "draft", prompt, siteMemo });
+      const data = await callWithRetries({ stage: "draft", prompt, siteMemo, ...(referenceImage ? { referenceImages: [referenceImage] } : {}) });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`🏛️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(2);
@@ -445,6 +447,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             siteMemo={siteMemo} plan={plan} constructorMemo={constructorMemo}
             civilMemo={civilMemo} equipment={equipment}
             busy={busy} onRun={() => runStage(stage)}
+            referenceImage={referenceImage} setReferenceImage={setReferenceImage}
           />
           {providerInfo && <p className="text-[10px] text-slate-500">⚡ {providerInfo}</p>}
           {error && (
@@ -638,6 +641,7 @@ function StagePanel(props: {
   siteMemo: SiteMemo | null; plan: FloorPlan | null;
   constructorMemo: ConstructorMemo | null; civilMemo: CivilMemo | null;
   equipment: Equipment; busy: Stage | null; onRun: () => void;
+  referenceImage: string | null; setReferenceImage: (v: string | null) => void;
 }) {
   const { stage, busy, onRun } = props;
   const running = busy === stage;
@@ -687,6 +691,46 @@ function StagePanel(props: {
             placeholder="Apartamento 2 alcobas de 58 m² en Bogotá…"
             className="w-full resize-none rounded-lg border border-white/10 bg-[#0a1120] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-blue-500/50 focus:outline-none"
           />
+          {/* 🖼️ Referencia visual del cliente — "lo que tengo en la mente" */}
+          <div className="mt-2">
+            {props.referenceImage ? (
+              <div className="relative overflow-hidden rounded-lg border border-violet-500/30">
+                <img src={props.referenceImage} alt="Referencia del cliente" className="h-28 w-full object-cover" />
+                <button
+                  type="button" onClick={() => props.setReferenceImage(null)}
+                  className="absolute right-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white/90 hover:bg-red-600/80"
+                >
+                  ✕ quitar
+                </button>
+                <p className="bg-violet-500/15 px-2 py-1 text-[10px] text-violet-200">
+                  🖼️ El arquitecto usará esta referencia (distribución, proporciones, estilo)
+                </p>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/[0.05] px-3 py-2.5 text-[11px] text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/10">
+                🖼️ Subir imagen de referencia (plano o foto de lo que imaginas)
+                <input
+                  type="file" accept="image/*" className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.currentTarget.value = "";
+                    if (!f || !f.type.startsWith("image/")) return;
+                    // Redimensiona en el cliente (≤1024px, JPEG) — payload liviano.
+                    const img = new Image();
+                    img.onload = () => {
+                      const k = Math.min(1, 1024 / Math.max(img.width, img.height));
+                      const c = document.createElement("canvas");
+                      c.width = Math.round(img.width * k);
+                      c.height = Math.round(img.height * k);
+                      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+                      props.setReferenceImage(c.toDataURL("image/jpeg", 0.78));
+                    };
+                    img.src = URL.createObjectURL(f);
+                  }}
+                />
+              </label>
+            )}
+          </div>
           {props.siteMemo && (
             <p className="mt-2 rounded-lg bg-cyan-500/[0.08] p-2 text-[10px] leading-relaxed text-cyan-200">
               📍 Ficha activa: {props.siteMemo.city ?? "—"} · clima {props.siteMemo.climate?.slice(0, 60) ?? "—"}…
@@ -769,6 +813,17 @@ const PRIM_COLORS: Record<string, string> = {
 // 0.25, auxiliar 0.13. La jerarquía 2:1 hace que el plano se lea por
 // pesos, como enseña Ching §2. Nada de números mágicos aquí.
 
+/** Grosor en PÍXELES constante (non-scaling-stroke) para cortes/fachadas:
+ *  en pantalla el viewBox se ajusta a ~14 m y las plumas a escala de modelo
+ *  quedaban 2-3× más gruesas que en papel. Con grosor fijo en px la
+ *  jerarquía ISO se conserva y el zoom no engorda las líneas (como el
+ *  "lineweight display" de CAD). */
+const PEN_PX: Record<string, number> = { cut: 2.1, profile: 1.25, thin: 0.9, extra: 0.7 };
+function penPx(layer: string, thin = false): number {
+  const base = PEN_PX[PEN_BY_LAYER[layer] ?? "profile"];
+  return thin ? base * 0.75 : base;
+}
+
 function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -821,29 +876,31 @@ function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fi
         <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="#0a1120" />
         {prims.map((p, i) => {
           if (p.t === "F") {
+            // Poché: TONO, no barra — opacidad moderada para que la mancha
+            // lea como material cortado sin tapar el dibujo (Ching).
             return (
               <rect key={`f${i}`} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h}
-                fill={PRIM_COLORS[p.l] ?? "#94a3b8"} fillOpacity={0.9} />
+                fill={PRIM_COLORS[p.l] ?? "#94a3b8"} fillOpacity={0.45} />
             );
           }
           if (p.t === "H") {
             return (
               <rect key={`h${i}`} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h}
-                fill="none" stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={penWidth(p.l)} />
+                fill="none" stroke={PRIM_COLORS[p.l] ?? "#94a3b8"} strokeWidth={penPx(p.l)} vectorEffect="non-scaling-stroke" />
             );
           }
           if (p.t === "L") {
             return (
               <line key={`l${i}`} x1={p.x1} y1={sy(p.y1)} x2={p.x2} y2={sy(p.y2)}
                 stroke={PRIM_COLORS[p.l] ?? "#94a3b8"}
-                strokeWidth={penWidth(p.l, p.thin)}
+                strokeWidth={penPx(p.l, p.thin)} vectorEffect="non-scaling-stroke"
                 strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
             );
           }
           if (p.t === "C") {
             return (
               <circle key={`c${i}`} cx={p.x} cy={sy(p.y)} r={p.r}
-                fill="none" stroke={PRIM_COLORS[p.l] ?? "#f87171"} strokeWidth={penWidth(p.l)} />
+                fill="none" stroke={PRIM_COLORS[p.l] ?? "#f87171"} strokeWidth={penPx(p.l)} vectorEffect="non-scaling-stroke" />
             );
           }
           return (

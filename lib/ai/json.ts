@@ -70,13 +70,25 @@ export async function llmJson<T = unknown>(
     temperature?: number;
     /** Presupuesto por proveedor — evita que los fallbacks sumen >60 s (504). */
     timeoutMs?: number;
+    /** Imágenes de referencia del cliente (data URLs) para proveedores con
+     *  visión. Si un proveedor las rechaza, el router las quita y reintenta
+     *  con el siguiente de la cadena (degrada a texto, nunca muere). */
+    images?: string[];
     /** Consola en vivo: tokens + estados de extracción/reparación. */
     onEvent?: (e: JsonEvent) => void;
   },
 ): Promise<LlmJsonResult<T>> {
   const messages: LlmMessage[] = [
     { role: "system", content: params.system },
-    { role: "user", content: params.user },
+    {
+      role: "user",
+      content: params.images?.length
+        ? [
+            { type: "text" as const, text: params.user },
+            ...params.images.slice(0, 3).map((url) => ({ type: "image_url" as const, image_url: { url } })),
+          ]
+        : params.user,
+    },
   ];
 
   const emit = (e: JsonEvent) => params.onEvent?.(e);
