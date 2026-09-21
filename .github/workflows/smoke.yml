@@ -1,0 +1,11 @@
+name: smoke-post-deploy
+on: [push]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Esperar deploy de Vercel (~100s)
+        run: sleep 100
+      - name: Smoke — producción sirve y chunks íntegros
+        run: node scripts/smoke.mjs
