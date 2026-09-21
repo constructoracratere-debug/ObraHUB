@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "verify": "tsc --noEmit && next build",
-    "prepare": "cp scripts/git-pre-push .git/hooks/pre-push 2>/dev/null || true"
+    "prepare": "cp scripts/git-pre-push .git/hooks/pre-push 2>/dev/null || true",
+    "scrape:prices": "node scripts/scrape-prices.mjs"
   },
   "dependencies": {
     "@mlightcad/libredwg-web": "^0.7.9",
