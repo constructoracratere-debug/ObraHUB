@@ -25,7 +25,7 @@ import { penWidth, PEN_BY_LAYER } from "@/lib/design/knowledge";
 import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
-import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, type Prim } from "@/lib/design/views";
+import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
 import { furnishRoom, labelSpot } from "@/lib/design/symbols";
 import type { RevisionLog } from "@/lib/design/schema";
 
@@ -140,6 +140,8 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
   // negro — así se ve si el plano sobrevive la fotocopiadora.
   const [printMode, setPrintMode] = useState(false);
+  // 📄 Láminas A-01/A-02/A-03 en A2 apaisado, monocromas — Ctrl+P → PDF vectorial.
+  const [sheetsOpen, setSheetsOpen] = useState(false);
   // El PLANO es el protagonista: paneles como drawers overlay (estilo Figma).
   // Sin plan aún, el estudio (form) ocupa el centro.
   // El estudio arranca ABIERTO: antes, al aparecer el plan el panel se
@@ -588,6 +590,12 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                 className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${printMode ? "bg-zinc-400/30 text-zinc-100 ring-1 ring-zinc-300/40" : "text-slate-400 hover:bg-white/[0.06]"}`}>
                 🖨️ B/N
               </button>
+              <button
+                type="button" onClick={() => setSheetsOpen(true)}
+                title="Láminas A-01/A-02/A-03 en A2 — imprimir o guardar como PDF"
+                className="rounded-md px-2.5 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-white/[0.06]">
+                📄 PDF
+              </button>
             </div>
           )}
           {plan ? (
@@ -618,6 +626,10 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             <AgentConsole lines={consoleLines} working={busy !== null} />
           )}
         </div>
+
+        {sheetsOpen && plan && (
+          <PrintSheets plan={plan} onClose={() => setSheetsOpen(false)} />
+        )}
 
         {/* Drawer EXPEDIENTE (gates + memos + memoria + revisiones) */}
         {drawer === "expediente" && (
@@ -1395,4 +1407,61 @@ function Memo({ title, children }: { title: string; children: React.ReactNode })
 function slugify(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "plano";
+}
+
+// ── LÁMINAS DE IMPRESIÓN (A-01/A-02/A-03 · A2 apaisado · monocromo) ─────────
+// Salida VECTORIAL vía impresión del navegador: Ctrl+P → "Guardar como PDF",
+// tamaño A2 landscape. Cada lámina lleva marco, cajetín y escala gráfica —
+// el set numerado que se entrega en ventanilla de curaduría.
+function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }) {
+  const shift = (prims: Prim[], dx: number, dy: number): Prim[] =>
+    prims.map((p) => p.t === "L" ? { ...p, x1: p.x1 + dx, y1: p.y1 + dy, x2: p.x2 + dx, y2: p.y2 + dy }
+      : p.t === "T" ? { ...p, x: p.x + dx, y: p.y + dy }
+      : p.t === "C" ? { ...p, x: p.x + dx, y: p.y + dy }
+      : { ...p, x: p.x + dx, y: p.y + dy });
+  const W = plan.outline.width, D = plan.outline.depth;
+  const totalH = plan.floorToFloor * Math.max(1, plan.levels);
+  const sheets: Array<{ code: string; title: string; prims: Prim[] }> = [
+    { code: "A-01", title: "PLANTA ARQUITECTÓNICA + CUADRO DE ÁREAS",
+      prims: [...shift(plantaPrimitives(plan), 0, 0), ...shift(areaTablePrimitives(plan), W + 2.5, D - 1)] },
+    { code: "A-02", title: "CORTES A-A' Y B-B'",
+      prims: [...shift(sectionPrimitives(plan), 0, -(totalH + 2)), ...shift(sectionPrimitives(plan, { transverse: true }), W + 3.5, -(totalH + 2))] },
+    { code: "A-03", title: "FACHADAS",
+      prims: (["sur", "oeste", "este", "norte"] as const).reduce<Prim[]>((acc, side, i) =>
+        [...acc, ...shift(facadePrimitives(plan, side), i * (W + 3), -(totalH + 2))], []) },
+  ];
+  return (
+    <div className="fixed inset-0 z-[80] overflow-auto bg-black/70 p-4 print:block print:bg-white print:p-0">
+      <style>{`@page { size: A2 landscape; margin: 0 } .sheet { page-break-after: always } @media print { .no-print { display: none !important } }`}</style>
+      <div className="no-print mb-3 flex items-center justify-between">
+        <p className="text-sm font-semibold text-white">📄 Láminas A2 apaisadas — usa <b>Imprimir → Guardar como PDF</b> (tamaño A2)</p>
+        <button type="button" onClick={onClose} className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20">Cerrar ✕</button>
+      </div>
+      {sheets.map((s) => {
+        const b = primsBounds(s.prims);
+        const sy = (y: number) => b.maxY + 0.6 - (y - (b.minY - 0.6));
+        const vb = `${b.minX - 0.6} ${b.minY - 0.6} ${b.maxX - b.minX + 1.2} ${b.maxY - b.minY + 1.2}`;
+        return (
+          <div key={s.code} className="sheet mx-auto mb-4 bg-white" style={{ width: "594mm", height: "420mm", position: "relative" }}>
+            <svg width="100%" height="100%" viewBox={vb} preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0 }}>
+              {s.prims.map((p, i) =>
+                p.t === "L" ? <line key={i} x1={p.x1} y1={sy(p.y1)} x2={p.x2} y2={sy(p.y2)} stroke="#000" strokeWidth={p.thin ? 0.02 : 0.045} strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
+                : p.t === "H" ? <rect key={i} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={0.045} />
+                : p.t === "F" ? <rect key={i} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h} fill="#000" fillOpacity={0.85} />
+                : p.t === "C" ? <circle key={i} cx={p.x} cy={sy(p.y)} r={p.r} fill="none" stroke="#000" strokeWidth={0.03} />
+                : <text key={i} x={p.x} y={sy(p.y)} fontSize={p.h} fill="#000" fontFamily="monospace">{p.s}</text>
+              )}
+              {/* Cajetín por lámina (esquina inferior derecha) */}
+              <g>
+                <rect x={b.maxX - 6.5} y={b.minY - 0.5} width={6} height={1.8} fill="none" stroke="#000" strokeWidth={0.045} />
+                <text x={b.maxX - 6.3} y={b.minY + 0.15} fontSize={0.22} fill="#000" fontFamily="monospace">{plan.name.toUpperCase().slice(0, 30)}</text>
+                <text x={b.maxX - 6.3} y={b.minY + 0.55} fontSize={0.18} fill="#000" fontFamily="monospace">ESC 1:75 · METROS · 2026</text>
+                <text x={b.maxX - 6.3} y={b.minY + 0.95} fontSize={0.26} fontWeight="bold" fill="#000" fontFamily="monospace">{s.code} — {s.title}</text>
+              </g>
+            </svg>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
