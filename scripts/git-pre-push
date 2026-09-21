@@ -1,0 +1,13 @@
+#!/bin/sh
+# CERROJO: nada llega a producción sin pasar el typecheck completo.
+# La lección del 2026-09-19: un deploy a medias rompió el Diseño IA en vivo.
+set -e
+echo "🔒 Verificando antes de push (tsc --noEmit)…"
+npx tsc --noEmit
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ PUSH BLOQUEADO: hay errores de tipos."
+  echo "   Arregla arriba antes de desplegar — un cliente en vivo no puede ver esto."
+  exit 1
+fi
+echo "✅ Tipos limpios — push autorizado."
