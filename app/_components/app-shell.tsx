@@ -2429,16 +2429,29 @@ en Latinoamérica
                 </div>
               ) : showToolLauncher ? (
                 <div className="w-full py-4 sm:py-8">
-                  <div className="mb-8">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-400/80">
-                      Herramientas
-                    </p>
-                    <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                      {activeProject?.name}
-                    </h2>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Selecciona una herramienta para empezar a trabajar en el proyecto.
-                    </p>
+                  <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                        <p className="text-[10.5px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                          Proyecto activo
+                        </p>
+                      </div>
+                      <h2 className="mt-2 text-[1.75rem] font-semibold leading-none tracking-tight text-white sm:text-[2rem]">
+                        {activeProject?.name}
+                      </h2>
+                      <p className="mt-2.5 text-[13px] text-slate-500">
+                        Selecciona una herramienta para empezar a trabajar.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 pb-1">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-slate-400">
+                        🏗️ {TOOLS.filter((t) => t.available).length} herramientas
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1.5 text-[11px] font-medium text-emerald-300">
+                        ● En línea
+                      </span>
+                    </div>
                   </div>
 
                   {/* Herramientas PRIMERO — es la acción primaria del proyecto.
