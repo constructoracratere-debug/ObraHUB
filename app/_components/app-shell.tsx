@@ -2443,35 +2443,39 @@ en Latinoamérica
 
                   {/* Herramientas PRIMERO — es la acción primaria del proyecto.
                       El panel de miembros queda debajo, compacto. */}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {TOOLS.map((tool) => (
                       <button
                         key={tool.id}
                         type="button"
                         onClick={() => (tool.available ? openTool(tool.id) : null)}
                         disabled={!tool.available}
-                        className={`group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br ${tool.gradient} p-6 text-left shadow-sm transition ${
+                        className={`group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br ${tool.gradient} p-6 text-left shadow-lg shadow-black/20 transition-all duration-200 ${
                           tool.available
-                            ? "hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-900/10 focus-visible:ring-2 focus-visible:ring-blue-400/60"
-                            : "cursor-not-allowed opacity-60"
+                            ? "hover:-translate-y-1 hover:border-blue-400/40 hover:shadow-xl hover:shadow-blue-950/40 focus-visible:ring-2 focus-visible:ring-blue-400/60"
+                            : "cursor-not-allowed opacity-55 saturate-50"
                         }`}
                       >
-                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.06] text-2xl ring-1 ring-white/[0.08] transition group-hover:scale-105">
+                        {/* Línea de acento superior — firma visual de la card */}
+                        <span className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${tool.gradient} opacity-70 transition group-hover:opacity-100`} />
+                        {/* Brillo diagonal al hover */}
+                        <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/[0.06] blur-xl transition duration-300 group-hover:bg-white/[0.12]" />
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.07] text-[1.7rem] ring-1 ring-white/[0.1] shadow-inner transition duration-200 group-hover:scale-110 group-hover:bg-white/[0.12]">
                           {tool.icon}
                         </div>
-                        <h3 className="flex items-center gap-2 text-base font-semibold text-white">
+                        <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold tracking-tight text-white">
                           {tool.title}
                           {!tool.available && (
-                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-400">
-                              Próximamente
+                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-amber-400">
+                              Pronto
                             </span>
                           )}
                         </h3>
-                        <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
+                        <p className="mt-1.5 min-h-[2.5rem] text-[12.5px] leading-relaxed text-slate-400">
                           {tool.description}
                         </p>
                         {tool.available && (
-                          <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-blue-400 transition group-hover:gap-2">
+                          <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-blue-500/25 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold text-blue-300 transition group-hover:gap-2.5 group-hover:bg-blue-500/20 group-hover:text-blue-200">
                             Abrir
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
