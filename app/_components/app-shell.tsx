@@ -2450,20 +2450,17 @@ en Latinoamérica
                         type="button"
                         onClick={() => (tool.available ? openTool(tool.id) : null)}
                         disabled={!tool.available}
-                        className={`group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br ${tool.gradient} p-6 text-left shadow-lg shadow-black/20 transition-all duration-200 ${
+                        className={`group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.03] to-transparent p-6 text-left transition-all duration-200 ${
                           tool.available
-                            ? "hover:-translate-y-1 hover:border-blue-400/40 hover:shadow-xl hover:shadow-blue-950/40 focus-visible:ring-2 focus-visible:ring-blue-400/60"
-                            : "cursor-not-allowed opacity-55 saturate-50"
+                            ? "hover:-translate-y-px hover:border-white/[0.16] hover:bg-white/[0.035] focus-visible:ring-2 focus-visible:ring-blue-400/50"
+                            : "cursor-not-allowed opacity-45"
                         }`}
                       >
                         {/* Línea de acento superior — firma visual de la card */}
-                        <span className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${tool.gradient} opacity-70 transition group-hover:opacity-100`} />
-                        {/* Brillo diagonal al hover */}
-                        <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/[0.06] blur-xl transition duration-300 group-hover:bg-white/[0.12]" />
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.07] text-[1.7rem] ring-1 ring-white/[0.1] shadow-inner transition duration-200 group-hover:scale-110 group-hover:bg-white/[0.12]">
+                        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.05] text-[1.45rem] ring-1 ring-white/[0.08] transition duration-200 group-hover:bg-white/[0.09]">
                           {tool.icon}
                         </div>
-                        <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold tracking-tight text-white">
+                        <h3 className="flex flex-wrap items-center gap-2 text-[13.5px] font-medium tracking-tight text-slate-100">
                           {tool.title}
                           {!tool.available && (
                             <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-amber-400">
@@ -2471,16 +2468,16 @@ en Latinoamérica
                             </span>
                           )}
                         </h3>
-                        <p className="mt-1.5 min-h-[2.5rem] text-[12.5px] leading-relaxed text-slate-400">
+                        <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-slate-500">
                           {tool.description}
                         </p>
                         {tool.available && (
-                          <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-blue-500/25 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold text-blue-300 transition group-hover:gap-2.5 group-hover:bg-blue-500/20 group-hover:text-blue-200">
+                          <span className="mt-4 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 opacity-0 transition duration-200 group-hover:gap-2 group-hover:text-blue-300 group-hover:opacity-100">
                             Abrir
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                             </svg>
-                          </div>
+                          </span>
                         )}
                       </button>
                     ))}
