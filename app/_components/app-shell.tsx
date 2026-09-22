@@ -77,6 +77,10 @@ const PassportTool = dynamic(() => import("@/app/_components/passport-tool").the
   ssr: false,
   loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando pasaporte…</p></div>),
 });
+const KitTool = dynamic(() => import("@/app/_components/kit-tool").then((m) => m.KitTool), {
+  ssr: false,
+  loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando kit…</p></div>),
+});
 const DesignTool = dynamic(() => import("@/app/_components/design-tool").then((m) => m.DesignTool), {
   ssr: false,
   loading: () => (
@@ -121,7 +125,7 @@ const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
 const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
-type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "diseno" | "pasaporte";
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "diseno" | "pasaporte" | "kit";
 
 type ToolDef = {
   id: ToolId;
@@ -133,23 +137,7 @@ type ToolDef = {
 };
 
 const TOOLS: ToolDef[] = [
-  {
-    id: "diseno",
-    title: "Diseño IA",
-    description: "Estudio multi-agente: sitio (POT) → arquitecto → constructor + ingeniero → instalaciones → plano DXF por capas.",
-    icon: "✏️",
-    available: true,
-    gradient: "from-indigo-500/15 to-indigo-600/5",
-  },
-  {
-    id: "pasaporte",
-    title: "Pasaporte de Materiales",
-    description: "Takeoff ladrillo a ladrillo, CO₂e, banco de materiales, circularidad y desmonte del último diseño.",
-    icon: "🌱",
-    available: true,
-    gradient: "from-emerald-500/15 to-emerald-600/5",
-  },
-  {
+{
     id: "storage",
     title: "Documentos",
     description: "Planos, contratos y modelos BIM (IFC/Revit/DWG) del proyecto.",
@@ -157,7 +145,31 @@ const TOOLS: ToolDef[] = [
     available: true,
     gradient: "from-blue-500/15 to-blue-600/5",
   },
+{
+    id: "diseno",
+    title: "Diseño IA",
+    description: "Estudio multi-agente: sitio (POT) → arquitecto → constructor + ingeniero → instalaciones → plano DXF por capas.",
+    icon: "✏️",
+    available: true,
+    gradient: "from-indigo-500/15 to-indigo-600/5",
+  },
+{
+    id: "normativa",
+    title: "Interventor IA",
+    description: "Fotos de obra → análisis experto + NSR-10 · preguntas técnicas · notas de voz.",
+    icon: "👁️",
+    available: true,
+    gradient: "from-cyan-500/15 to-cyan-600/5",
+  },
   {
+    id: "kit",
+    title: "Kit del Proyecto (IFC totalizado)",
+    description: "Selecciona los archivos oficiales — 2D, IFC con cantidades — que alimentarán Costos, Seguimiento, Bitácora, Control y Pasaporte.",
+    icon: "📦",
+    available: true,
+    gradient: "from-amber-500/15 to-amber-600/5",
+  },
+{
     id: "costos",
     title: "Costos y Presupuestos",
     description: "Genera presupuestos APU con IA y guárdalos en el proyecto.",
@@ -165,7 +177,7 @@ const TOOLS: ToolDef[] = [
     available: true,
     gradient: "from-amber-500/15 to-amber-600/5",
   },
-  {
+{
     id: "seguimiento",
     title: "Seguimiento de Obra",
     description: "Cronograma Gantt con tareas, dependencias y avance.",
@@ -173,7 +185,7 @@ const TOOLS: ToolDef[] = [
     available: true,
     gradient: "from-purple-500/15 to-purple-600/5",
   },
-  {
+{
     id: "bitacora",
     title: "Bitácora Diaria",
     description: "Registro diario de obra: clima, personal y avance por tarea.",
@@ -181,7 +193,7 @@ const TOOLS: ToolDef[] = [
     available: true,
     gradient: "from-rose-500/15 to-rose-600/5",
   },
-  {
+{
     id: "control",
     title: "Control de Obra",
     description: "Curva S, SPI/CPI, alertas e informe de asamblea semanal.",
@@ -189,13 +201,13 @@ const TOOLS: ToolDef[] = [
     available: true,
     gradient: "from-teal-500/15 to-teal-600/5",
   },
-  {
-    id: "normativa",
-    title: "Interventor IA",
-    description: "Fotos de obra → análisis experto + NSR-10 · preguntas técnicas · notas de voz.",
-    icon: "👁️",
+{
+    id: "pasaporte",
+    title: "Pasaporte de Materiales",
+    description: "Takeoff ladrillo a ladrillo, CO₂e, banco de materiales, circularidad y desmonte del último diseño.",
+    icon: "🌱",
     available: true,
-    gradient: "from-cyan-500/15 to-cyan-600/5",
+    gradient: "from-emerald-500/15 to-emerald-600/5",
   },
 ];
 
@@ -776,7 +788,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     activeTool === "bitacora" ||
     activeTool === "control" ||
     activeTool === "diseno" ||
-    activeTool === "pasaporte";
+    activeTool === "pasaporte" ||
+    activeTool === "kit";
   const showComposer =
     !fullScreenTool &&
     (showHero || activeTool === "normativa" || messages.length > 0 || !!activeFolderId);
@@ -2942,6 +2955,8 @@ en Latinoamérica
                 <DesignTool projectSlug={activeProjectSlug ?? undefined} />
               ) : activeTool === "pasaporte" ? (
                 <PassportTool onOpenDesign={() => setActiveTool("diseno")} />
+              ) : activeTool === "kit" ? (
+                <KitTool projectSlug={activeProjectSlug ?? undefined} />
               ) : activeTool === "seguimiento" ? (
                 activeProjectSlug ? (
                   <GanttTool
