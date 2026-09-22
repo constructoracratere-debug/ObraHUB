@@ -254,15 +254,76 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
       axisBubble("EJES", -1.45, ax.at, ax.id, out);
     }
   }
-  // Cotas de 3 niveles (Ching/Plazola): cadena de espacios + total.
-  const xs = [0, ...rooms.map((r) => r.x).concat(rooms.map((r) => r.x + r.width)).filter((v, i, arr) => v > 0.15 && v < W - 0.15 && arr.indexOf(v) === i).sort((a, b) => a - b), W];
-  dimChain("COTAS", xs, -0.55, out);
-  const ys = [0, ...rooms.map((r) => r.y).concat(rooms.map((r) => r.y + r.depth)).filter((v, i, arr) => v > 0.15 && v < D - 0.15 && arr.indexOf(v) === i).sort((a, b) => a - b), D];
-  out.push({ t: "L", l: "COTAS", x1: -0.55, y1: 0, x2: -0.55, y2: D });
-  for (const yv of ys) out.push({ t: "L", l: "COTAS", x1: -0.62, y1: yv - 0.07, x2: -0.48, y2: yv + 0.07 });
-  out.push({ t: "T", l: "COTAS", x: -0.5, y: D / 2, h: 0.16, s: fmt(D), r: 90 });
-  out.push({ t: "L", l: "COTAS", x1: -1.05, y1: 0, x2: -1.05, y2: D });
-  out.push({ t: "T", l: "COTAS", x: -1.0, y: D / 2, h: 0.18, s: fmt(W), r: 90 });
+  // ── COTAS PROFESIONALES (Ching §dimensioning / Plazola): DOS cadenas por
+  // eje — la interior incluye JAMBS de vanos (la marca del plano pro: se
+  // dimensiona d\ónde está cada puerta/ventana), la exterior solo
+  // particiones, y la total cierra. Además: ancho de cada vano rotulado
+  // y dim interior (ancho×fondo) en cada espacio.
+  const doorsLvl = plan.doors.filter((d) => d.level === level);
+  const winsLvl = plan.windows.filter((w) => w.level === level);
+  const sortUniq = (arr: number[]) => [...new Set(arr.map((v) => Math.round(v * 100) / 100))].sort((a, b) => a - b);
+
+  // EJE X: jambs de vanos en muros horizontales (sur/norte) + bordes de espacios.
+  const jambX: number[] = [];
+  for (const d of doorsLvl) if (d.axis !== "y") jambX.push(d.x - d.width / 2, d.x + d.width / 2);
+  for (const w of winsLvl) if (w.wall === "sur" || w.wall === "norte") jambX.push(w.x - w.width / 2, w.x + w.width / 2);
+  const xsOpen = sortUniq([0, ...rooms.flatMap((r) => [r.x, r.x + r.width]), ...jambX, W].filter((v) => v >= -0.01 && v <= W + 0.01));
+  const xsPart = sortUniq([0, ...rooms.flatMap((r) => [r.x, r.x + r.width]), W]);
+  dimChain("COTAS", xsOpen, -0.55, out);   // cadena 1: particiones + vanos
+  dimChain("COTAS", xsPart, -1.2, out);    // cadena 2: particiones
+  out.push({ t: "L", l: "COTAS", x1: -1.85, y1: 0, x2: -1.85, y2: D });  // total
+  out.push({ t: "L", l: "COTAS", x1: -1.92, y1: -0.07, x2: -1.78, y2: 0.07 });
+  out.push({ t: "L", l: "COTAS", x1: -1.92, y1: D - 0.07, x2: -1.78, y2: D + 0.07 });
+  out.push({ t: "T", l: "COTAS", x: -1.8, y: D / 2, h: 0.18, s: fmt(D), r: 90 });
+  for (let i = 0; i < xsPart.length - 1; i++) {
+    const seg = xsPart[i + 1] - xsPart[i];
+    if (seg > 0.05) out.push({ t: "T", l: "COTAS", x: (xsPart[i] + xsPart[i + 1]) / 2 - 0.16, y: -1.13, h: 0.12, s: fmt(seg) });
+  }
+
+  // EJE Y: jambs de vanos en muros verticales (este/oeste) + bordes.
+  const jambY: number[] = [];
+  for (const d of doorsLvl) if (d.axis === "y") jambY.push(d.y - d.width / 2, d.y + d.width / 2);
+  for (const w of winsLvl) if (w.wall === "este" || w.wall === "oeste") jambY.push(w.x - w.width / 2, w.x + w.width / 2);
+  const ysOpen = sortUniq([0, ...rooms.flatMap((r) => [r.y, r.y + r.depth]), ...jambY, D].filter((v) => v >= -0.01 && v <= D + 0.01));
+  const ysPart = sortUniq([0, ...rooms.flatMap((r) => [r.y, r.y + r.depth]), D]);
+  const chainY = (ys: number[], x: number) => {
+    out.push({ t: "L", l: "COTAS", x1: x, y1: ys[0], x2: x, y2: ys[ys.length - 1] });
+    for (const yv of ys) {
+      out.push({ t: "L", l: "COTAS", x1: x - 0.07, y1: yv - 0.07, x2: x + 0.07, y2: yv + 0.07 });
+      out.push({ t: "L", l: "COTAS", x1: x - 0.12, y1: yv, x2: x - 0.3, y2: yv, thin: true });
+    }
+  };
+  chainY(ysOpen, -0.55);
+  chainY(ysPart, -1.2);
+  chainY([0, D], -1.85);
+  out.push({ t: "T", l: "COTAS", x: -2.32, y: D / 2, h: 0.16, s: fmt(D), r: 90 });
+  out.push({ t: "T", l: "COTAS", x: -1.68, y: D / 2, h: 0.18, s: fmt(W), r: 90 });
+  for (let i = 0; i < ysPart.length - 1; i++) {
+    const seg = ysPart[i + 1] - ysPart[i];
+    if (seg > 0.05) out.push({ t: "T", l: "COTAS", x: -1.14, y: (ysPart[i] + ysPart[i + 1]) / 2, h: 0.12, s: fmt(seg), r: 90 });
+  }
+
+  // Ancho de cada VANO rotulado junto a su símbolo (convención: cota del vano).
+  for (const d of doorsLvl) {
+    if (d.axis === "y") continue;
+    out.push({ t: "T", l: "COTAS", x: d.x - 0.18, y: d.y + (d.y < D / 2 ? 0.12 : -0.22), h: 0.13, s: fmt(d.width) });
+  }
+  for (const w of winsLvl) {
+    if (w.wall !== "sur" && w.wall !== "norte") continue;
+    const room = plan.rooms.find(roomAt(plan, w.room, level));
+    if (!room) continue;
+    const yy = w.wall === "norte" ? room.y + room.depth : room.y;
+    out.push({ t: "T", l: "COTAS", x: w.x - 0.18, y: yy + (yy < D / 2 ? 0.12 : -0.22), h: 0.13, s: fmt(w.width) });
+  }
+
+  // Dim INTERIOR de cada espacio (ancho×fondo) bajo el área — lo primero
+  // que lee el constructor (Neufert).
+  for (const r of rooms) {
+    const placed = out;
+    void placed;
+    const spot = labelSpot(r, furnishRoom([], r, plan.doors.filter((d) => d.level === level), r.name.toLowerCase().includes("principal")));
+    out.push({ t: "T", l: "COTAS", x: spot.x - 0.42, y: spot.y - 0.34, h: 0.115, s: `${fmt(r.width)}×${fmt(r.depth)}` });
+  }
   // Marca de nivel +0.00 del piso terminado.
   levelMark("TEXTOS", W * 0.45, D * 0.12, out, "+0.00");
   // Ventanas (triple línea) y puertas (hoja + arco — Ching).
