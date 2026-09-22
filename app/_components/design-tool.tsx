@@ -29,6 +29,7 @@ import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, plan
 import { furnishRoom, labelSpot } from "@/lib/design/symbols";
 import { takeoff } from "@/lib/passport/takeoff";
 import { valueTakeoff, recommendations } from "@/lib/passport/value";
+import { buildEnvironmentalReport } from "@/lib/passport/report";
 import type { RevisionLog } from "@/lib/design/schema";
 
 type SiteMemo = {
@@ -1479,6 +1480,17 @@ function PassportPanel({ plan }: { plan: FloorPlan }) {
       <div className="mx-auto max-w-3xl">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-400/80">Material Passport · circularidad BAMB</p>
         <h3 className="mt-1 text-xl font-semibold tracking-tight text-white">Pasaporte de materiales — {plan.name}</h3>
+          <button type="button"
+            onClick={() => {
+              const blob = new Blob([buildEnvironmentalReport(plan)], { type: "text/plain;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const a2 = document.createElement("a");
+              a2.href = url; a2.download = `reporte-ambiental-${plan.name.replace(/\s+/g, "-").toLowerCase()}.txt`; a2.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="float-right rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-500/20">
+            ⬇️ Reporte ambiental total
+          </button>
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             ["💰 Valor de obra", fmtCOP(v.totalCOP), "precios scraped (KB versionada)"],
