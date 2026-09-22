@@ -27,6 +27,8 @@ import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
 import { furnishRoom, labelSpot } from "@/lib/design/symbols";
+import { takeoff } from "@/lib/passport/takeoff";
+import { valueTakeoff, recommendations } from "@/lib/passport/value";
 import type { RevisionLog } from "@/lib/design/schema";
 
 type SiteMemo = {
@@ -136,7 +138,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [revisions, setRevisions] = useState<RevisionLog[]>([]);
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
-  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina">("planta");
+  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte">("planta");
   // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
   // negro — así se ve si el plano sobrevive la fotocopiadora.
   const [printMode, setPrintMode] = useState(false);
@@ -578,7 +580,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
         <div className={`absolute inset-0 ${printMode ? "bg-white" : "bg-[#0a1120]"}`} style={printMode ? { filter: "invert(1) hue-rotate(180deg)" } : undefined}>
           {plan && (
             <div className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5 backdrop-blur">
-              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"]] as const).map(([id, label]) => (
+              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"], ["pasaporte", "🌱 Pasaporte"]] as const).map(([id, label]) => (
                 <button key={id} type="button" onClick={() => setView(id)}
                   className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${view === id ? "bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30" : "text-slate-400 hover:bg-white/[0.06]"}`}>
                   {label}
@@ -602,6 +604,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             view === "planta" ? <PlanSvg plan={plan} />
             : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Cortes" />
             : view === "fachadas" ? <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
+            : view === "pasaporte" ? <PassportPanel plan={plan} />
             : <PrimsSvg prims={sheetPrimitives(plan)} title="Lámina de curaduría" fitSmall />
           ) : (
             <div className="flex h-full items-center justify-center p-6 text-center">
@@ -1462,6 +1465,59 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// -- PASAPORTE DE MATERIALES (broche sostenible del ciclo) --------------------
+function PassportPanel({ plan }: { plan: FloorPlan }) {
+  const v = useMemo(() => valueTakeoff(takeoff(plan)), [plan]);
+  const recs = useMemo(() => recommendations(v), [v]);
+  const fmtCOP = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
+  return (
+    <div className="absolute inset-0 overflow-y-auto bg-[#0a1120] p-4 sm:p-6">
+      <div className="mx-auto max-w-3xl">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-400/80">Material Passport · circularidad BAMB</p>
+        <h3 className="mt-1 text-xl font-semibold tracking-tight text-white">Pasaporte de materiales — {plan.name}</h3>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[
+            ["💰 Valor de obra", fmtCOP(v.totalCOP), "precios scraped (KB versionada)"],
+            ["♱ Huella embebida", (v.co2eTotal / 1000).toFixed(1) + " t CO2e", "factores EPD LATAM"],
+            ["🏦 Banco de materiales", fmtCOP(v.reuseCOP), "valor recuperable a fin de vida"],
+          ].map(([t, big, sub]) => (
+            <div key={t} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-wide text-slate-500">{t}</p>
+              <p className="mt-1 text-lg font-semibold text-white">{big}</p>
+              <p className="mt-0.5 text-[10px] text-slate-500">{sub}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 overflow-hidden rounded-2xl border border-white/[0.07]">
+          <table className="w-full text-left text-[11px]">
+            <thead className="bg-white/[0.04] text-[9.5px] uppercase tracking-wide text-slate-500">
+              <tr><th className="px-3 py-2">Material</th><th className="px-2 py-2">Cant.</th><th className="px-2 py-2">Valor</th><th className="px-2 py-2">CO2e</th><th className="px-3 py-2">Recuperable</th></tr>
+            </thead>
+            <tbody>
+              {v.lines.map((l, i) => (
+                <tr key={i} className="border-t border-white/[0.05] text-slate-300" title={l.detail}>
+                  <td className="px-3 py-1.5">{l.material}</td>
+                  <td className="px-2 py-1.5 font-mono text-slate-400">{l.qty} {l.unit}</td>
+                  <td className="px-2 py-1.5 font-mono">{l.totalCOP ? fmtCOP(l.totalCOP) : "—"}</td>
+                  <td className="px-2 py-1.5 font-mono text-slate-400">{l.co2eKg ? l.co2eKg.toLocaleString("es-CO") + " kg" : "—"}</td>
+                  <td className="px-3 py-1.5 font-mono text-emerald-300/80">{l.reuseValueCOP + l.recycleValueCOP ? fmtCOP(l.reuseValueCOP + l.recycleValueCOP) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">🧰 Recomendaciones de circularidad (por valor recuperable)</p>
+          <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-slate-300">
+            {recs.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+        </div>
+        <p className="mt-3 text-[9px] text-slate-600">Takeoff determinístico desde el modelo · precios KB versionada · factores EPD genéricos LATAM — para licencia requiere EPD específicos del fabricante.</p>
+      </div>
     </div>
   );
 }
