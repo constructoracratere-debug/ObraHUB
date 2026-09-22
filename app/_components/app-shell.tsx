@@ -73,6 +73,10 @@ const ControlTool = dynamic(() => import("@/app/_components/control-tool").then(
 
 // Estudio de diseño multi-agente (✏️ Diseño IA) — el motor DXF corre en el
 // navegador; solo las etapas LLM van al servidor.
+const PassportTool = dynamic(() => import("@/app/_components/passport-tool").then((m) => m.PassportTool), {
+  ssr: false,
+  loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando pasaporte…</p></div>),
+});
 const DesignTool = dynamic(() => import("@/app/_components/design-tool").then((m) => m.DesignTool), {
   ssr: false,
   loading: () => (
@@ -117,7 +121,7 @@ const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
 const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
-type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "diseno";
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "diseno" | "pasaporte";
 
 type ToolDef = {
   id: ToolId;
@@ -136,6 +140,14 @@ const TOOLS: ToolDef[] = [
     icon: "✏️",
     available: true,
     gradient: "from-indigo-500/15 to-indigo-600/5",
+  },
+  {
+    id: "pasaporte",
+    title: "Pasaporte de Materiales",
+    description: "Takeoff ladrillo a ladrillo, CO₂e, banco de materiales, circularidad y desmonte del último diseño.",
+    icon: "🌱",
+    available: true,
+    gradient: "from-emerald-500/15 to-emerald-600/5",
   },
   {
     id: "storage",
@@ -763,7 +775,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     activeTool === "seguimiento" ||
     activeTool === "bitacora" ||
     activeTool === "control" ||
-    activeTool === "diseno";
+    activeTool === "diseno" ||
+    activeTool === "pasaporte";
   const showComposer =
     !fullScreenTool &&
     (showHero || activeTool === "normativa" || messages.length > 0 || !!activeFolderId);
@@ -2927,6 +2940,8 @@ en Latinoamérica
                 />
               ) : activeTool === "diseno" ? (
                 <DesignTool projectSlug={activeProjectSlug ?? undefined} />
+              ) : activeTool === "pasaporte" ? (
+                <PassportTool onOpenDesign={() => setActiveTool("diseno")} />
               ) : activeTool === "seguimiento" ? (
                 activeProjectSlug ? (
                   <GanttTool

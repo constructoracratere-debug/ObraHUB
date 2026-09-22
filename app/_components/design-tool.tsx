@@ -155,6 +155,10 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [consoleLines, setConsoleLines] = useState<Array<{ agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }>>([]);
 
   useEffect(() => { if (initialPrompt) setPrompt(initialPrompt); }, [initialPrompt]);
+  // Ultimo plano disponible para la herramienta Pasaporte (tool propia).
+  useEffect(() => {
+    if (plan) { try { localStorage.setItem("obrahub-last-plan", JSON.stringify(plan)); } catch { /* */ } }
+  }, [plan]);
 
   const pushLine = useCallback((line: { agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }) => {
     setConsoleLines((prev) => {
