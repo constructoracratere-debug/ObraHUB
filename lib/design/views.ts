@@ -232,7 +232,7 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
     const placed = furnishRoom(out, r, plan.doors.filter((d) => d.level === level), r.name.toLowerCase().includes("principal"));
     const spot = labelSpot(r, placed);
     out.push({ t: "T", l: "TEXTOS", x: spot.x - r.name.length * 0.055, y: spot.y + 0.05, h: 0.14, s: r.name.toUpperCase() });
-    out.push({ t: "T", l: "TEXTOS", x: spot.x - 0.3, y: spot.y - 0.18, h: 0.11, s: `${a.toFixed(1)}` });
+    out.push({ t: "T", l: "TEXTOS", x: spot.x - 0.75, y: spot.y - 0.18, h: 0.11, s: `${a.toFixed(1)} m² · ${fmt(r.width)}×${fmt(r.depth)}` });
   }
   // Hatch de piso cerámico en baños y cocina (cuadrícula 0.33).
   for (const r of rooms) {
@@ -277,7 +277,7 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   out.push({ t: "T", l: "COTAS", x: -1.8, y: D / 2, h: 0.18, s: fmt(D), r: 90 });
   for (let i = 0; i < xsPart.length - 1; i++) {
     const seg = xsPart[i + 1] - xsPart[i];
-    if (seg > 0.05) out.push({ t: "T", l: "COTAS", x: (xsPart[i] + xsPart[i + 1]) / 2 - 0.16, y: -1.13, h: 0.12, s: fmt(seg) });
+    if (seg > 0.55) out.push({ t: "T", l: "COTAS", x: (xsPart[i] + xsPart[i + 1]) / 2 - 0.16, y: -1.13, h: 0.12, s: fmt(seg) });
   }
 
   // EJE Y: jambs de vanos en muros verticales (este/oeste) + bordes.
@@ -297,33 +297,28 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   chainY(ysPart, -1.2);
   chainY([0, D], -1.85);
   out.push({ t: "T", l: "COTAS", x: -2.32, y: D / 2, h: 0.16, s: fmt(D), r: 90 });
-  out.push({ t: "T", l: "COTAS", x: -1.68, y: D / 2, h: 0.18, s: fmt(W), r: 90 });
+  out.push({ t: "T", l: "COTAS", x: W / 2 - 0.22, y: -1.75, h: 0.18, s: fmt(W) });
   for (let i = 0; i < ysPart.length - 1; i++) {
     const seg = ysPart[i + 1] - ysPart[i];
-    if (seg > 0.05) out.push({ t: "T", l: "COTAS", x: -1.14, y: (ysPart[i] + ysPart[i + 1]) / 2, h: 0.12, s: fmt(seg), r: 90 });
+    if (seg > 0.55) out.push({ t: "T", l: "COTAS", x: -1.14, y: (ysPart[i] + ysPart[i + 1]) / 2, h: 0.12, s: fmt(seg), r: 90 });
   }
 
   // Ancho de cada VANO rotulado junto a su símbolo (convención: cota del vano).
   for (const d of doorsLvl) {
     if (d.axis === "y") continue;
-    out.push({ t: "T", l: "COTAS", x: d.x - 0.18, y: d.y + (d.y < D / 2 ? 0.12 : -0.22), h: 0.13, s: fmt(d.width) });
+    out.push({ t: "T", l: "COTAS", x: d.x - 0.18, y: d.y + (d.y < D / 2 ? 0.32 : -0.4), h: 0.13, s: fmt(d.width) });
   }
   for (const w of winsLvl) {
     if (w.wall !== "sur" && w.wall !== "norte") continue;
     const room = plan.rooms.find(roomAt(plan, w.room, level));
     if (!room) continue;
     const yy = w.wall === "norte" ? room.y + room.depth : room.y;
-    out.push({ t: "T", l: "COTAS", x: w.x - 0.18, y: yy + (yy < D / 2 ? 0.12 : -0.22), h: 0.13, s: fmt(w.width) });
+    out.push({ t: "T", l: "COTAS", x: w.x - 0.18, y: yy + (yy < D / 2 ? 0.32 : -0.4), h: 0.13, s: fmt(w.width) });
   }
 
   // Dim INTERIOR de cada espacio (ancho×fondo) bajo el área — lo primero
   // que lee el constructor (Neufert).
-  for (const r of rooms) {
-    const placed = out;
-    void placed;
-    const spot = labelSpot(r, furnishRoom([], r, plan.doors.filter((d) => d.level === level), r.name.toLowerCase().includes("principal")));
-    out.push({ t: "T", l: "COTAS", x: spot.x - 0.42, y: spot.y - 0.34, h: 0.115, s: `${fmt(r.width)}×${fmt(r.depth)}` });
-  }
+  // (dims interiores fusionadas con la etiqueta de área arriba)
   // Marca de nivel +0.00 del piso terminado.
   levelMark("TEXTOS", W * 0.45, D * 0.12, out, "+0.00");
   // Ventanas (triple línea) y puertas (hoja + arco — Ching).
