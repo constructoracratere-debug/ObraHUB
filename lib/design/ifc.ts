@@ -115,7 +115,7 @@ export function planToIfc(plan: FloorPlan): string {
       along === "x"
         ? ent(`RPX:${w},${d}`, (n) => `#${n}= IFCRECTANGLEPROFILEDEF(.AREA.,$,#${axis2(0, 0)},${f(w)},${f(d)});`)
         : ent(`RPY:${d},${w}`, (n) => `#${n}= IFCRECTANGLEPROFILEDEF(.AREA.,$,#${axis2(0, 0)},${f(d)},${f(w)});`);
-    const pl = ent(`SP:${x},${y},${z}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x, y, z)},#${dir3(0, 0, 1)},#${dir3(0, 1, 0)});`);
+    const pl = ent(`SP:${x},${y},${z}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x, y, z)},#${dir3(0, 0, 1)},#${dir3(1, 0, 0)});`);
     return ent(`SOL:${x},${y},${z},${w},${d},${h},${along}`, (n) => `#${n}= IFCEXTRUDEDAREASOLID(#${prof},#${pl},#${dir3(0, 0, 1)},${f(h)});`);
   };
 
@@ -320,7 +320,8 @@ export function planToIfc(plan: FloorPlan): string {
 
     // Puertas (hoja de madera en el vano) y ventanas (vidrio).
     for (const d of plan.doors.filter((x) => x.level === lvl)) {
-      const s3 = solidBox(d.x, d.y, z0 + 0.0, Math.max(d.width - 0.04, 0.3), 0.05, 2.1, "x");
+      const alongD = d.axis === "y";
+      const s3 = solidBox(d.x, d.y, z0, alongD ? 0.06 : Math.max(d.width - 0.04, 0.3), alongD ? Math.max(d.width - 0.04, 0.3) : 0.06, 2.1, "x");
       const pr3 = shapeRep(s3, `DR${d.x},${d.y},${z0}`);
       const pl3 = ent(`DRPL:${d.x},${d.y},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const dr = id();

@@ -12,7 +12,7 @@
 
 import { roomArea, type FloorPlan, type Room } from "./schema";
 import { POCHÉ, NORTH_ARROW, SCALE_BAR, PENS } from "./knowledge";
-import { sheetPrimitives, type Prim } from "./views";
+import { sheetPrimitives, plantaPrimitives, type Prim } from "./views";
 
 type Entity = string; // pares "code\nvalue\n" acumulados
 
@@ -151,11 +151,8 @@ class DxfBuilder {
         }
       }
       else {
-        // Rect hueco → contorno.
-        this.line(p.l, p.x + dx, p.y + dy, p.x + p.w + dx, p.y + dy);
-        this.line(p.l, p.x + p.w + dx, p.y + dy, p.x + p.w + dx, p.y + p.h + dy);
-        this.line(p.l, p.x + p.w + dx, p.y + p.h + dy, p.x + dx, p.y + p.h + dy);
-        this.line(p.l, p.x + dx, p.y + p.h + dy, p.x + dx, p.y + dy);
+        // Rect hueco → contorno como LWPOLYLINE cerrada (CAD pro).
+        this.polyline(p.l, [[p.x + dx, p.y + dy], [p.x + p.w + dx, p.y + dy], [p.x + p.w + dx, p.y + p.h + dy], [p.x + dx, p.y + p.h + dy]], true);
       }
     }
   }
@@ -251,121 +248,38 @@ export function planToDxf(plan: FloorPlan): string {
     const EL = `ELECTRICO${sfx}`;
     const HY = `HIDROSANITARIO${sfx}`;
     const T = `TEXTOS${sfx}`;
+    // PLANTA NIVEL PROFESIONAL: mismas primitivas v2 de la lamina
+    // (poche solido, mobiliario Neufert, cotas dobles con jambs,
+    // burbujas de ejes, marcas de corte) — un solo motor de verdad.
+    d.prims(plantaPrimitives(plan, level), 0, 0);
 
-    // ── Muro exterior: doble línea (interior + exterior) con offset te.
-    // Solo si algún espacio toca el perímetro — el outline define la cara EXTERIOR.
-    d.polyline(M, [[0, 0], [W, 0], [W, D], [0, D]], true);         // cara exterior
-    d.polyline(M, [[te, te], [W - te, te], [W - te, D - te], [te, D - te]], true); // cara interior
-
-    // ── Divisiones interiores: cada espacio con su rectángulo (caras limpias).
-    for (const r of rooms) {
-      const { x1, y1, x2, y2 } = roomRect(r);
-      d.polyline(M, [[x1, y1], [x2, y1], [x2, y2], [x1, y2]], true);
-    }
-
-    // ── Puertas: vano (borrar muro no es posible en R12 barato → dibujamos el
-    // vano como líneas de umbral + arco de giro).
-    for (const door of plan.doors.filter((x) => x.level === level)) {
-      const cx = door.x;
-      const cy = door.y;
-      const w = door.width;
-      // Línea del vano (marco).
-      d.line(P, cx - w / 2, cy, cx + w / 2, cy);
-      // Hoja + arco de giro 90°.
-      const dir = door.swing === "in" ? 1 : -1;
-      const hx = door.hinge === "left" ? cx - w / 2 : cx + w / 2;
-      d.line(P, hx, cy, hx, cy + w * dir);
-      d.arc(P, hx, cy, w, 0, 90 * dir);
-    }
-
-    // ── Ventanas: triple línea sobre el muro exterior de su espacio.
-    for (const win of plan.windows.filter((x) => x.level === level)) {
-      const r = rooms.find((rr) => rr.name.toLowerCase().replace(/\s+/g, "") === win.room.toLowerCase().replace(/\s+/g, ""));
-      if (!r) continue;
-      const { x1, y1, x2, y2 } = roomRect(r);
-      const half = win.width / 2;
-      if (win.wall === "norte" || win.wall === "sur") {
-        const yy = win.wall === "norte" ? y2 : y1;
-        d.line(V, win.x - half, yy, win.x + half, yy);
-        d.line(V, win.x - half, yy - 0.04, win.x + half, yy - 0.04);
-        d.line(V, win.x - half, yy + 0.04, win.x + half, yy + 0.04);
+    // MEP sobre la planta: círculos con inicial del dispositivo (RETIE/RAS).
+    // Arcos REALES de giro de puertas (Ching) por eje derivado.
+    for (const dr of plan.doors.filter((x) => x.level === level)) {
+      const w = dr.width;
+      if (dr.axis === "y") {
+        const hy = dr.hinge === "left" ? dr.y - w / 2 : dr.y + w / 2;
+        const sd = dr.swingDir ?? 1;
+        d.arc(`PUERTAS${sfx}`, dr.x, hy, w, sd === 1 ? 0 : 90, sd === 1 ? 90 : 180);
       } else {
-        const xx = win.wall === "este" ? x2 : x1;
-        d.line(V, xx, win.x - half, xx, win.x + half);
-        d.line(V, xx - 0.04, win.x - half, xx - 0.04, win.x + half);
-        d.line(V, xx + 0.04, win.x - half, xx + 0.04, win.x + half);
+        const hx = dr.hinge === "left" ? dr.x - w / 2 : dr.x + w / 2;
+        const sd = dr.swingDir ?? 1;
+        d.arc(`PUERTAS${sfx}`, hx, dr.y, w, sd === 1 ? 180 : 90, sd === 1 ? 270 : 0);
       }
     }
-
-    // ── Retícula estructural: ejes con tick y etiqueta (A, B… / 1, 2…).
-    for (const ax of plan.structure?.axes ?? []) {
-      if (ax.orientation === "vertical") {
-        d.line(EJ, ax.at, -1.2, ax.at, D + 1.2);
-        d.text(EJ, ax.at - 0.1, D + 1.3, 0.2, ax.id);
-      } else {
-        d.line(EJ, -1.2, ax.at, W + 1.2, ax.at);
-        d.text(EJ, -1.5, ax.at - 0.1, 0.2, ax.id);
-      }
-    }
-
-    // ── Eléctrico: círculo + inicial del dispositivo.
-    for (const p of plan.electrical?.points ?? []) {
+    for (const p of (plan.electrical?.points ?? [])) {
       if (p.level !== level) continue;
       const [sym] = ELEC_SYMBOLS[p.kind] ?? ["?"];
       d.circle(EL, p.x, p.y, 0.09);
       d.text(EL, p.x - 0.04, p.y - 0.05, 0.1, sym);
     }
-
-    // ── Hidrosanitario: círculo + inicial del aparato.
-    for (const p of plan.hydro?.points ?? []) {
+    for (const p of (plan.hydro?.points ?? [])) {
       if (p.level !== level) continue;
       const [sym] = HYDRO_SYMBOLS[p.kind] ?? ["H"];
       d.circle(HY, p.x, p.y, 0.1);
       d.text(HY, p.x - 0.04, p.y - 0.05, 0.1, sym);
     }
 
-    // ── Textos: nombre + área de cada espacio.
-    for (const r of rooms) {
-      const cx = r.x + r.width / 2;
-      const cy = r.y + r.depth / 2;
-      d.text(T, cx - r.name.length * 0.055, cy + 0.06, 0.14, r.name.toUpperCase());
-      d.text(T, cx - 0.35, cy - 0.2, 0.12, `${roomArea(r).toFixed(2)} m2`);
-    }
-
-    // ── Cotas generales del nivel.
-    d.dim(0, 0, W, 0, -0.8, true);   // ancho total (abajo)
-    d.dim(0, 0, 0, D, -0.8, false);  // fondo total (izquierda)
-
-    // ── Poché de muros cortados: rayado 45° en el anillo exterior (Ching).
-    //    El anillo = 4 bandas rectangulares; cada banda se raya de forma trivial.
-    const sp = POCHÉ.spacing;
-    const bands: Array<[number, number, number, number]> = [
-      [0, 0, W, te],                    // sur
-      [0, D - te, W, te],               // norte
-      [0, te, te, D - 2 * te],          // oeste
-      [W - te, te, te, D - 2 * te],     // este
-    ];
-    for (const [bx, by, bw, bh] of bands) {
-      if (bw <= 0 || bh <= 0) continue;
-      const n = Math.ceil((bw + bh) / sp);
-      if (n > POCHÉ.maxSegments) continue;
-      for (let i = 0; i <= n; i++) {
-        // Diagonal 45° que arranca en el borde inferior de la banda en bx + i*sp.
-        const startX = bx + i * sp;
-        const endX = Math.min(startX + bh, bx + bw);   // choca con top o right
-        const endY = by + (endX - startX);
-        if (endX > startX && endY <= by + bh + 1e-9) {
-          d.line("MUROS", startX, by, endX, endY);
-        }
-      }
-    }
-
-    // ── Flecha de norte (esquina superior derecha, fuera del dibujo).
-    d.northArrow(W + 1.6, D + 1.4, NORTH_ARROW.size);
-
-    // ── Escala gráfica 0–1–2–5 m (bajo las cotas, a la izquierda).
-    d.scaleBar(0, -2.0, SCALE_BAR.segments, SCALE_BAR.unitLabel);
-    void te;
 
     // ── Cajetín estándar de lámina (esquina inferior derecha).
     d.titleBlock(Math.max(W - 4.2, 2.5), -3.6, 4.0, {
