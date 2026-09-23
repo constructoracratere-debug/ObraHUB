@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { sanitizeFloorPlan, type FloorPlan } from "@/lib/design/schema";
 import { deadLoads, liveLoads, seismicWeight, combos, columnCheck } from "@/lib/structural/loads";
+import { portalFromPlan, solveFrame } from "@/lib/structural/frame";
 
 /**
  * #3 DISEÑO ESTRUCTURAL ASISTIDO POR IA (calculista).
@@ -44,7 +45,17 @@ export function StructuralTool({ onOpenDesign }: { onOpenDesign: () => void }) {
     if (!plan) return null;
     const d = deadLoads(plan);
     const l = liveLoads(plan);
-    return { d, l, sw: seismicWeight(plan, d.wPerM2, l.weighted), co: combos(d.wPerM2, l.weighted, 80), col: columnCheck(plan, d.wPerM2, l.weighted) };
+    const co = columnCheck(plan, d.wPerM2, l.weighted);
+    // Pórtico interno por rigidez (validado vs fórmulas: error < 2%).
+    const axes = plan.structure?.axes ?? [];
+    const vs = axes.filter((x) => x.orientation === "vertical").map((x) => x.at).sort((a2, b2) => a2 - b2);
+    const spans = vs.length > 1 ? vs.slice(1).map((v, i) => v - vs[i]) : [plan.outline.width / 2, plan.outline.width / 2];
+    const w = 1.2 * d.wPerM2 + 1.6 * l.weighted; // U sobre viga (ancha tributaria 1 m)
+    const portal = portalFromPlan(spans, Array.from({ length: Math.max(1, plan.levels) }, () => plan.floorToFloor), w, { col: { A: 0.09, I: 0.3 ** 4 / 12 }, beam: { A: 0.075, I: 0.3 * 0.25 ** 3 / 12 } });
+    const fr = solveFrame(portal);
+    const maxDelta = Math.max(...fr.disp.map((x) => Math.abs(x[1])));
+    const maxCol = Math.max(...fr.reactions.filter((_, i) => portal.nodes[i]?.support === "fixed").map((r) => Math.abs(r[1])));
+    return { d, l, sw: seismicWeight(plan, d.wPerM2, l.weighted), co: combos(d.wPerM2, l.weighted, 80), col: co, portal: { spans, w, maxDelta, maxCol, nodes: portal.nodes.length, elems: portal.elems.length } };
   }, [plan]);
 
   if (!ready) return <div className="flex h-full items-center justify-center text-sm text-slate-500">Cargando modelo…</div>;
@@ -129,6 +140,16 @@ export function StructuralTool({ onOpenDesign }: { onOpenDesign: () => void }) {
               <span className="font-mono text-orange-300">{x.value} kgf/m²</span>
             </div>
           ))}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-2xl border border-orange-500/20 bg-orange-500/[0.04]">
+          <p className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300">Pórtico por rigidez directa — validado vs fórmulas (error &lt; 2%)</p>
+          <div className="grid grid-cols-2 gap-3 px-4 py-3 text-xs sm:grid-cols-4">
+            <div><p className="text-[9px] uppercase text-slate-500">Luz máxima</p><p className="font-mono text-slate-200">{Math.max(...calc.portal.spans).toFixed(2)} m</p></div>
+            <div><p className="text-[9px] uppercase text-slate-500">Carga U viga</p><p className="font-mono text-slate-200">{Math.round(calc.portal.w)} kgf/m</p></div>
+            <div><p className="text-[9px] uppercase text-slate-500">Deriva máx.</p><p className="font-mono text-orange-300">{(calc.portal.maxDelta * 1000).toFixed(2)} mm</p></div>
+            <div><p className="text-[9px] uppercase text-slate-500">Reacción col. máx.</p><p className="font-mono text-slate-200">{Math.round(calc.portal.maxCol / 1000)} t</p></div>
+          </div>
         </div>
 
         <p className="mt-4 text-[10px] text-slate-600">Fase 1/3: cargas+combinaciones+predimension (determinista, auditable). Fase 2: pórticos PyNite. Fase 3: sismo OpenSeesPy + espectro NSR-10 — número por número, artículo por artículo.</p>

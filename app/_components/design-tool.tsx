@@ -573,7 +573,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
 
         {/* Botones flotantes para abrir drawers — el plano manda.
             ⚙️ Estudio SIEMPRE visible: el usuario decide cuándo ver textos. */}
-        <div className="absolute right-2 top-2 z-10 flex gap-1.5">
+        <div className="absolute right-2 top-2 z-40 flex gap-1.5">
           <button type="button" onClick={() => setDrawer(drawer === "estudio" ? null : "estudio")}
             className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold backdrop-blur transition ${drawer === "estudio" ? "border-blue-400/50 bg-blue-500/25 text-blue-100" : "border-white/[0.08] bg-[#0a1120]/85 text-slate-300 hover:bg-white/[0.08]"}`}>
             ⚙️ Estudio
