@@ -147,7 +147,7 @@ const TOOLS: ToolDef[] = [
   },
 {
     id: "diseno",
-    title: "Diseño IA",
+    title: "Diseño Arquitectónico asistido por IA",
     description: "Estudio multi-agente: sitio (POT) → arquitecto → constructor + ingeniero → instalaciones → plano DXF por capas.",
     icon: "✏️",
     available: true,

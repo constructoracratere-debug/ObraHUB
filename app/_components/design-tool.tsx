@@ -16,6 +16,7 @@ import {
   type FloorPlan,
   roomArea,
   totalArea,
+  sanitizeFloorPlan,
   ROOM_COLORS,
   STRUCTURE_LABELS,
 } from "@/lib/design/schema";
@@ -606,7 +607,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             </div>
           )}
           {plan ? (
-            view === "planta" ? <PlanSvg plan={plan} />
+            view === "planta" ? <PlanSvg plan={plan} onEdit={(np) => setPlan(np)} />
             : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Cortes" />
             : view === "fachadas" ? <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
             : view === "pasaporte" ? <PassportPanel plan={plan} />
@@ -1045,7 +1046,7 @@ function AgentConsole({ lines, working }: {
 }
 
 // ── Plano SVG con pan/zoom ───────────────────────────────────────────────────
-function PlanSvg({ plan }: { plan: FloorPlan }) {
+function PlanSvg({ plan, onEdit }: { plan: FloorPlan; onEdit: (next: FloorPlan) => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const dragRef = useRef<{ px: number; py: number; vx: number; vy: number } | null>(null);
@@ -1099,6 +1100,100 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
     return { fur, spots };
   }, [roomsByLevel, plan.doors]);
 
+  // EDICION DIRECTA: arrastrar vanos y muros (Ching: el plano se corrige en
+  // el plano). Screen->modelo respetando viewBox "meet", snap 5 cm, y el
+  // sanitizador re-deriva bisagras/giros/mobiliario/cotas al soltar.
+  const svgRef = useRef<SVGSVGElement>(null);
+  const lastPt = useRef<{ x: number; y: number } | null>(null);
+  const editDrag = useRef<{ kind: "door" | "window" | "wall"; i: number; axis: "x" | "y"; at: number; moved: boolean } | null>(null);
+  const toModel = (e: React.PointerEvent) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const scale = Math.min(rect.width / vb.w, rect.height / vb.h);
+    const ox = (rect.width - vb.w * scale) / 2;
+    const oy = (rect.height - vb.h * scale) / 2;
+    const mx = vb.x + (e.clientX - rect.left - ox) / scale;
+    const my = vb.y + (e.clientY - rect.top - oy) / scale;
+    return { x: mx, y: D - my };
+  };
+  const snap5 = (n: number) => Math.round(n * 20) / 20;
+  const keyName = (s: string) => s.toLowerCase().split(" ").join("");
+  const useful = (axis: "x" | "y", at: number, w: number) => {
+    const rs = plan.rooms.filter((r) => r.level === 0 && (axis === "x"
+      ? Math.abs(r.y + r.depth - at) < 0.06 || Math.abs(r.y - at) < 0.06
+      : Math.abs(r.x + r.width - at) < 0.06 || Math.abs(r.x - at) < 0.06));
+    if (rs.length === 0) return null;
+    const lo = axis === "x" ? Math.max(...rs.map((r) => r.x)) : Math.max(...rs.map((r) => r.y));
+    const hi = axis === "x" ? Math.min(...rs.map((r) => r.x + r.width)) : Math.min(...rs.map((r) => r.y + r.depth));
+    if (hi - lo < w + 0.25) return null;
+    return { lo: lo + 0.1 + w / 2, hi: hi - 0.1 - w / 2 };
+  };
+  const applyEdit = () => {
+    const dg = editDrag.current;
+    if (!dg) return;
+    if (dg.kind === "door" && !dg.moved) {
+      const doors = plan.doors.map((d, idx) => idx === dg.i ? { ...d, hinge: d.hinge === "left" ? "right" : "left" } : d);
+      onEdit(sanitizeFloorPlan({ ...plan, doors }));
+      return;
+    }
+    const pt = lastPt.current;
+    if (!pt) return;
+    if (dg.kind === "door") {
+      const d = plan.doors[dg.i];
+      const seg = useful(d.axis === "y" ? "y" : "x", d.axis === "y" ? d.x : d.y, d.width);
+      if (!seg) return;
+      const along = Math.min(seg.hi, Math.max(seg.lo, snap5(d.axis === "y" ? pt.y : pt.x)));
+      const doors = plan.doors.map((dd, idx) => idx === dg.i ? { ...dd, along } : dd);
+      onEdit(sanitizeFloorPlan({ ...plan, doors }));
+    } else if (dg.kind === "window") {
+      const w = plan.windows[dg.i];
+      const room = plan.rooms.find((r) => r.level === w.level && keyName(r.name) === keyName(w.room));
+      if (!room) return;
+      const horiz = w.wall === "norte" || w.wall === "sur";
+      const lo = (horiz ? room.x : room.y) + 0.1 + w.width / 2;
+      const hi = (horiz ? room.x + room.width : room.y + room.depth) - 0.1 - w.width / 2;
+      if (hi < lo) return;
+      const x = Math.min(hi, Math.max(lo, snap5(horiz ? pt.x : pt.y)));
+      const windows = plan.windows.map((ww, idx) => idx === dg.i ? { ...ww, x } : ww);
+      onEdit(sanitizeFloorPlan({ ...plan, windows }));
+    } else if (dg.kind === "wall") {
+      const at = snap5(dg.axis === "x" ? pt.y : pt.x);
+      const delta = at - dg.at;
+      if (Math.abs(delta) < 0.01) return;
+      const rooms = plan.rooms.map((r) => {
+        if (r.level !== 0) return r;
+        if (dg.axis === "x") {
+          if (Math.abs(r.y + r.depth - dg.at) < 0.06) { const nd = r.depth + delta; return nd >= 1.2 ? { ...r, depth: nd } : r; }
+          if (Math.abs(r.y - dg.at) < 0.06) { const nd = r.depth - delta; return nd >= 1.2 ? { ...r, y: at, depth: nd } : r; }
+        } else {
+          if (Math.abs(r.x + r.width - dg.at) < 0.06) { const nw = r.width + delta; return nw >= 1.2 ? { ...r, width: nw } : r; }
+          if (Math.abs(r.x - dg.at) < 0.06) { const nw = r.width - delta; return nw >= 1.2 ? { ...r, x: at, width: nw } : r; }
+        }
+        return r;
+      });
+      onEdit(sanitizeFloorPlan({ ...plan, rooms }));
+    }
+  };
+  const onEditPointerDown = (e: React.PointerEvent, kind: "door" | "window" | "wall", i: number, axis: "x" | "y", at: number) => {
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    editDrag.current = { kind, i, axis, at, moved: false };
+    lastPt.current = toModel(e);
+  };
+  const onEditPointerMove = (e: React.PointerEvent) => {
+    if (!editDrag.current) return;
+    e.stopPropagation();
+    const pt = toModel(e);
+    if (!pt) return;
+    lastPt.current = pt;
+    editDrag.current.moved = true;
+  };
+  const onEditPointerUp = () => {
+    if (!editDrag.current) return;
+    applyEdit();
+    editDrag.current = null;
+  };
+
   return (
     <div
       ref={hostRef}
@@ -1117,7 +1212,7 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
       onDoubleClick={() => setView(null)}
       style={{ cursor: dragRef.current ? "grabbing" : "grab", touchAction: "none" }}
     >
-      <svg className="h-full w-full" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet">
+      <svg ref={svgRef} className="h-full w-full" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} preserveAspectRatio="xMidYMid meet">
         <defs>
           {/* Sombra proyectada 45° (Ching §shades): profundidad inmediata,
               unidades de MODELO para escalar con el zoom. */}
@@ -1201,6 +1296,50 @@ function PlanSvg({ plan }: { plan: FloorPlan }) {
             )}
             </g>
             )}
+            {/* Targets de EDICIÓN: vanos y muros interiores arrastrables.
+                Líneas invisibles gruesas: hit fácil sin ensuciar el dibujo. */}
+            {plan.doors.filter((d) => d.level === level).map((d, i) => {
+              const isY = d.axis === "y";
+              const half = d.width / 2;
+              return (
+                <line key={`hit-d-${i}`}
+                  x1={isY ? d.x : d.x - half} y1={svgY(isY ? d.y - half : d.y)}
+                  x2={isY ? d.x : d.x + half} y2={svgY(isY ? d.y + half : d.y)}
+                  stroke="transparent" strokeWidth={0.45} style={{ cursor: "move" }}
+                  onPointerDown={(e) => onEditPointerDown(e, "door", i, isY ? "y" : "x", isY ? d.x : d.y)}
+                  onPointerMove={onEditPointerMove} onPointerUp={onEditPointerUp} />
+              );
+            })}
+            {plan.windows.filter((w) => w.level === level).map((w, i) => {
+              const r2 = rooms.find((rr) => rr.name.toLowerCase().split(" ").join("") === w.room.toLowerCase().split(" ").join(""));
+              if (!r2) return null;
+              const horiz = w.wall === "norte" || w.wall === "sur";
+              const yy = w.wall === "norte" ? r2.y + r2.depth : r2.y;
+              const xx = horiz ? w.x : (w.wall === "este" ? r2.x + r2.width : r2.x);
+              return (
+                <line key={`hit-w-${i}`}
+                  x1={horiz ? w.x - w.width / 2 : xx} y1={svgY(horiz ? yy : w.x - w.width / 2)}
+                  x2={horiz ? w.x + w.width / 2 : xx} y2={svgY(horiz ? yy : w.x + w.width / 2)}
+                  stroke="transparent" strokeWidth={0.45} style={{ cursor: "move" }}
+                  onPointerDown={(e) => onEditPointerDown(e, "window", i, horiz ? "x" : "y", horiz ? yy : xx)}
+                  onPointerMove={onEditPointerMove} onPointerUp={onEditPointerUp} />
+              );
+            })}
+            {rooms.flatMap((r) => {
+              const te = 0.14;
+              const edges: Array<{ axis: "x" | "y"; at: number; x1: number; y1: number; x2: number; y2: number }> = [];
+              if (r.y > te + 0.02) edges.push({ axis: "x", at: r.y, x1: r.x, y1: r.y, x2: r.x + r.width, y2: r.y });
+              if (r.y + r.depth < D - te - 0.02) edges.push({ axis: "x", at: r.y + r.depth, x1: r.x, y1: r.y + r.depth, x2: r.x + r.width, y2: r.y + r.depth });
+              if (r.x > te + 0.02) edges.push({ axis: "y", at: r.x, x1: r.x, y1: r.y, x2: r.x, y2: r.y + r.depth });
+              if (r.x + r.width < W - te - 0.02) edges.push({ axis: "y", at: r.x + r.width, x1: r.x + r.width, y1: r.y, x2: r.x + r.width, y2: r.y + r.depth });
+              return edges.map((ed, k) => (
+                <line key={`hit-m-${r.name}-${k}`}
+                  x1={ed.x1} y1={svgY(ed.y1)} x2={ed.x2} y2={svgY(ed.y2)}
+                  stroke="transparent" strokeWidth={0.3} style={{ cursor: ed.axis === "x" ? "row-resize" : "col-resize" }}
+                  onPointerDown={(e) => onEditPointerDown(e, "wall", 0, ed.axis, ed.at)}
+                  onPointerMove={onEditPointerMove} onPointerUp={onEditPointerUp} />
+              ));
+            })}
             {/* Retícula estructural */}
             {plan.structure?.axes.filter((a) => plan.levels === 1 || true).map((a, i) =>
               a.orientation === "vertical" ? (

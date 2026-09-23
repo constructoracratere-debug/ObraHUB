@@ -66,6 +66,9 @@ export type Door = {
   /** Hacia qué lado perpendicular abre (+1 = norte/este, −1 = sur/oeste).
    *  Derivado: siempre hacia el interior del espacio destino (Ching). */
   swingDir: 1 | -1;
+  /** Posición preferida sobre el muro (m desde el inicio del segmento útil).
+   *  La fija el usuario ARRASTRANDO la puerta; si no, va al centro. */
+  along?: number;
 };
 
 export type Window = {
@@ -308,7 +311,9 @@ export function rederiveDoors(rooms: Room[], raw: Door[], W: number, D: number, 
     if (hi < lo) continue; // muro demasiado corto para el vano
     const key = `${edge.axis}:${edge.at.toFixed(2)}:${d.level}`;
     const centers = edgeCenters.get(key) ?? [];
-    let c = lo + (hi - lo) / 2;
+    // Posición del usuario (arrastre) respetada; si no, centro del segmento.
+    let c = d.along != null ? Math.min(hi, Math.max(lo, edge.lo + 0.1 + w / 2 + (d.along - (edge.lo + 0.1)))) : lo + (hi - lo) / 2;
+    if (d.along != null) c = Math.min(hi, Math.max(lo, d.along));
     // Si ya hay puerta pegada, desplaza determinista hacia el extremo libre.
     let shifted = false;
     for (let i = 0; i < 4 && centers.some((cc) => Math.abs(cc - c) < w + 0.15); i++) {
