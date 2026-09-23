@@ -2210,7 +2210,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
               className={`mx-auto flex w-full flex-col ${
                 showHero
                   ? "max-w-5xl px-4 py-8 sm:px-6 sm:py-10"
-                  : activeTool === "diseno"
+                  : activeTool === "diseno" || activeTool === "pasaporte" || activeTool === "kit"
                   // El Diseño IA es full-bleed: sin max-width de chat y con
                   // ALTURA DEFINIDA (h-full) — antes heredaba la columna de
                   // chat (max-w-3xl, altura por contenido) y su canvas
