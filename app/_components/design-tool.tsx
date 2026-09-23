@@ -121,6 +121,10 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
   // 🖼️ Referencia visual del cliente para el boceto (data URL ≤1024px).
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  // Revision del MODELO PARAMETRICO (comportamiento Revit): cada edicion en
+  // planta (arrastrar vano/muro) bump la revision — el IFC/3D, cotas, cortes,
+  // takeoff y pasaporte se regeneran deterministamente desde el mismo plan.
+  const [modelRev, setModelRev] = useState(1);
   const [location, setLocation] = useState("");
   const [stage, setStage] = useState<Stage>(0);
   const [busy, setBusy] = useState<Stage | null>(null);
@@ -596,6 +600,9 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                 type="button" onClick={() => setPrintMode((v) => !v)}
                 title="Vista previa de impresión B/N — como la ve curaduría"
                 className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${printMode ? "bg-zinc-400/30 text-zinc-100 ring-1 ring-zinc-300/40" : "text-slate-400 hover:bg-white/[0.06]"}`}>
+                <span className="ml-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[9.5px] font-semibold text-emerald-300" title="Modelo paramétrico único: cada edición en planta regenera IFC 3D, cortes, cotas, takeoff y pasaporte (como Revit)">
+                  🔄 3D sync · r{modelRev}
+                </span>
                 🖨️ B/N
               </button>
               <button
@@ -607,7 +614,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             </div>
           )}
           {plan ? (
-            view === "planta" ? <PlanSvg plan={plan} onEdit={(np) => setPlan(np)} />
+            view === "planta" ? <PlanSvg plan={plan} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
             : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Cortes" />
             : view === "fachadas" ? <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
             : view === "pasaporte" ? <PassportPanel plan={plan} />
