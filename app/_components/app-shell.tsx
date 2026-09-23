@@ -77,6 +77,10 @@ const PassportTool = dynamic(() => import("@/app/_components/passport-tool").the
   ssr: false,
   loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando pasaporte…</p></div>),
 });
+const StructuralTool = dynamic(() => import("@/app/_components/structural-tool").then((m) => m.StructuralTool), {
+  ssr: false,
+  loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando calculista…</p></div>),
+});
 const KitTool = dynamic(() => import("@/app/_components/kit-tool").then((m) => m.KitTool), {
   ssr: false,
   loading: () => (<div className="flex items-center justify-center py-16"><p className="text-sm text-slate-500">Cargando kit…</p></div>),
@@ -125,7 +129,7 @@ const ACTIVE_FOLDER_KEY = "obrahub-active-folder";
 const ACTIVE_TOOL_KEY = "obrahub-active-tool";
 const CHAT_HISTORY_KEY = "obrahub-chat-history";
 
-type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "diseno" | "pasaporte" | "kit";
+type ToolId = "storage" | "normativa" | "costos" | "seguimiento" | "bitacora" | "control" | "diseno" | "pasaporte" | "kit" | "estructural";
 
 type ToolDef = {
   id: ToolId;
@@ -153,6 +157,14 @@ const TOOLS: ToolDef[] = [
     available: true,
     gradient: "from-indigo-500/15 to-indigo-600/5",
   },
+  {
+    id: "estructural",
+    title: "Diseño Estructural asistido por IA",
+    description: "Calculista NSR-10: cargas, combinaciones Título B, peso sísmico y predimensionado — número por número, artículo por artículo.",
+    icon: "🏗️",
+    available: true,
+    gradient: "from-orange-500/15 to-orange-600/5",
+  },
 {
     id: "normativa",
     title: "Interventor IA",
@@ -161,7 +173,7 @@ const TOOLS: ToolDef[] = [
     available: true,
     gradient: "from-cyan-500/15 to-cyan-600/5",
   },
-  {
+{
     id: "kit",
     title: "Kit del Proyecto (IFC totalizado)",
     description: "Selecciona los archivos oficiales — 2D, IFC con cantidades — que alimentarán Costos, Seguimiento, Bitácora, Control y Pasaporte.",
@@ -789,7 +801,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
     activeTool === "control" ||
     activeTool === "diseno" ||
     activeTool === "pasaporte" ||
-    activeTool === "kit";
+    activeTool === "kit" ||
+    activeTool === "estructural";
   const showComposer =
     !fullScreenTool &&
     (showHero || activeTool === "normativa" || messages.length > 0 || !!activeFolderId);
@@ -2957,6 +2970,8 @@ en Latinoamérica
                 <PassportTool onOpenDesign={() => setActiveTool("diseno")} />
               ) : activeTool === "kit" ? (
                 <KitTool projectSlug={activeProjectSlug ?? undefined} />
+              ) : activeTool === "estructural" ? (
+                <StructuralTool onOpenDesign={() => setActiveTool("diseno")} />
               ) : activeTool === "seguimiento" ? (
                 activeProjectSlug ? (
                   <GanttTool
