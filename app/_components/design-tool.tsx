@@ -28,6 +28,7 @@ import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
 import { furnishRoom, labelSpot } from "@/lib/design/symbols";
+import { IfcLive } from "./ifc-live";
 import { takeoff } from "@/lib/passport/takeoff";
 import { valueTakeoff, recommendations } from "@/lib/passport/value";
 import { buildEnvironmentalReport } from "@/lib/passport/report";
@@ -144,7 +145,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [revisions, setRevisions] = useState<RevisionLog[]>([]);
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
-  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte">("planta");
+  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split">("planta");
   // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
   // negro — así se ve si el plano sobrevive la fotocopiadora.
   const [printMode, setPrintMode] = useState(false);
@@ -590,7 +591,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
         <div className={`absolute inset-0 ${printMode ? "bg-white" : "bg-[#0a1120]"}`} style={printMode ? { filter: "invert(1) hue-rotate(180deg)" } : undefined}>
           {plan && (
             <div className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5 backdrop-blur">
-              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"], ["pasaporte", "🌱 Pasaporte"]] as const).map(([id, label]) => (
+              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"], ["pasaporte", "🌱 Pasaporte"], ["split", "🧩 2D+3D"]] as const).map(([id, label]) => (
                 <button key={id} type="button" onClick={() => setView(id)}
                   className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${view === id ? "bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30" : "text-slate-400 hover:bg-white/[0.06]"}`}>
                   {label}
@@ -614,7 +615,16 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             </div>
           )}
           {plan ? (
-            view === "planta" ? <PlanSvg plan={plan} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
+            view === "split" ? (
+              <div className="absolute inset-0 flex flex-col lg:flex-row">
+                <div className="min-h-[45%] flex-1 border-b border-white/[0.07] lg:min-h-0 lg:border-b-0 lg:border-r">
+                  <PlanSvg plan={plan} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
+                </div>
+                <div className="relative min-h-[45%] flex-1">
+                  <IfcLive plan={plan} />
+                </div>
+              </div>
+            ) : view === "planta" ? <PlanSvg plan={plan} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
             : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Cortes" />
             : view === "fachadas" ? <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
             : view === "pasaporte" ? <PassportPanel plan={plan} />
@@ -1312,7 +1322,7 @@ function PlanSvg({ plan, onEdit }: { plan: FloorPlan; onEdit: (next: FloorPlan) 
                 <line key={`hit-d-${i}`}
                   x1={isY ? d.x : d.x - half} y1={svgY(isY ? d.y - half : d.y)}
                   x2={isY ? d.x : d.x + half} y2={svgY(isY ? d.y + half : d.y)}
-                  stroke="transparent" strokeWidth={0.45} style={{ cursor: "move" }}
+                  stroke="transparent" strokeWidth={0.7} style={{ cursor: "move" }} className="hover:stroke-fuchsia-500/60"
                   onPointerDown={(e) => onEditPointerDown(e, "door", i, isY ? "y" : "x", isY ? d.x : d.y)}
                   onPointerMove={onEditPointerMove} onPointerUp={onEditPointerUp} />
               );
@@ -1327,7 +1337,7 @@ function PlanSvg({ plan, onEdit }: { plan: FloorPlan; onEdit: (next: FloorPlan) 
                 <line key={`hit-w-${i}`}
                   x1={horiz ? w.x - w.width / 2 : xx} y1={svgY(horiz ? yy : w.x - w.width / 2)}
                   x2={horiz ? w.x + w.width / 2 : xx} y2={svgY(horiz ? yy : w.x + w.width / 2)}
-                  stroke="transparent" strokeWidth={0.45} style={{ cursor: "move" }}
+                  stroke="transparent" strokeWidth={0.7} style={{ cursor: "move" }} className="hover:stroke-fuchsia-500/60"
                   onPointerDown={(e) => onEditPointerDown(e, "window", i, horiz ? "x" : "y", horiz ? yy : xx)}
                   onPointerMove={onEditPointerMove} onPointerUp={onEditPointerUp} />
               );
@@ -1342,7 +1352,7 @@ function PlanSvg({ plan, onEdit }: { plan: FloorPlan; onEdit: (next: FloorPlan) 
               return edges.map((ed, k) => (
                 <line key={`hit-m-${r.name}-${k}`}
                   x1={ed.x1} y1={svgY(ed.y1)} x2={ed.x2} y2={svgY(ed.y2)}
-                  stroke="transparent" strokeWidth={0.3} style={{ cursor: ed.axis === "x" ? "row-resize" : "col-resize" }}
+                  stroke="transparent" strokeWidth={0.5} style={{ cursor: ed.axis === "x" ? "row-resize" : "col-resize" }} className="hover:stroke-fuchsia-500/60"
                   onPointerDown={(e) => onEditPointerDown(e, "wall", 0, ed.axis, ed.at)}
                   onPointerMove={onEditPointerMove} onPointerUp={onEditPointerUp} />
               ));
