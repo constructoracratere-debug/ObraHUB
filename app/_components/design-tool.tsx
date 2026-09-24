@@ -145,7 +145,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [revisions, setRevisions] = useState<RevisionLog[]>([]);
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
-  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split">("planta");
+  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split">("split");
   // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
   // negro — así se ve si el plano sobrevive la fotocopiadora.
   const [printMode, setPrintMode] = useState(false);
