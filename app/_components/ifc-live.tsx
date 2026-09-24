@@ -37,6 +37,14 @@ export function IfcLive({ plan }: { plan: FloorPlan }) {
           scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, 0.7));
           const d1 = new THREE.DirectionalLight(0xffffff, 1.0); d1.position.set(50, 80, 30); scene.add(d1);
           const d2 = new THREE.DirectionalLight(0x99bbff, 0.4); d2.position.set(-40, 20, -30); scene.add(d2);
+          const root = new THREE.Group();
+          root.rotation.x = -Math.PI / 2; // IFC Z-up → three Y-up
+          scene.add(root);
+          const grid = new THREE.GridHelper(60, 60, 0x1e3a5f, 0x11203a);
+          grid.position.y = -0.01;
+          scene.add(grid);
+          scene.add(new THREE.AmbientLight(0x334455, 0.5));
+          (sceneRef as any).root = root;
           sceneRef.current = scene;
           const { clientWidth: w, clientHeight: h } = containerRef.current;
           const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 5000);
@@ -67,7 +75,8 @@ export function IfcLive({ plan }: { plan: FloorPlan }) {
         setStatus("loading");
         // Limpiar mallas previas.
         const scene = sceneRef.current!;
-        for (const c of [...scene.children]) if ((c as THREE.Mesh).isMesh) { scene.remove(c); ((c as THREE.Mesh).geometry as THREE.BufferGeometry)?.dispose?.(); }
+        const root: THREE.Group = (sceneRef as any).root;
+        for (const c of [...root.children]) { root.remove(c); ((c as THREE.Mesh).geometry as THREE.BufferGeometry)?.dispose?.(); ((c as THREE.Mesh).material as THREE.Material)?.dispose?.(); }
         const ifcText = planToIfc(plan);
         const bytes = new TextEncoder().encode(ifcText);
         if (modelRef.current >= 0) { try { api.CloseModel(modelRef.current); } catch { /* */ } }
@@ -79,28 +88,37 @@ export function IfcLive({ plan }: { plan: FloorPlan }) {
           if (cancelled) return;
           const g0 = mesh.geometries.get(0);
           const geom = api.GetGeometry(mid, g0.geometryExpressID);
-          const vertPtr = geom.GetVertexData(), vertSize = geom.GetVertexDataSize();
-          const idxPtr = geom.GetIndexData(), idxSize = geom.GetIndexDataSize();
-          const verts = (api as any).GetVertexArray(vertPtr, vertSize);
-          const indices = (api as any).GetIndexArray(idxPtr, idxSize);
+          const verts = (api as any).GetVertexArray(geom.GetVertexData(), geom.GetVertexDataSize());
+          const indices = (api as any).GetIndexArray(geom.GetIndexData(), geom.GetIndexDataSize());
           const pos = new Float32Array((verts.length / 6) * 3);
           const nor = new Float32Array((verts.length / 6) * 3);
-          for (let i = 0, j = 0; i < verts.length; i += 6, j += 3) {
-            pos[j] = verts[i]; pos[j + 1] = verts[i + 2]; pos[j + 2] = -verts[i + 1];
-            nor[j] = verts[i + 3]; nor[j + 1] = verts[i + 5]; nor[j + 2] = -verts[i + 4];
+          for (let k = 0, j2 = 0; k < verts.length; k += 6, j2 += 3) {
+            pos[j2] = verts[k]; pos[j2 + 1] = verts[k + 1]; pos[j2 + 2] = verts[k + 2];
+            nor[j2] = verts[k + 3]; nor[j2 + 1] = verts[k + 4]; nor[j2 + 2] = verts[k + 5];
           }
           const bg = new THREE.BufferGeometry();
           bg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
           bg.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
           bg.setIndex(new THREE.BufferAttribute(indices, 1));
-          const t = g0.flatTransformation;
-          const m = new THREE.Matrix4().set(t[0], t[1], t[3], t[0] * 0, t[3 + 0], t[4], t[5], 0, t[6], t[7], t[8], 0, 0, 0, 0, 1);
-          void m;
-          const mesh3 = new THREE.Mesh(bg, new THREE.MeshStandardMaterial({ color: 0x9fb4c9, roughness: 0.85, metalness: 0.05, side: THREE.DoubleSide }));
-          mesh3.applyMatrix4(new THREE.Matrix4().fromArray(t));
-          scene.add(mesh3);
+          const m3 = new THREE.Mesh(bg, new THREE.MeshStandardMaterial({ color: 0xc3d2e0, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide, flatShading: false }));
+          m3.matrixAutoUpdate = false;
+          m3.matrix.fromArray(g0.flatTransformation); // transformación IFC cruda (el root la gira a Y-up)
+          root.add(m3);
           count++;
         });
+        // Encuadre automático al tamaño del modelo.
+        const box = new THREE.Box3().setFromObject(root);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3()).length() || 10;
+        const cam: THREE.PerspectiveCamera = (sceneRef as any).cam;
+        const ctl: any = (sceneRef as any).ctl;
+        if (cam && ctl) {
+          ctl.target.copy(center);
+          const dir = new THREE.Vector3(0.7, 0.55, 0.7).normalize();
+          cam.position.copy(center.clone().add(dir.multiplyScalar(size * 1.15)));
+          cam.near = size / 200; cam.far = size * 20; cam.updateProjectionMatrix();
+          ctl.update();
+        }
         void count;
         setStatus("ok");
       } catch { if (!cancelled) setStatus("error"); }
