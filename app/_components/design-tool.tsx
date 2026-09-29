@@ -27,6 +27,7 @@ import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
+import { buildSheets } from "@/lib/design/sheets";
 import { furnishRoom, labelSpot } from "@/lib/design/symbols";
 import { IfcLive } from "./ifc-live";
 import { takeoff } from "@/lib/passport/takeoff";
@@ -628,7 +629,16 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Cortes" />
             : view === "fachadas" ? <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
             : view === "pasaporte" ? <PassportPanel plan={plan} />
-            : <PrimsSvg prims={sheetPrimitives(plan)} title="Lámina de curaduría" fitSmall />
+            : view === "lamina" ? (
+              <div className="absolute inset-0 flex snap-x snap-mandatory gap-3 overflow-x-auto bg-[#070d1a] p-3">
+                {buildSheets(plan).map((sh) => (
+                  <div key={sh.code} className="relative h-full w-[min(92vw,880px)] shrink-0 snap-center">
+                    <PrimsSvg prims={sh.prims} title={`${sh.code} · ${sh.title}`} fitSmall />
+                    <p className="pointer-events-none absolute left-2 top-2 rounded-md bg-[#070d1a]/85 px-2 py-1 text-[10px] font-bold tracking-wide text-slate-300">{sh.code}</p>
+                  </div>
+                ))}
+              </div>
+            ) : <PrimsSvg prims={sheetPrimitives(plan)} title="Lámina de curaduría" fitSmall />
           ) : (
             <div className="flex h-full items-center justify-center p-6 text-center">
               <div>
@@ -1585,15 +1595,7 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
       : { ...p, x: p.x + dx, y: p.y + dy });
   const W = plan.outline.width, D = plan.outline.depth;
   const totalH = plan.floorToFloor * Math.max(1, plan.levels);
-  const sheets: Array<{ code: string; title: string; prims: Prim[] }> = [
-    { code: "A-01", title: "PLANTA ARQUITECTÓNICA + CUADRO DE ÁREAS",
-      prims: [...shift(plantaPrimitives(plan), 0, 0), ...shift(areaTablePrimitives(plan), W + 2.5, D - 1)] },
-    { code: "A-02", title: "CORTES A-A' Y B-B'",
-      prims: [...shift(sectionPrimitives(plan), 0, -(totalH + 2)), ...shift(sectionPrimitives(plan, { transverse: true }), W + 3.5, -(totalH + 2))] },
-    { code: "A-03", title: "FACHADAS",
-      prims: (["sur", "oeste", "este", "norte"] as const).reduce<Prim[]>((acc, side, i) =>
-        [...acc, ...shift(facadePrimitives(plan, side), i * (W + 3), -(totalH + 2))], []) },
-  ];
+  const sheets: Array<{ code: string; title: string; prims: Prim[] }> = buildSheets(plan);
   return (
     <div className="fixed inset-0 z-[80] overflow-auto bg-black/70 p-4 print:block print:bg-white print:p-0">
       <style>{`@page { size: A2 landscape; margin: 0 } .sheet { page-break-after: always } @media print { .no-print { display: none !important } }`}</style>
