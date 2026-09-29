@@ -127,6 +127,24 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   // planta (arrastrar vano/muro) bump la revision — el IFC/3D, cotas, cortes,
   // takeoff y pasaporte se regeneran deterministamente desde el mismo plan.
   const [modelRev, setModelRev] = useState(1);
+  // UNDO (Ctrl+Z): pila de estados del modelo. applyPlan centraliza TODA
+  // mutacion del plano para que el historial sea completo.
+  const undoRef = useRef<FloorPlan[]>([]);
+  const applyPlan = (np: FloorPlan) => {
+    setPlan((prev) => { if (prev) undoRef.current = [...undoRef.current.slice(-19), prev]; return np; });
+    setModelRev((r) => r + 1);
+  };
+  const undo = () => {
+    const prev = undoRef.current.pop();
+    if (prev) { setPlan(prev); setModelRev((r) => r + 1); }
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [location, setLocation] = useState("");
   const [stage, setStage] = useState<Stage>(0);
   const [busy, setBusy] = useState<Stage | null>(null);
@@ -615,7 +633,8 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                     ))}
                   </span>
                 )}
-                <span className="ml-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[9.5px] font-semibold text-emerald-300" title="Modelo paramétrico único: cada edición en planta regenera IFC 3D, cortes, cotas, takeoff y pasaporte (como Revit)">
+                <button type="button" onClick={undo} title="Deshacer (Ctrl+Z) — hasta 20 pasos" className="ml-1 rounded-full border border-white/[0.1] bg-white/[0.04] px-2 py-1 text-[9.5px] font-semibold text-slate-300 transition hover:bg-white/[0.1]">↩️ Ctrl+Z</button>
+<span className="ml-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[9.5px] font-semibold text-emerald-300" title="Modelo paramétrico único: cada edición en planta regenera IFC 3D, cortes, cotas, takeoff y pasaporte (como Revit)">
                   🔄 3D sync · r{modelRev}
                 </span>
                 🖨️ B/N
@@ -632,13 +651,13 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             view === "split" ? (
               <div className="absolute inset-0 flex flex-col lg:flex-row">
                 <div className="min-h-[45%] flex-1 border-b border-white/[0.07] lg:min-h-0 lg:border-b-0 lg:border-r">
-                  <PlanSvg plan={plan} onlyLevel={levelView} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
+                  <PlanSvg plan={plan} onlyLevel={levelView} onEdit={applyPlan} />
                 </div>
                 <div className="relative min-h-[45%] flex-1">
                   <IfcLive plan={levelView == null ? plan : { ...plan, levels: 1, rooms: plan.rooms.filter((r) => r.level === levelView), doors: plan.doors.filter((d) => d.level === levelView), windows: plan.windows.filter((w) => w.level === levelView) }} />
                 </div>
               </div>
-            ) : view === "planta" ? <PlanSvg plan={plan} onlyLevel={levelView} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
+            ) : view === "planta" ? <PlanSvg plan={plan} onlyLevel={levelView} onEdit={applyPlan} />
             : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Cortes" />
             : view === "fachadas" ? <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
             : view === "pasaporte" ? <PassportPanel plan={plan} />

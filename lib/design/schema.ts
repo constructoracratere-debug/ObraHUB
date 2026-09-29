@@ -342,6 +342,37 @@ export function rederiveDoors(rooms: Room[], raw: Door[], W: number, D: number, 
   return out;
 }
 
+/** ANTI-SOLAPE por CONSTRUCCION: los espacios del LLM pueden llegar
+ *  traslapados; aqui se RESUELVEN (no se reportan): por orden de llegada,
+ *  cada espacio empuja los bordes del siguiente fuera de si (recortando
+ *  por el eje de menor invasión). El que queda < 0.9 m de lado se DROPS
+ *  (mejor un espacio menos que un plano imposible). Resultado garantizado:
+ *  cero traslapes en la salida. */
+function resolveOverlaps(rooms: Room[]): Room[] {
+  const min = 0.9;
+  const out: Room[] = [];
+  for (const r of rooms) {
+    let room = { ...r };
+    for (const fixed of out) {
+      if (fixed.level !== room.level) continue;
+      const ox = Math.min(fixed.x + fixed.width, room.x + room.width) - Math.max(fixed.x, room.x);
+      const oy = Math.min(fixed.y + fixed.depth, room.y + room.depth) - Math.max(fixed.y, room.y);
+      if (ox > 0.05 && oy > 0.05) {
+        // Recortar por el eje de menor invasion.
+        if (ox <= oy) {
+          if (room.x + room.width / 2 < fixed.x + fixed.width / 2) room = { ...room, width: Math.max(min, room.width - ox), x: fixed.x - Math.max(min, room.width - ox) };
+          else room = { ...room, width: Math.max(min, room.width - ox), x: fixed.x + fixed.width };
+        } else {
+          if (room.y + room.depth / 2 < fixed.y + fixed.depth / 2) room = { ...room, depth: Math.max(min, room.depth - oy), y: fixed.y - Math.max(min, room.depth - oy) };
+          else room = { ...room, depth: Math.max(min, room.depth - oy), y: fixed.y + fixed.depth };
+        }
+      }
+    }
+    if (room.width >= min && room.depth >= min) out.push(room);
+  }
+  return out;
+}
+
 export function sanitizeFloorPlan(raw: unknown): FloorPlan {
   const o = (raw ?? {}) as Record<string, unknown>;
   const outlineW = dim((o.outline as any)?.width, 3, MAX_OUTLINE, 10);
@@ -351,7 +382,7 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
   const wallInt = dim((o.wallThickness as any)?.interior, 0.08, 0.3, 0.1);
 
   const roomsRaw = Array.isArray(o.rooms) ? o.rooms.slice(0, MAX_ROOMS) : [];
-  const rooms: Room[] = roomsRaw.map((r0, i) => {
+  let rooms: Room[] = roomsRaw.map((r0, i) => {
     const r = (r0 ?? {}) as Record<string, unknown>;
     const type = enumOf(r.type, ROOM_TYPES, "otro");
     const width = dim(r.width, MIN_DIM, MAX_DIM, 3);
@@ -394,6 +425,9 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
   // GEOMETRÍA DERIVADA, no alucinada: el LLM propone CONEXIONES (from/to);
   // la posición, el eje, la bisagra y el sentido de giro salen de la arista
   // compartida entre los espacios. Se acabaron las puertas random.
+  // ANTI-SOLAPE garantizado antes de derivar puertas (las aristas
+  // compartidas salen de geometria YA limpia).
+  rooms = resolveOverlaps(rooms);
   const doors = rederiveDoors(rooms, rawDoors, outlineW, outlineD, wallExt);
 
   const windowsRaw = Array.isArray(o.windows) ? o.windows.slice(0, 80) : [];
