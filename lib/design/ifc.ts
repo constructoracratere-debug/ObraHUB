@@ -104,6 +104,17 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
   };
   const layer = (name: string, t: number) => ent(`LY:${name}:${t}`, (n) => `#${n}= IFCMATERIALLAYER(#${material(name)},${f(t)},$,'${esc(name)}',$,$,$);`);
 
+  /** Pset 5D/6D: cantidades y carbono POR ELEMENTO (cualquier software
+   *  externo extrae presupuesto 5D y pasaporte 6D directamente del IFC). */
+  const propSingle = (name: string, value: number | string, tag: string) =>
+    ent(`PSV:${tag}`, (n) => `#${n}= IFCPROPERTYSINGLEVALUE('${esc(name)}',$,IFCLABEL('${esc(String(value))}'),$);`);
+  const pset = (product: number, setName: string, props: Array<[string, number | string]>, tag: string) => {
+    const propsN = props.map(([k, v]) => propSingle(k, v, tag + ":" + k));
+    const ps = ent(`PS:${tag}`, (n) => `#${n}= IFCPROPERTYSET('${guid(tag)}',#${owner},'${esc(setName)}',$,(#${propsN.join(",#")}));`);
+    ent(`RDP:${tag}`, (n) => `#${n}= IFCRELDEFINESBYPROPERTIES('${guid("RD" + tag)}',#${owner},$,$,(#${product}),#${ps});`);
+  };
+  const CO2_CONCRETO = 305, CO2_ACERO = 1.9; // kgCO2e (EPD LATAM, passport/prices)
+
   const extSet = layerSet(asm.ext.label, asm.ext.layers);
   const intSet = layerSet(asm.int.label, asm.int.layers);
   const relAssoc = (product: number, matOrSet: number, tag: string, isSet = false) =>
@@ -148,6 +159,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       const prod = id();
       lines.push(`#${prod}= IFCWALLSTANDARDCASE('${guid(name)}',#${owner},'${esc(name)}',$,$,#${pl},#${prd},$,.STANDARD.);`);
       relAssoc(prod, setName, `WA${name}`, true);
+      pset(prod, "Pset_ObraHub_5D6D", [["Fase", "Obra gris"], ["Codigo", "A-MUROS"], ["Unidad", "m2"], ["Cantidad_m2", Math.round(Math.max(w, d) * fft * 100) / 100]], `P5W:${name}`);
       products.push(prod);
     };
 
@@ -251,6 +263,8 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       const prod = id();
       lines.push(`#${prod}= IFCCOLUMN('${guid(`C${x},${y},${lvl}`)}',#${owner},'Columna eje (${f(x)},${f(y)}) N${lvl + 1} — ${system === "acero_liviano" ? "poste metálico" : "concreto 3000 PSI"}',$,$,#${pl},#${prd},$,.COLUMN.);`);
       relAssoc(prod, colMat, `CM${x},${y},${lvl}`);
+      const colVol = Math.round(colDim.w * colDim.d * fft * 100) / 100;
+      pset(prod, "Pset_ObraHub_5D6D", [["Fase", "Estructura"], ["Codigo", "S-COLUMNA"], ["Concreto_m3", colVol], ["Acero_kg", Math.round(colVol * 100)], ["CO2e_kg", Math.round(colVol * (CO2_CONCRETO + 100 * CO2_ACERO))]], `P5C:${x},${y},${lvl}`);
       products.push(prod);
       return prod;
     };
@@ -273,6 +287,9 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       const prod = id();
       lines.push(`#${prod}= IFCBEAM('${guid(`BMx${y},${lvl}`)}',#${owner},'Viga eje y=${f(y)} N${lvl + 1} — concreto 3000 PSI',$,$,#${pl},#${prd},$,.BEAM.);`);
       relAssoc(prod, beamMat, `BMx${y},${lvl}`);
+
+      const bv = Math.round(W - 2 * te * CONCRETE.beam.w * CONCRETE.beam.d * 100) / 100;
+      pset(prod, "Pset_ObraHub_5D6D", [["Fase", "Estructura"], ["Codigo", "S-VIGA"], ["Concreto_m3", bv], ["Acero_kg", Math.round(bv * 100)], ["CO2e_kg", Math.round(bv * (CO2_CONCRETO + 100 * CO2_ACERO))]], `P5BMx:${z0}`);
       products.push(prod);
     }
     for (const x of vs.length ? vs : []) {
@@ -283,6 +300,9 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       const prod = id();
       lines.push(`#${prod}= IFCBEAM('${guid(`BMy${x},${lvl}`)}',#${owner},'Viga eje x=${f(x)} N${lvl + 1} — concreto 3000 PSI',$,$,#${pl},#${prd},$,.BEAM.);`);
       relAssoc(prod, beamMat, `BMy${x},${lvl}`);
+
+      const bv = Math.round(D - 2 * te * CONCRETE.beam.w * CONCRETE.beam.d * 100) / 100;
+      pset(prod, "Pset_ObraHub_5D6D", [["Fase", "Estructura"], ["Codigo", "S-VIGA"], ["Concreto_m3", bv], ["Acero_kg", Math.round(bv * 100)], ["CO2e_kg", Math.round(bv * (CO2_CONCRETO + 100 * CO2_ACERO))]], `P5BMy:${z0}`);
       products.push(prod);
     }
 
@@ -294,6 +314,8 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     const slab = id();
     lines.push(`#${slab}= IFCSLAB('${guid(`SL${lvl}`)}',#${owner},'Losa N${lvl + 1} — ${slabT === 0.1 ? "ligera e=10cm" : "concreto e=12cm"}',$,$,#${slabPl},#${slabPrd},$,.FLOOR.);`);
     relAssoc(slab, material(slabT === 0.1 ? "Losa ligera steel deck" : MATERIALS.losa), `SLM${lvl}`);
+      const slabVol = Math.round(W * D * slabT * 100) / 100;
+      pset(slab, "Pset_ObraHub_5D6D", [["Fase", "Estructura"], ["Codigo", "S-LOSA"], ["Concreto_m3", slabVol], ["Acero_kg", Math.round(slabVol * 100)], ["CO2e_kg", Math.round(slabVol * CO2_CONCRETO + slabVol * 100 * CO2_ACERO)]], `P5SL:${lvl}`);
     products.push(slab);
 
     // Placa de piso nivel 0.
