@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-29T03:54:25.890Z",
+  "generated": "2026-09-29T13:00:13.109Z",
   "sources": {
     "decreto1077": {
       "name": "Decreto 1077 de 2015 (licencias)",
@@ -10,14 +10,14 @@
     },
     "nsr10": {
       "name": "NSR-10 (anexo Decreto 926 de 2010)",
-      "status": "ok-raw",
-      "url": "https://www.minvivienda.gov.co/sites/default/files/normativa/decreto-926-de-2010.pdf",
-      "sha": "27d2d06a90a48e3b",
-      "bytes": 74515,
+      "status": "ok-pdf",
+      "url": "https://www.unisdr.org/campaign/resilientcities/uploads/city/attachments/3871-10684.pdf",
+      "sha": "15303d0efd8a74a4",
+      "bytes": 19312184,
       "pages": null,
       "textChars": 0,
       "scope": "Reglamento sismorresistente completo (Titulos A-K)",
-      "ts": "2026-09-29T03:54:18.196Z"
+      "ts": "2026-09-29T13:00:13.108Z"
     },
     "ley400": {
       "name": "Ley 400 de 1997",

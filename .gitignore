@@ -53,3 +53,5 @@ test-output.dxf
 supabase/.temp/
 .tmp-ejemplo.ifc
 ejemplo-estructural.ifc
+kb/raw/*.pdf
+kb/raw/*.html

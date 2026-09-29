@@ -16,9 +16,9 @@ export type NormSource = {
 export const OFFICIAL_SOURCES: NormSource[] = [
   { id: "nsr10", name: "NSR-10 (anexo Decreto 926 de 2010)", kind: "decreto",
     urls: [
+      "https://www.unisdr.org/campaign/resilientcities/uploads/city/attachments/3871-10684.pdf",
+      "https://www.undrr.org/campaign/resilientcities/uploads/city/attachments/3871-10684.pdf",
       "https://www.minvivienda.gov.co/sites/default/files/normativa/decreto-926-de-2010.pdf",
-      "https://www.minvivienda.gov.co/sites/default/files/Decreto%201092%20de%202015.pdf",
-      "https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=41461",
     ],
     scope: "Reglamento sismorresistente completo (Titulos A-K)" },
   { id: "ley400", name: "Ley 400 de 1997", kind: "ley",

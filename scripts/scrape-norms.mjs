@@ -41,10 +41,22 @@ async function probe(url) {
   return { buf, isPdf };
 }
 let pdfParse = null;
-async function extractPdf(buf) {
-  if (!pdfParse) pdfParse = (await import("pdf-parse")).default;
-  const t = await pdfParse(buf);
-  return { pages: t.numpages, text: t.text };
+async function extractPdf(buf, id) {
+  // pdftotext (poppler) es el ganador en PDFs gigantes (NSR-10 19MB/1625p);
+  // pdf-parse queda de fallback.
+  const { execSync } = await import("node:child_process");
+  const fs = await import("node:fs");
+  try {
+    execSync(`pdftotext -enc UTF-8 kb/raw/${id}.pdf kb/text/${id}.txt`);
+    const text = fs.readFileSync(`kb/text/${id}.txt`, "utf8");
+    const info = execSync(`pdfinfo kb/raw/${id}.pdf`).toString();
+    const pages = Number((info.match(/Pages:\s+(\d+)/) ?? [])[1] ?? 0);
+    return { pages, text };
+  } catch (e) {
+    if (!pdfParse) pdfParse = (await import("pdf-parse")).default;
+    const t = await pdfParse(buf);
+    return { pages: t.numpages, text: t.text };
+  }
 }
 (async () => {
   for (const s of OFFICIAL_SOURCES) {
@@ -62,7 +74,7 @@ async function extractPdf(buf) {
     let pages = null, textChars = 0;
     if (hit.isPdf) {
       try {
-        const ex = await extractPdf(hit.buf);
+        const ex = await extractPdf(hit.buf, s.id);
         pages = ex.pages; textChars = ex.text.length;
         if (!DRY) writeFileSync(`kb/text/${s.id}.txt`, ex.text, "utf8");
       } catch (e) { err = "pdf: " + e.message; }
