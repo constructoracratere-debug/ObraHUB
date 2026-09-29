@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-29T13:00:13.109Z",
+  "generated": "2026-09-29T13:13:01.428Z",
   "sources": {
     "decreto1077": {
       "name": "Decreto 1077 de 2015 (licencias)",
@@ -27,11 +27,16 @@
       "ts": "2026-09-29T03:54:19.444Z"
     },
     "retie": {
-      "name": "RETIE — Res. 40117 de 2021",
-      "status": "pend",
-      "error": "respuesta vacia o corta (13097B)",
-      "scope": "Reglamento tecnico instalaciones electricas",
-      "ts": "2026-09-29T03:54:20.874Z"
+      "name": "RETIE — Res. 40284 de 2026 (compila 40117 de 2024)",
+      "status": "ok-pdf",
+      "url": "https://www.minenergia.gov.co/documents/15918/Resolucion-40284-23-06-2026-RETIE-libros-compilados.pdf",
+      "sha": "f28a295b4e2df824",
+      "bytes": 20912421,
+      "pages": null,
+      "textChars": 1254970,
+      "scope": "Reglamento tecnico instalaciones electricas (4 libros)",
+      "ts": "2026-09-29T13:13:01.427Z",
+      "note": "texto extraido con pdftotext manual; paginas pend"
     },
     "ras": {
       "name": "RAS — Res. 0330 de 2020 (acueducto/alcantarillado)",
