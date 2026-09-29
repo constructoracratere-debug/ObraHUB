@@ -5,6 +5,9 @@ import { sanitizeFloorPlan, type FloorPlan } from "@/lib/design/schema";
 import { deadLoads, liveLoads, seismicWeight, combos, columnCheck } from "@/lib/structural/loads";
 import { portalFromPlan, solveFrame } from "@/lib/structural/frame";
 import { designElements, licenseChecklist } from "@/lib/structural/license";
+import { structuralPlanPrimitives } from "@/lib/structural/plan";
+import { PrimsSvg } from "./design-tool";
+import { IfcLive } from "./ifc-live";
 
 /**
  * #3 DISEÑO ESTRUCTURAL ASISTIDO POR IA (calculista).
@@ -83,7 +86,16 @@ const calc = useMemo(() => {
   ] as const;
 
   return (
-    <div className="h-full overflow-y-auto p-5 sm:p-8">
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex min-h-[46%] shrink-0 flex-col lg:flex-row" style={{ height: "52%" }}>
+        <div className="relative min-h-[45%] flex-1 border-b border-white/[0.07] lg:min-h-0 lg:border-b-0 lg:border-r">
+          <PrimsSvg prims={structuralPlanPrimitives(plan)} title="A-04 · Plano estructural — retícula, columnas, cimentación" />
+        </div>
+        <div className="relative min-h-[45%] flex-1">
+          <IfcLive plan={plan} mode="structural" />
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-8">
       <div className="mx-auto max-w-4xl">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -183,6 +195,7 @@ const calc = useMemo(() => {
       </div>
 
       <p className="mt-4 text-[10px] text-slate-600">Fase 1/3: cargas+combinaciones+predimension (determinista, auditable). Fase 2: pórticos PyNite. Fase 3: sismo OpenSeesPy + espectro NSR-10 — número por número, artículo por artículo.</p>
+      </div>
       </div>
     </div>
   );
