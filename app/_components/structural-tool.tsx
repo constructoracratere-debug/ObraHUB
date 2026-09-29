@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { sanitizeFloorPlan, type FloorPlan } from "@/lib/design/schema";
 import { deadLoads, liveLoads, seismicWeight, combos, columnCheck } from "@/lib/structural/loads";
 import { portalFromPlan, solveFrame } from "@/lib/structural/frame";
+import { designElements, licenseChecklist } from "@/lib/structural/license";
 
 /**
  * #3 DISEÑO ESTRUCTURAL ASISTIDO POR IA (calculista).
@@ -41,7 +42,9 @@ export function StructuralTool({ onOpenDesign }: { onOpenDesign: () => void }) {
     setReady(true);
   }, []);
 
-  const calc = useMemo(() => {
+  const design = useMemo(() => designElements(plan), [plan]);
+  const checklist = useMemo(() => licenseChecklist(plan), [plan]);
+const calc = useMemo(() => {
     if (!plan) return null;
     const d = deadLoads(plan);
     const l = liveLoads(plan);
@@ -152,7 +155,34 @@ export function StructuralTool({ onOpenDesign }: { onOpenDesign: () => void }) {
           </div>
         </div>
 
-        <p className="mt-4 text-[10px] text-slate-600">Fase 1/3: cargas+combinaciones+predimension (determinista, auditable). Fase 2: pórticos PyNite. Fase 3: sismo OpenSeesPy + espectro NSR-10 — número por número, artículo por artículo.</p>
+        {design.length > 0 && (
+        <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.07]">
+          <p className="bg-white/[0.04] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300">Diseño de elementos — NSR-10 C.20/C.21 (concreto 3000/60000 psi)</p>
+          {design.map((x, i) => (
+            <div key={i} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-white/[0.05] px-4 py-2 text-xs">
+              <span className="font-semibold text-slate-200">{x.elem}<span className="ml-2 font-mono text-[11px] text-slate-400">{x.size}</span></span>
+              <span className="font-mono text-orange-200">{x.steel}</span>
+              <span className="text-[10px] text-slate-500">{x.check} · {x.ref}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.07]">
+        <p className="bg-white/[0.04] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">📋 Checklist de licencia — curaduría (Decreto 1077/2015)</p>
+        {checklist.map((c, i) => (
+          <div key={i} className="flex items-start gap-3 border-t border-white/[0.05] px-4 py-2 text-xs">
+            <span className={c.status === "ok" ? "text-emerald-400" : "text-amber-400"}>{c.status === "ok" ? "✓" : "○"}</span>
+            <div className="min-w-0 flex-1">
+              <p className={c.status === "ok" ? "text-slate-300" : "text-slate-200"}>{c.item} <span className="ml-1 text-[9px] uppercase text-slate-600">{c.area}</span></p>
+              {c.note && <p className="mt-0.5 text-[10px] text-slate-500">{c.note}</p>}
+            </div>
+            <span className="text-[9px] text-slate-600">{c.ref}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-4 text-[10px] text-slate-600">Fase 1/3: cargas+combinaciones+predimension (determinista, auditable). Fase 2: pórticos PyNite. Fase 3: sismo OpenSeesPy + espectro NSR-10 — número por número, artículo por artículo.</p>
       </div>
     </div>
   );
