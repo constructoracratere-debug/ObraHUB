@@ -42,8 +42,8 @@ export function StructuralTool({ onOpenDesign }: { onOpenDesign: () => void }) {
     setReady(true);
   }, []);
 
-  const design = useMemo(() => designElements(plan), [plan]);
-  const checklist = useMemo(() => licenseChecklist(plan), [plan]);
+  const design = useMemo(() => (plan ? designElements(plan) : []), [plan]);
+  const checklist = useMemo(() => (plan ? licenseChecklist(plan) : []), [plan]);
 const calc = useMemo(() => {
     if (!plan) return null;
     const d = deadLoads(plan);
