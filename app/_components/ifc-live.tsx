@@ -77,7 +77,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         const scene = sceneRef.current!;
         const root: THREE.Group = (sceneRef as any).root;
         for (const c of [...root.children]) { root.remove(c); ((c as THREE.Mesh).geometry as THREE.BufferGeometry)?.dispose?.(); ((c as THREE.Mesh).material as THREE.Material)?.dispose?.(); }
-        const ifcText = planToIfc(plan);
+        const ifcText = planToIfc(plan, { includeFoundations: false }); // caja limpia en 000
         const bytes = new TextEncoder().encode(ifcText);
         if (modelRef.current >= 0) { try { api.CloseModel(modelRef.current); } catch { /* */ } }
         const mid = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: true });

@@ -19,7 +19,11 @@ import { furniture3D } from "./symbols";
 
 type Line = string;
 
-export function planToIfc(plan: FloorPlan): string {
+export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean } = {}): string {
+  /** includeFoundations=false → modelo CAJA LIMPIA en 000: nada por debajo
+   *  de N+0.00 ni por encima del último nivel (la vista vivo y el editor
+   *  trabajan así; el export/descarga lleva zapatas y contrapiso). */
+  const FOUND = opts.includeFoundations !== false;
   guidCounter = 0; // reproducibilidad: cada generación parte de cero
   const lines: Line[] = [];
   let next = 0;
@@ -293,7 +297,7 @@ export function planToIfc(plan: FloorPlan): string {
     products.push(slab);
 
     // Placa de piso nivel 0.
-    if (lvl === 0) {
+    if (lvl === 0 && FOUND) {
       const fs = solidBox(W / 2, D / 2, -0.1, W, D, 0.1, "x");
       const fp = shapeRep(fs, "FS0");
       const fpl = ent("FSPL0", (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);

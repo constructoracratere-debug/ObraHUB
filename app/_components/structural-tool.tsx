@@ -5,6 +5,7 @@ import { sanitizeFloorPlan, type FloorPlan } from "@/lib/design/schema";
 import { deadLoads, liveLoads, seismicWeight, combos, columnCheck } from "@/lib/structural/loads";
 import { portalFromPlan, solveFrame } from "@/lib/structural/frame";
 import { designElements, licenseChecklist } from "@/lib/structural/license";
+import { spectrum, baseShear, TaApprox, CITY_DEFAULTS } from "@/lib/structural/seismic";
 import { structuralPlanPrimitives } from "@/lib/structural/plan";
 import { PrimsSvg } from "./design-tool";
 import { IfcLive } from "./ifc-live";
@@ -45,6 +46,17 @@ export function StructuralTool({ onOpenDesign }: { onOpenDesign: () => void }) {
     setReady(true);
   }, []);
 
+  const [city, setCity] = useState("Bogota D.C.");
+  const seismic = useMemo(() => {
+    if (!plan) return null;
+    const d = deadLoads(plan), l = liveLoads(plan);
+    const sw = seismicWeight(plan, d.wPerM2, l.weighted);
+    const sa = CITY_DEFAULTS[city] ?? Object.values(CITY_DEFAULTS)[0];
+    const Ta = TaApprox(plan.levels);
+    const sp = spectrum(sa);
+    const bs = baseShear(sa, Ta, sw.W);
+    return { sa, Ta, ...sp, ...bs, W: sw.W };
+  }, [plan, city]);
   const design = useMemo(() => (plan ? designElements(plan) : []), [plan]);
   const checklist = useMemo(() => (plan ? licenseChecklist(plan) : []), [plan]);
 const calc = useMemo(() => {
@@ -181,6 +193,21 @@ const calc = useMemo(() => {
       )}
 
       <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.07]">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-orange-500/25 bg-orange-500/[0.05]">
+          <p className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300">♱ Sismo — espectro NSR-10 A.2.6 (verificado contra texto oficial)</p>
+          <div className="flex flex-wrap items-center gap-3 px-4 py-2">
+            <select value={city} onChange={(e) => setCity(e.target.value)} className="rounded-lg border border-white/[0.1] bg-[#050b14] px-2.5 py-1.5 text-xs text-slate-200">
+              {Object.keys(CITY_DEFAULTS).map((c) => <option key={c}>{c}</option>)}
+            </select>
+            <span className="text-[11px] text-slate-400">Aa={seismic?.sa.Aa} Av={seismic?.sa.Av} Fa={seismic?.sa.Fa} Fv={seismic?.sa.Fv} (Tabla A.2.2/A.2.4 — verificar municipio)</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 px-4 py-3 text-xs sm:grid-cols-5">
+            {[["T0 / TC / TL", `${seismic?.T0} / ${seismic?.TC} / ${seismic?.TL} s`], ["Ta", `${seismic?.Ta} s (0.1N)`], ["Sa(Ta)", `${seismic?.Sa} g`], ["W sísmico", `${Math.round((seismic?.W ?? 0) / 1000)} t`], ["Vs = Sa·W·I/R", `${Math.round((seismic?.Vs_kgf ?? 0) / 1000)} t`]].map(([t, v2]) => (
+              <div key={t}><p className="text-[9px] uppercase text-slate-500">{t}</p><p className="font-mono text-slate-100">{v2}</p></div>
+            ))}
+          </div>
+        </div>
+
         <p className="bg-white/[0.04] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">📋 Checklist de licencia — curaduría (Decreto 1077/2015)</p>
         {checklist.map((c, i) => (
           <div key={i} className="flex items-start gap-3 border-t border-white/[0.05] px-4 py-2 text-xs">
