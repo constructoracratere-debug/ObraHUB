@@ -20,6 +20,17 @@ class DxfBuilder {
   private entities: Entity[] = [];
   private layers: Array<{ name: string; color: number }> = [];
 
+  /** Nomenclatura profesional de capas por disciplina (estandar A/E/I):
+   *  A-arquitectura, S-estructura, I-instalaciones. Se aplica solo al
+   *  nombre de CAPA del DXF; los nombres internos no cambian. */
+  private static cadName(l: string): string {
+    if (/^(MUROS|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|CORTE|FACHADA|TEXTOS|COTAS|EJES)$/.test(l)) return "A-" + l;
+    if (/^(ESTRUCTURA)$/.test(l)) return "S-ELEMENTOS";
+    if (/^ELECTRICO/.test(l)) return "I-ELECTRICO";
+    if (/^HIDROSANITARIO/.test(l)) return "I-HIDRAULICO";
+    return l;
+  }
+
   constructor(levels = 1) {
     // Colores = CLASE DE PLUMA ISO 128 (knowledge.ts PENS): en DXF R12 no
     // existe lineweight por entidad, así que el grosor se codifica por color
@@ -45,10 +56,10 @@ class DxfBuilder {
     ];
     this.layers = [];
     for (const [name, color] of base) {
-      this.layers.push({ name, color });
+      this.layers.push({ name: DxfBuilder.cadName(name), color });
       // Variantes por nivel (MUROS-1, MUROS-2…) para proyectos multipiso.
       for (let n = 2; n <= Math.max(1, levels); n++) {
-        this.layers.push({ name: `${name}-${n}`, color });
+        this.layers.push({ name: `${DxfBuilder.cadName(name)}-${n}`, color });
       }
     }
   }

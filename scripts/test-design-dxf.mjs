@@ -89,7 +89,7 @@ const check = (name, cond) => {
 
 console.log("Test motor DXF — Diseño IA\n");
 check("header R12 (AC1009)", dxf.includes("$ACADVER") && dxf.includes("AC1009"));
-check("tabla LAYER con MUROS", dxf.includes("0\nLAYER\n2\nMUROS\n"));
+check("tabla LAYER con MUROS", dxf.includes("0\nLAYER\n2\nA-MUROS\n"));
 check("tabla LAYER con ELECTRICO", dxf.includes("ELECTRICO"));
 check("tabla LAYER con HIDROSANITARIO", dxf.includes("HIDROSANITARIO"));
 check("entidades LINE presentes", (dxf.match(/0\nLINE\n/g) ?? []).length > 10);
