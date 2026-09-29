@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-29T13:13:01.428Z",
+  "generated": "2026-09-29T13:18:04.062Z",
   "sources": {
     "decreto1077": {
       "name": "Decreto 1077 de 2015 (licencias)",
@@ -39,15 +39,15 @@
       "note": "texto extraido con pdftotext manual; paginas pend"
     },
     "ras": {
-      "name": "RAS — Res. 0330 de 2020 (acueducto/alcantarillado)",
+      "name": "RAS — Res. 0330 de 2017 (mod. 799 de 2021)",
       "status": "ok-raw",
-      "url": "https://www.minvivienda.gov.co/sites/default/files/normativa/resolucion-0330-de-2020.pdf",
-      "sha": "ce427c371335df64",
-      "bytes": 74519,
+      "url": "https://camacol.co/descargable/resolucion-0799-de-2021-modifica-resolucion-33017-reglamento-de-agua-potable-y",
+      "sha": "2f330aa9973a8a29",
+      "bytes": 67368,
       "pages": null,
       "textChars": 0,
-      "scope": "Titulo A/B/C/F/G — hidrosanitario",
-      "ts": "2026-09-29T03:54:21.876Z"
+      "scope": "Titulos A/B/C/F/G — agua potable y saneamiento",
+      "ts": "2026-09-29T13:18:04.061Z"
     },
     "retiq": {
       "name": "RETIQ — Res. 380 de 2020",
