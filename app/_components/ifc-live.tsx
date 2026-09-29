@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { IfcAPI } from "web-ifc";
+import { IfcAPI, IFCCOLUMN, IFCBEAM, IFCSLAB, IFCFOOTING } from "web-ifc";
 import type { FloorPlan } from "@/lib/design/schema";
 import { planToIfc } from "@/lib/design/ifc";
 
@@ -11,7 +11,7 @@ import { planToIfc } from "@/lib/design/ifc";
  * el plano actual en cada edición (mover puerta/ventana/muro) y se renderiza
  * con web-ifc + three. Sin descargar nada: lo que ves es el modelo real.
  */
-export function IfcLive({ plan }: { plan: FloorPlan }) {
+export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" | "structural" }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -100,7 +100,14 @@ export function IfcLive({ plan }: { plan: FloorPlan }) {
           bg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
           bg.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
           bg.setIndex(new THREE.BufferAttribute(indices, 1));
-          const m3 = new THREE.Mesh(bg, new THREE.MeshStandardMaterial({ color: 0xc3d2e0, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide, flatShading: false }));
+          const tId = api.GetLineType(mid, mesh.expressID);
+          const isStruct = tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCSLAB || tId === IFCFOOTING;
+          const mat = mode === "structural"
+            ? (isStruct
+                ? new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide })
+                : new THREE.MeshStandardMaterial({ color: 0x1e293b, transparent: true, opacity: 0.1, roughness: 1, side: THREE.DoubleSide, depthWrite: false }))
+            : new THREE.MeshStandardMaterial({ color: isStruct ? 0xd9c08a : 0xc3d2e0, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide });
+          const m3 = new THREE.Mesh(bg, mat);
           m3.matrixAutoUpdate = false;
           m3.matrix.fromArray(g0.flatTransformation); // transformación IFC cruda (el root la gira a Y-up)
           root.add(m3);
@@ -124,7 +131,7 @@ export function IfcLive({ plan }: { plan: FloorPlan }) {
       } catch { if (!cancelled) setStatus("error"); }
     })();
     return () => { cancelled = true; };
-  }, [plan]);
+  }, [plan, mode]);
 
   return (
     <div ref={containerRef} className="absolute inset-0">

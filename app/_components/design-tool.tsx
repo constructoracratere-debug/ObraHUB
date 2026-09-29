@@ -894,7 +894,7 @@ function penPx(layer: string, thin = false): number {
   return thin ? base * 0.75 : base;
 }
 
-function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {
+export function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const dragRef = useRef<{ px: number; py: number; vx: number; vy: number } | null>(null);
