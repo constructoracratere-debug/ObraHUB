@@ -150,6 +150,8 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
   // negro — así se ve si el plano sobrevive la fotocopiadora.
   const [printMode, setPrintMode] = useState(false);
+  // Piso por piso (2D y 3D): null = todos (apilados); 0/1 = nivel aislado.
+  const [levelView, setLevelView] = useState<number | null>(null);
   // 📄 Láminas A-01/A-02/A-03 en A2 apaisado, monocromas — Ctrl+P → PDF vectorial.
   const [sheetsOpen, setSheetsOpen] = useState(false);
   // El PLANO es el protagonista: paneles como drawers overlay (estilo Figma).
@@ -602,6 +604,17 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                 type="button" onClick={() => setPrintMode((v) => !v)}
                 title="Vista previa de impresión B/N — como la ve curaduría"
                 className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${printMode ? "bg-zinc-400/30 text-zinc-100 ring-1 ring-zinc-300/40" : "text-slate-400 hover:bg-white/[0.06]"}`}>
+                {plan.levels > 1 && (
+                  <span className="ml-1 flex items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5">
+                    {Array.from({ length: plan.levels }, (_, i) => (
+                      <button key={i} type="button" onClick={() => setLevelView(levelView === i ? null : i)}
+                        title={levelView === i ? "Ver todos los pisos" : `Aislar piso ${i + 1}`}
+                        className={`rounded-md px-2 py-1 text-[10px] font-semibold transition ${levelView === i ? "bg-sky-500/25 text-sky-100 ring-1 ring-sky-400/40" : "text-slate-400 hover:bg-white/[0.06]"}`}>
+                        P{i + 1}
+                      </button>
+                    ))}
+                  </span>
+                )}
                 <span className="ml-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 text-[9.5px] font-semibold text-emerald-300" title="Modelo paramétrico único: cada edición en planta regenera IFC 3D, cortes, cotas, takeoff y pasaporte (como Revit)">
                   🔄 3D sync · r{modelRev}
                 </span>
@@ -619,13 +632,13 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             view === "split" ? (
               <div className="absolute inset-0 flex flex-col lg:flex-row">
                 <div className="min-h-[45%] flex-1 border-b border-white/[0.07] lg:min-h-0 lg:border-b-0 lg:border-r">
-                  <PlanSvg plan={plan} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
+                  <PlanSvg plan={plan} onlyLevel={levelView} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
                 </div>
                 <div className="relative min-h-[45%] flex-1">
-                  <IfcLive plan={plan} />
+                  <IfcLive plan={levelView == null ? plan : { ...plan, levels: 1, rooms: plan.rooms.filter((r) => r.level === levelView), doors: plan.doors.filter((d) => d.level === levelView), windows: plan.windows.filter((w) => w.level === levelView) }} />
                 </div>
               </div>
-            ) : view === "planta" ? <PlanSvg plan={plan} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
+            ) : view === "planta" ? <PlanSvg plan={plan} onlyLevel={levelView} onEdit={(np) => { setPlan(np); setModelRev((r) => r + 1); }} />
             : view === "corte" ? <PrimsSvg prims={sectionPrimitives(plan)} title="Cortes" />
             : view === "fachadas" ? <PrimsSvg prims={(["sur", "oeste", "este", "norte"] as const).flatMap((side) => facadePrimitives(plan, side))} title="Fachadas" />
             : view === "pasaporte" ? <PassportPanel plan={plan} />
@@ -1073,7 +1086,7 @@ function AgentConsole({ lines, working }: {
 }
 
 // ── Plano SVG con pan/zoom ───────────────────────────────────────────────────
-function PlanSvg({ plan, onEdit }: { plan: FloorPlan; onEdit: (next: FloorPlan) => void }) {
+function PlanSvg({ plan, onEdit, onlyLevel }: { plan: FloorPlan; onEdit: (next: FloorPlan) => void; onlyLevel?: number | null }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const dragRef = useRef<{ px: number; py: number; vx: number; vy: number } | null>(null);
@@ -1102,6 +1115,7 @@ function PlanSvg({ plan, onEdit }: { plan: FloorPlan; onEdit: (next: FloorPlan) 
 
   const roomsByLevel = useMemo(() => {
     const map = new Map<number, typeof plan.rooms>();
+    if (onlyLevel != null) { map.set(onlyLevel, plan.rooms.filter((r) => r.level === onlyLevel)); return [...map.entries()].sort((a, b) => a[0] - b[0]); }
     for (const r of plan.rooms) {
       const arr = map.get(r.level) ?? [];
       arr.push(r);
@@ -1323,6 +1337,29 @@ function PlanSvg({ plan, onEdit }: { plan: FloorPlan; onEdit: (next: FloorPlan) 
             )}
             </g>
             )}
+            {/* Estructura visible: columnas macizas + vigas doble línea (retícula real) */}
+            {(() => {
+              const axes = plan.structure?.axes ?? [];
+              const vsX = axes.filter((x) => x.orientation === "vertical").map((x) => x.at);
+              const hsY = axes.filter((x) => x.orientation === "horizontal").map((x) => x.at);
+              const col = 0.3, vb = 0.25;
+              return (
+                <g>
+                  {vsX.flatMap((x) => hsY.map((y) => (
+                    <rect key={`c-${x}-${y}`} x={x - col / 2} y={svgY(y + col / 2)} width={col} height={col} fill="#f59e0b" stroke="#fbbf24" strokeWidth={0.03} />
+                  )))}
+                  {hsY.flatMap((y) => vsX.slice(0, -1).map((x, i) => {
+                    const x2 = vsX[i + 1];
+                    return (
+                      <g key={`vb-${y}-${i}`}>
+                        <line x1={x} y1={svgY(y - vb / 2)} x2={x2} y2={svgY(y - vb / 2)} stroke="#f59e0b" strokeOpacity={0.55} strokeWidth={0.04} />
+                        <line x1={x} y1={svgY(y + vb / 2)} x2={x2} y2={svgY(y + vb / 2)} stroke="#f59e0b" strokeOpacity={0.55} strokeWidth={0.04} />
+                      </g>
+                    );
+                  }))}
+                </g>
+              );
+            })()}
             {/* Targets de EDICIÓN: vanos y muros interiores arrastrables.
                 Líneas invisibles gruesas: hit fácil sin ensuciar el dibujo. */}
             {plan.doors.filter((d) => d.level === level).map((d, i) => {
