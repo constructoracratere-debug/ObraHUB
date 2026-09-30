@@ -27,7 +27,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       try {
         if (!apiRef.current) {
           const api = new IfcAPI();
-          await api.Init();
+          await api.Init((filename: string) => `/wasm/${filename}`); // mismo localizador que el visor de Documentos
           apiRef.current = api;
         }
         const api = apiRef.current;
