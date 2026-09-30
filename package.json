@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "verify": "tsc --noEmit && next build",
+    "verify": "tsc --noEmit && next build && node scripts/test-pipeline.mjs && node scripts/verify-ifc-z.mjs",
     "prepare": "cp scripts/git-pre-push .git/hooks/pre-push 2>/dev/null || true",
     "scrape:prices": "node scripts/scrape-prices.mjs"
   },

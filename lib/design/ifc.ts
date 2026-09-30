@@ -153,7 +153,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     const products: number[] = [];
 
     const wall = (x: number, y: number, w: number, d: number, along: "x" | "y", setName: number, name: string) => {
-      const solid = solidBox(x, y, z0, w, d, fft, along);
+      const solid = solidBox(x, y, 0, w, d, fft, along); // Z nivel-local: el storey ya suma z0
       const prd = shapeRep(solid, `W${x},${y},${z0},${w},${d},${along}`);
       const pl = ent(`WPL:${x},${y},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
@@ -257,7 +257,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     const colMat = material(system === "concreto" || system === "mixto" ? MATERIALS.concreto : system === "acero_liviano" ? MATERIALS.acero : MATERIALS.maderaMat);
 
     const columnAt = (x: number, y: number) => {
-      const solid = solidBox(x, y, z0, colDim.w, colDim.d, fft, "x");
+      const solid = solidBox(x, y, 0, colDim.w, colDim.d, fft, "x");
       const prd = shapeRep(solid, `C${x},${y},${z0}`);
       const pl = ent(`CPL:${x},${y},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
@@ -281,7 +281,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     const beamMat = material(MATERIALS.concreto);
     for (const y of hs.length ? hs : []) {
       if (y < 0.05 || y > D - 0.05) continue;
-      const solid = solidBox(W / 2, y, z0 + fft - CONCRETE.beam.d, W - 2 * te, CONCRETE.beam.w, CONCRETE.beam.d, "x");
+      const solid = solidBox(W / 2, y, fft - CONCRETE.beam.d, W - 2 * te, CONCRETE.beam.w, CONCRETE.beam.d, "x");
       const prd = shapeRep(solid, `BMx${y},${z0}`);
       const pl = ent(`BMPLx:${y},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
@@ -294,7 +294,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     }
     for (const x of vs.length ? vs : []) {
       if (x < 0.05 || x > W - 0.05) continue;
-      const solid = solidBox(x, D / 2, z0 + fft - CONCRETE.beam.d, D - 2 * te, CONCRETE.beam.w, CONCRETE.beam.d, "y");
+      const solid = solidBox(x, D / 2, fft - CONCRETE.beam.d, D - 2 * te, CONCRETE.beam.w, CONCRETE.beam.d, "y");
       const prd = shapeRep(solid, `BMy${x},${z0}`);
       const pl = ent(`BMPLy:${x},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
@@ -308,7 +308,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
 
     // Losa de pisotecho (encima del nivel).
     const slabT = system === "acero_liviano" ? CONCRETE.slabLigera.thickness : CONCRETE.slab.thickness;
-    const slabSolid = solidBox(W / 2, D / 2, z0 + fft, W, D, slabT, "x");
+    const slabSolid = solidBox(W / 2, D / 2, fft, W, D, slabT, "x");
     const slabPrd = shapeRep(slabSolid, `SL${z0}`);
     const slabPl = ent(`SLPL:${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
     const slab = id();
@@ -347,7 +347,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     // Puertas (hoja de madera en el vano) y ventanas (vidrio).
     for (const d of plan.doors.filter((x) => x.level === lvl)) {
       const alongD = d.axis === "y";
-      const s3 = solidBox(d.x, d.y, z0, alongD ? 0.06 : Math.max(d.width - 0.04, 0.3), alongD ? Math.max(d.width - 0.04, 0.3) : 0.06, 2.1, "x");
+      const s3 = solidBox(d.x, d.y, 0, alongD ? 0.06 : Math.max(d.width - 0.04, 0.3), alongD ? Math.max(d.width - 0.04, 0.3) : 0.06, 2.1, "x");
       const pr3 = shapeRep(s3, `DR${d.x},${d.y},${z0}`);
       const pl3 = ent(`DRPL:${d.x},${d.y},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const dr = id();
@@ -361,7 +361,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       const y2 = w.wall === "norte" ? room.y + room.depth : w.wall === "sur" ? room.y : w.x;
       const x2 = w.wall === "este" ? room.x + room.width : w.wall === "oeste" ? room.x : w.x;
       const along = w.wall === "norte" || w.wall === "sur" ? "x" : "y";
-      const s4 = solidBox(x2, y2, z0 + w.sill, along === "x" ? w.width : 0.06, along === "x" ? 0.06 : w.width, w.height, along);
+      const s4 = solidBox(x2, y2, w.sill, along === "x" ? w.width : 0.06, along === "x" ? 0.06 : w.width, w.height, along);
       const pr4 = shapeRep(s4, `WN${x2},${y2},${z0}`);
       const pl4 = ent(`WNPL:${x2},${y2},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const wn = id();
@@ -399,7 +399,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     const maderaMat = material(MATERIALS.maderaMat);
     for (const r of plan.rooms.filter((r) => r.level === lvl)) {
       for (const fu of furniture3D(r, plan.doors.filter((d) => d.level === lvl), r.name.toLowerCase().includes("principal"))) {
-        const s6 = solidBox(fu.x, fu.y, z0, fu.w, fu.d, fu.h, "x");
+        const s6 = solidBox(fu.x, fu.y, 0, fu.w, fu.d, fu.h, "x");
         const pr6 = shapeRep(s6, `FU${fu.x},${fu.y},${lvl}`);
         const pl6 = ent(`FUPL:${fu.x},${fu.y},${lvl}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
         const fu6 = id();

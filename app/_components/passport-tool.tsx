@@ -12,16 +12,30 @@ import { buildEnvironmentalReport } from "@/lib/passport/report";
  * modulo ambiental: KPIs, takeoff, CO2e, banco de materiales, circularidad
  * y reporte descargable.
  */
-export function PassportTool({ onOpenDesign }: { onOpenDesign: () => void }) {
+export function PassportTool({ onOpenDesign, projectSlug }: { onOpenDesign: () => void; projectSlug?: string }) {
   const [plan, setPlan] = useState<FloorPlan | null>(null);
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("obrahub-last-plan");
-      if (raw) setPlan(sanitizeFloorPlan(JSON.parse(raw)));
-    } catch { /* sin plano */ }
-    setReady(true);
-  }, []);
+    // 1) El kit del proyecto es la fuente oficial (publicada por Diseño).
+    // 2) Fallback: último plano local del navegador.
+    (async () => {
+      if (projectSlug) {
+        try {
+          const r = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/kit`);
+          if (r.ok) {
+            const kd = await r.json();
+            const kitPlan = kd?.kit?.plan;
+            if (kitPlan) { setPlan(sanitizeFloorPlan(kitPlan)); setReady(true); return; }
+          }
+        } catch { /* seguimos al fallback */ }
+      }
+      try {
+        const raw = localStorage.getItem("obrahub-last-plan");
+        if (raw) setPlan(sanitizeFloorPlan(JSON.parse(raw)));
+      } catch { /* sin plano */ }
+      setReady(true);
+    })();
+  }, [projectSlug]);
 
   if (!ready) return <div className="flex h-full items-center justify-center text-sm text-slate-500">Cargando pasaporte…</div>;
 

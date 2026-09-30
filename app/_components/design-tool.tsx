@@ -358,6 +358,23 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     return new Blob([planToIfc(plan)], { type: "application/x-step" });
   }, [plan]);
 
+  // ── Publicar el modelo al Kit (fuente única de la cadena de obra) ──────
+  // Cada cambio de plan (generar, revisar, arrastrar) se publica con debounce
+  // al kit del proyecto: desde ahí salen presupuesto, cronograma y bitácora.
+  useEffect(() => {
+    if (!plan || !projectSlug) return;
+    const t = setTimeout(() => {
+      void fetch(`/api/projects/${encodeURIComponent(projectSlug)}/kit`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      }).catch(() => { /* silencioso: la cadena se reintenta al siguiente cambio */ });
+    }, 1500);
+    return () => clearTimeout(t);
+    // plan completo serializado como dependencia (drag = nuevo objeto)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, projectSlug]);
+
   // ── Revisión del profesional: feedback → redibujo ─────────────────────
   const runRevise = async () => {
     if (!plan || !feedback.trim()) return;

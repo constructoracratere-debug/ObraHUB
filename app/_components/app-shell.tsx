@@ -479,6 +479,18 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Recordar la preferencia "minimizado" del sidebar entre sesiones
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("obrapp-sidebar-collapsed") === "1") setSidebarCollapsed(true);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("obrapp-sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+    } catch {}
+  }, [sidebarCollapsed]);
   const [activeProjectSlug, setActiveProjectSlug] = useState<string | null>(null);
 
   // Chivato de recursos que fallan al cargar (chunks 404 por caché vieja del
@@ -1739,18 +1751,24 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
         } ${sidebarOpen ? "w-[280px] translate-x-0" : "w-[280px] -translate-x-full md:translate-x-0"}`}
       >
         <div
-          className={`border-b border-white/[0.06] py-5 ${
+          className={`relative border-b border-white/[0.06] py-5 ${
             sidebarCollapsed ? "flex justify-center px-2" : "px-5 md:flex md:justify-center md:px-2 lg:px-5 lg:block"
           }`}
         >
           {(sidebarCollapsed) ? (
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-xs font-bold text-white shadow-lg shadow-blue-900/50">
+            <button
+              type="button"
+              aria-label="Expandir menú"
+              title="Expandir menú"
+              onClick={() => setSidebarCollapsed(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 text-xs font-bold text-white shadow-lg shadow-blue-900/50 transition hover:scale-105 hover:from-blue-400 hover:to-blue-600"
+            >
               OH
-            </div>
+            </button>
           ) : (
             <>
             <div className="hidden lg:block">
-              <div className="pr-8">
+              <div className="pr-24">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-400/80">
                   ObraHub
                 </p>
@@ -1764,6 +1782,23 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             </div>
             </>
           )}
+          <button
+            type="button"
+            aria-label={sidebarCollapsed ? "Expandir menú" : "Minimizar panel"}
+            title={sidebarCollapsed ? "Expandir menú" : "Minimizar panel"}
+            className={`absolute right-2 top-[calc(env(safe-area-inset-top)+0.9rem)] z-10 hidden items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1.5 text-[11px] font-medium text-slate-400 transition hover:border-blue-400/30 hover:bg-blue-600/10 hover:text-blue-300 lg:flex ${
+              sidebarCollapsed ? "w-full justify-center border-transparent bg-transparent px-0 py-0 hover:bg-transparent" : ""
+            }`}
+            onClick={() => setSidebarCollapsed((v) => !v)}
+          >
+            <Icon
+              className={`h-3.5 w-3.5 shrink-0 transition-transform ${sidebarCollapsed ? "rotate-180" : ""}`}
+              strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </Icon>
+            {!sidebarCollapsed && <span className="hidden xl:inline">Minimizar</span>}
+          </button>
           <button
             type="button"
             aria-label="Cerrar sidebar"
@@ -2967,9 +3002,9 @@ en Latinoamérica
               ) : activeTool === "diseno" ? (
                 <DesignTool projectSlug={activeProjectSlug ?? undefined} />
               ) : activeTool === "pasaporte" ? (
-                <PassportTool onOpenDesign={() => setActiveTool("diseno")} />
+                <PassportTool onOpenDesign={() => setActiveTool("diseno")} projectSlug={activeProjectSlug ?? undefined} />
               ) : activeTool === "kit" ? (
-                <KitTool projectSlug={activeProjectSlug ?? undefined} />
+                <KitTool projectSlug={activeProjectSlug ?? undefined} onNavigate={(t) => setActiveTool(t as ToolId)} />
               ) : activeTool === "estructural" ? (
                 <StructuralTool onOpenDesign={() => setActiveTool("diseno")} />
               ) : activeTool === "seguimiento" ? (

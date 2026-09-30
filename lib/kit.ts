@@ -12,6 +12,8 @@ export type ProjectKit = {
   fileIds: string[];
   /** Nota libre del usuario sobre el kit. */
   note?: string;
+  /** Modelo FloorPlan vivo (fuente única de la cadena: costos→gantt→bitácora). */
+  plan?: Record<string, unknown>;
   updatedAt?: string;
 };
 

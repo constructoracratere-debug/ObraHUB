@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": { "@/*": ["./*"] },
+    "outDir": "../.tmp-pipe",
+    "module": "commonjs",
+    "target": "es2020",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "strict": false,
+    "declaration": false
+  },
+  "files": ["../lib/pipeline.ts"]
+}
