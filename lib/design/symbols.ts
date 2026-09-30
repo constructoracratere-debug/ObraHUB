@@ -308,3 +308,20 @@ export function furniture3D(room: Room, doors: Door[], isPrincipal = false): Arr
       name: `${NAMES[f.kind] ?? f.kind} — ${room.name}`,
     }));
 }
+
+/** Escalera de un tramo (punto fijo de corte — curaduría): peldaños de
+ *  0.28, flecha SUBE, línea de corte y huella rotulada (Ching). */
+export function escalera(out: Prim[], x: number, y: number, w: number, length: number, _sube = true): void {
+  const n = Math.max(3, Math.floor(length / 0.28));
+  for (let i = 0; i <= n; i++) {
+    const yy = y + (i * length) / n;
+    out.push({ t: "H", l: "MOBILIARIO", x, y: yy, w, h: 0 });
+    out.push({ t: "L", l: "MOBILIARIO", x1: x, y1: yy, x2: x + w, y2: yy, thin: i > n - 3 });
+  }
+  const cx = x + w / 2;
+  out.push({ t: "L", l: "MOBILIARIO", x1: cx, y1: y + 0.15, x2: cx, y2: y + length - 0.3, thin: true });
+  out.push({ t: "L", l: "MOBILIARIO", x1: cx - 0.1, y1: y + length - 0.42, x2: cx, y2: y + length - 0.3, thin: true });
+  out.push({ t: "L", l: "MOBILIARIO", x1: cx + 0.1, y1: y + length - 0.42, x2: cx, y2: y + length - 0.3, thin: true });
+  out.push({ t: "L", l: "MOBILIARIO", x1: x + 0.05, y1: y + length * 0.72, x2: x + w - 0.05, y2: y + length * 0.62, dash: true, thin: true });
+  out.push({ t: "T", l: "TEXTOS", x: x + 0.06, y: y + 0.38, h: 0.14, s: `${n} pg` });
+}

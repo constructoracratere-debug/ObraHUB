@@ -15,7 +15,7 @@
  */
 
 import type { FloorPlan, Room, WallSide } from "./schema";
-import { furnishRoom, labelSpot } from "./symbols";
+import { furnishRoom, labelSpot, escalera } from "./symbols";
 
 /** Primitiva de dibujo (unidades: metros, CAD — Y hacia arriba). */
 export type Prim =
@@ -223,6 +223,15 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
       const isV = ex1 === ex2;
       if (isV) out.push({ t: "F", l: L, x: ex1 - 0.05, y: Math.min(ey1, ey2), w: 0.1, h: Math.abs(ey2 - ey1) });
       else out.push({ t: "F", l: L, x: Math.min(ex1, ex2), y: ey1 - 0.05, w: Math.abs(ex2 - ex1), h: 0.1 });
+    }
+  }
+  // ESCALERA (punto fijo de corte — curaduría exige cortes por escalera):
+  // niveles >1 → escalera en el espacio más grande, pegada al muro este.
+  if (plan.levels > 1 && level === 0) {
+    const host = [...rooms].sort((a2, b2) => b2.width * b2.depth - a2.width * a2.depth)[0];
+    if (host) {
+      const sw = 0.9, slen = Math.min(host.depth - 0.35, plan.floorToFloor * 2.1);
+      escalera(out, host.x + host.width - sw - 0.15, host.y + 0.15, sw, slen, true);
     }
   }
   for (const r of rooms) {
@@ -622,4 +631,31 @@ export function sheetPrimitives(plan: FloorPlan): Prim[] {
   ];
 
   return [...content, ...frame, ...cajetin, ...scaleBar, ...north];
+}
+
+
+/** PLANTA DE CUBIERTAS (curaduría la exige; placa maciza SIN cubierta =
+ *  no suma área — MPr/D.1077). Pendientes 2%, bajales, rotulada. */
+export function roofPlanPrimitives(plan: FloorPlan): Prim[] {
+  const out: Prim[] = [];
+  const { width: W, depth: D } = plan.outline;
+  const L = "TEXTOS";
+  out.push({ t: "H", l: "MUROS", x: 0, y: 0, w: W, h: D });
+  const cx = W / 2, cy = D / 2;
+  for (const [tx, ty] of [[cx, D * 0.25], [cx, D * 0.75], [W * 0.25, cy], [W * 0.75, cy]] as Array<[number, number]>) {
+    out.push({ t: "L", l: L, x1: tx - 0.5, y1: ty, x2: tx + 0.5, y2: ty });
+    out.push({ t: "L", l: L, x1: tx + 0.5, y1: ty, x2: tx + 0.35, y2: ty + 0.1 });
+    out.push({ t: "L", l: L, x1: tx + 0.5, y1: ty, x2: tx + 0.35, y2: ty - 0.1 });
+    out.push({ t: "T", l: L, x: tx - 0.12, y: ty + 0.3, h: 0.16, s: "2%" });
+  }
+  for (const [bx, by] of [[0.15, 0.15], [W - 0.15, D - 0.15]] as Array<[number, number]>) {
+    out.push({ t: "H", l: L, x: bx - 0.08, y: by - 0.08, w: 0.16, h: 0.16 });
+    out.push({ t: "T", l: L, x: bx - 0.3, y: by + 0.4, h: 0.14, s: "BJS 3in" });
+  }
+  out.push({ t: "T", l: L, x: cx - 2.6, y: cy + 0.1, h: 0.22, s: "PLACA MACIZA e=12 cm" });
+  out.push({ t: "T", l: L, x: cx - 3.6, y: cy - 0.25, h: 0.15, s: "Sin cubierta — no suma área (MPr / D.1077)" });
+  dimChain("COTAS", [0, W], -0.7, out);
+  out.push({ t: "T", l: L, x: 0, y: D + 1.2, h: 0.26, s: "PLANTA DE CUBIERTAS" });
+  out.push({ t: "T", l: L, x: 4.6, y: D + 1.2, h: 0.16, s: ESC });
+  return out;
 }

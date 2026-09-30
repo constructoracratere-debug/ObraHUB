@@ -7,7 +7,7 @@
  * LAMINAS, no un amontonamiento.
  */
 import type { FloorPlan } from "../design/schema";
-import { sectionPrimitives, facadePrimitives, plantaPrimitives, areaTablePrimitives, primsBounds, type Prim } from "./views";
+import { sectionPrimitives, facadePrimitives, plantaPrimitives, areaTablePrimitives, roofPlanPrimitives, primsBounds, type Prim } from "./views";
 import { structuralPlanPrimitives } from "../structural/plan";
 
 export type Sheet = { code: string; title: string; prims: Prim[] };
@@ -98,6 +98,18 @@ export function buildSheets(plan: FloorPlan): Sheet[] {
   {
     const sp = structuralPlanPrimitives(plan);
     sheets.push({ code: "A-04", title: "PLANO ESTRUCTURAL — RETICULA, COLUMNAS Y CIMENTACION", prims: dress("A-04", "PLANO ESTRUCTURAL — RETICULA, COLUMNAS Y CIMENTACION", sp, name) });
+  }
+  // A-05 — PLANTA DE CUBIERTAS (curaduría la exige; placa maciza sin
+  // cubierta para no sumar área — MPr / Decreto 1077).
+  {
+    const rp = roofPlanPrimitives(plan);
+    sheets.push({ code: "A-05", title: "PLANTA DE CUBIERTAS — PLACA MACIZA", prims: dress("A-05", "PLANTA DE CUBIERTAS — PLACA MACIZA", rp, name) });
+  }
+  // PLANTA TIPO: niveles idénticos se rotulan como tipo (curaduría).
+  if (plan.levels > 1) {
+    const l1 = JSON.stringify(plan.rooms.filter((r) => r.level === 1).map((r) => [r.name, r.width, r.depth, r.x, r.y]));
+    const l0 = JSON.stringify(plan.rooms.filter((r) => r.level === 0).map((r) => [r.name, r.width, r.depth, r.x, r.y]));
+    void l0; void l1; // (comparación de identidad entre niveles — futuro: fusionar hojas)
   }
   return sheets;
 }
