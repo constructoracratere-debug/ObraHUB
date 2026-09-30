@@ -38,12 +38,14 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, 0.7));
           const d1 = new THREE.DirectionalLight(0xffffff, 1.0); d1.position.set(50, 80, 30); scene.add(d1);
           const d2 = new THREE.DirectionalLight(0x99bbff, 0.4); d2.position.set(-40, 20, -30); scene.add(d2);
+          // SIN rotación: web-ifc ya entrega flatTransformation normalizada a
+          // Y-up (igual que el visor de Documentos). Rotar aquí = modelo girado
+          // dos veces y sin relación con el plano 2D.
           const root = new THREE.Group();
-          root.rotation.x = -Math.PI / 2; // IFC Z-up → three Y-up
           scene.add(root);
           const grid = new THREE.GridHelper(60, 60, 0x1e3a5f, 0x11203a);
-          grid.position.y = -0.01;
           scene.add(grid);
+          (sceneRef as any).grid = grid;
           scene.add(new THREE.AmbientLight(0x334455, 0.5));
           (sceneRef as any).root = root;
           sceneRef.current = scene;
@@ -111,7 +113,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
             : new THREE.MeshStandardMaterial({ color: isStruct ? 0xd9c08a : 0xc3d2e0, roughness: 0.82, metalness: 0.05, side: THREE.DoubleSide });
           const m3 = new THREE.Mesh(bg, mat);
           m3.matrixAutoUpdate = false;
-          m3.matrix.fromArray(g0.flatTransformation); // transformación IFC cruda (el root la gira a Y-up)
+          m3.matrix.fromArray(g0.flatTransformation); // mundo Y-up directo (sin giro extra)
           root.add(m3);
           count++;
         });
@@ -119,6 +121,9 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         const box = new THREE.Box3().setFromObject(root);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3()).length() || 10;
+        // La rejilla apoya en la base real del modelo (web-ifc recentra).
+        const grid: THREE.GridHelper | undefined = (sceneRef as any).grid;
+        if (grid) { grid.position.set(center.x, box.min.y - 0.01, center.z); }
         const cam: THREE.PerspectiveCamera = (sceneRef as any).cam;
         const ctl: any = (sceneRef as any).ctl;
         if (cam && ctl) {

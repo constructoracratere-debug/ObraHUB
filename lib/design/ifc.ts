@@ -124,13 +124,14 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
         : `#${n}= IFCRELASSOCIATESMATERIAL('${guid(tag)}',#${owner},$,$,(#${product}),#${matOrSet});`);
 
   // ── Sólidos: caja extruida en (x,y,z) con base w×d y altura h ────────────
+  // along="y": el RefDirection del sólido gira el perfil 90° (X local → Y
+  // mundo). Así el muro este/oeste queda orientado de verdad — cualquier
+  // visor (web-ifc, BIMvision, Revit) lo dibuja en su sitio.
   const solidBox = (x: number, y: number, z: number, w: number, d: number, h: number, along: "x" | "y") => {
-    // Rectángulo centrado en el eje del elemento; extruido hacia +Z.
-    const prof =
-      along === "x"
-        ? ent(`RPX:${w},${d}`, (n) => `#${n}= IFCRECTANGLEPROFILEDEF(.AREA.,$,#${axis2(0, 0)},${f(w)},${f(d)});`)
-        : ent(`RPY:${d},${w}`, (n) => `#${n}= IFCRECTANGLEPROFILEDEF(.AREA.,$,#${axis2(0, 0)},${f(d)},${f(w)});`);
-    const pl = ent(`SP:${x},${y},${z}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x, y, z)},#${dir3(0, 0, 1)},#${dir3(1, 0, 0)});`);
+    // Perfil SIEMPRE con la longitud sobre X local (la rotación la pone el placement).
+    const prof = ent(`RPX:${w},${d}`, (n) => `#${n}= IFCRECTANGLEPROFILEDEF(.AREA.,$,#${axis2(0, 0)},${f(along === "x" ? w : d)},${f(along === "x" ? d : w)});`);
+    const ref = along === "x" ? dir3(1, 0, 0) : dir3(0, 1, 0);
+    const pl = ent(`SP:${x},${y},${z},${along}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x, y, z)},#${dir3(0, 0, 1)},#${ref});`);
     return ent(`SOL:${x},${y},${z},${w},${d},${h},${along}`, (n) => `#${n}= IFCEXTRUDEDAREASOLID(#${prof},#${pl},#${dir3(0, 0, 1)},${f(h)});`);
   };
 
@@ -294,7 +295,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     }
     for (const x of vs.length ? vs : []) {
       if (x < 0.05 || x > W - 0.05) continue;
-      const solid = solidBox(x, D / 2, fft - CONCRETE.beam.d, D - 2 * te, CONCRETE.beam.w, CONCRETE.beam.d, "y");
+      const solid = solidBox(x, D / 2, fft - CONCRETE.beam.d, CONCRETE.beam.w, D - 2 * te, CONCRETE.beam.d, "y");
       const prd = shapeRep(solid, `BMy${x},${z0}`);
       const pl = ent(`BMPLy:${x},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
