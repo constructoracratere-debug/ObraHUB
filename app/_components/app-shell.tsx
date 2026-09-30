@@ -1746,8 +1746,8 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 top-0 z-50 flex flex-col border-r border-white/[0.06] bg-[#080f1c]/95 pt-[env(safe-area-inset-top)] shadow-2xl shadow-black/40 backdrop-blur-xl transition-all duration-300 md:static md:w-[72px] md:translate-x-0 lg:w-[280px] ${
-          sidebarCollapsed ? "lg:w-[72px]" : "lg:w-[280px]"
+        className={`fixed inset-y-0 left-0 top-0 z-50 flex flex-col border-r border-white/[0.06] bg-[#080f1c]/95 pt-[env(safe-area-inset-top)] shadow-2xl shadow-black/40 backdrop-blur-xl transition-all duration-300 md:static md:w-[72px] md:translate-x-0 ${
+          sidebarCollapsed ? "lg:w-0 lg:overflow-hidden lg:border-r-0" : "lg:w-[280px]"
         } ${sidebarOpen ? "w-[280px] translate-x-0" : "w-[280px] -translate-x-full md:translate-x-0"}`}
       >
         <div
@@ -1786,9 +1786,7 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
             type="button"
             aria-label={sidebarCollapsed ? "Expandir menú" : "Minimizar panel"}
             title={sidebarCollapsed ? "Expandir menú" : "Minimizar panel"}
-            className={`absolute right-2 top-[calc(env(safe-area-inset-top)+0.9rem)] z-10 hidden items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1.5 text-[11px] font-medium text-slate-400 transition hover:border-blue-400/30 hover:bg-blue-600/10 hover:text-blue-300 lg:flex ${
-              sidebarCollapsed ? "w-full justify-center border-transparent bg-transparent px-0 py-0 hover:bg-transparent" : ""
-            }`}
+            className="absolute right-2 top-[calc(env(safe-area-inset-top)+0.9rem)] z-10 hidden items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1.5 text-[11px] font-medium text-slate-400 transition hover:border-blue-400/30 hover:bg-blue-600/10 hover:text-blue-300 lg:flex"
             onClick={() => setSidebarCollapsed((v) => !v)}
           >
             <Icon
@@ -2011,6 +2009,21 @@ export function AppShell({ profile }: { profile: { full_name?: string | null; pr
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </Icon>
             </button>
+            {/* Sidebar oculto (lg): botón flotante para traerlo de vuelta. */}
+            {sidebarCollapsed && (
+              <button
+                type="button"
+                aria-label="Mostrar menú"
+                title="Mostrar menú"
+                onClick={() => setSidebarCollapsed(false)}
+                className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-blue-500/25 bg-blue-600/15 px-2.5 py-1.5 text-[11px] font-semibold text-blue-200 transition hover:bg-blue-600/25 lg:flex"
+              >
+                <Icon className="h-4 w-4" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                </Icon>
+                Menú
+              </button>
+            )}
             <div className="min-w-0">
               <Logo size="large" />
               {activeProject && (
