@@ -16,6 +16,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const [status, setStatus] = useState<"init" | "loading" | "ok" | "error">("init");
+  const [ready2, setReady2] = useState(false); // dispara reintento manual
   const apiRef = useRef<IfcAPI | null>(null);
   const modelRef = useRef(-1);
   const revRef = useRef("");
@@ -100,7 +101,8 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           bg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
           bg.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
           bg.setIndex(new THREE.BufferAttribute(indices, 1));
-          const tId = api.GetLineType(mid, mesh.expressID);
+          let tId = 0;
+          try { tId = api.GetLineType(mid, mesh.expressID); } catch { tId = 0; }
           const isStruct = tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCSLAB || tId === IFCFOOTING;
           const mat = mode === "structural"
             ? (isStruct
@@ -131,15 +133,15 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       } catch { if (!cancelled) setStatus("error"); }
     })();
     return () => { cancelled = true; };
-  }, [plan, mode]);
+  }, [plan, mode, ready2]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0">
+    <div ref={containerRef} className="absolute inset-0" onDoubleClick={() => { revRef.current = ""; setStatus("loading"); setTimeout(() => setReady2(r => !r), 50); }}>
       <canvas ref={canvasRef} className="h-full w-full" />
       {status !== "ok" && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="rounded-lg bg-[#070d1a]/85 px-3 py-2 text-[11px] text-slate-400">
-            {status === "loading" ? "🔄 regenerando 3D…" : status === "error" ? "⚠️ modelo no disponible" : "inizializando motor 3D…"}
+            {status === "loading" ? "🔄 regenerando 3D…" : status === "error" ? "⚠️ modelo no disponible (revive con doble clic o regenera el plano)" : "inicializando motor 3D…"}
           </p>
         </div>
       )}
