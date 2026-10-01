@@ -62,6 +62,16 @@ export function NewsTool() {
   // 6 visibles por defecto: 20 tarjetas apiladas saturan el Home —
   // el usuario expande si quiere más.
   const [expanded, setExpanded] = useState(false);
+  // Minimizable: el Home es del usuario; las noticias se pliegan a una barra
+  // (y de paso no se pide nada a la API mientras estén plegadas).
+  const [minimized, setMinimized] = useState(false);
+  useEffect(() => {
+    try { setMinimized(localStorage.getItem("obrapp-news-min") === "1"); } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("obrapp-news-min", minimized ? "1" : "0"); } catch {}
+  }, [minimized]);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -82,71 +92,99 @@ export function NewsTool() {
   }, [category, country, q, days]);
 
   useEffect(() => {
+    if (minimized) return; // plegado = cero peticiones
     const t = setTimeout(() => void load(), q ? 400 : 0);
     return () => clearTimeout(t);
-  }, [load, q]);
+  }, [load, q, minimized]);
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 pb-8">
       <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-white">📰 Noticias del sector</h2>
-          <div className="flex gap-1.5">
-            {RANGES.map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setDays(id)}
-                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                  days === id
-                    ? "border-orange-500/50 bg-orange-500/20 text-orange-200"
-                    : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-white"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <h2 className="text-lg font-semibold text-white">📰 Noticias del sector</h2>
+            {!minimized && items.length > 0 && (
+              <span className="rounded-full border border-orange-500/25 bg-orange-500/10 px-2 py-0.5 text-[10px] font-semibold text-orange-300">
+                {items.length}
+              </span>
+            )}
           </div>
-        </div>
-        <p className="text-xs text-slate-500">
-          Solo noticias relevantes para obra: construcción, materiales, licitaciones, normativa y arquitectura.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar (ej. cemento, licitación, BIM)…"
-            className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-orange-500/40 focus:outline-none"
-          />
-          <select
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            className="rounded-lg border border-white/[0.1] bg-[#050b14] px-2 py-2 text-xs text-slate-200 focus:outline-none"
-          >
-            <option value="">🌎 Todo LATAM</option>
-            <option value="colombia">🇨🇴 Colombia</option>
-            <option value="mexico">🇲🇽 México</option>
-          </select>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {CATEGORIES.map(([id, label]) => (
+          <div className="flex items-center gap-2">
+            {!minimized && (
+              <div className="flex gap-1.5">
+                {RANGES.map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setDays(id)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                      days === id
+                        ? "border-orange-500/50 bg-orange-500/20 text-orange-200"
+                        : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
-              key={id}
               type="button"
-              onClick={() => setCategory(id)}
-              className={`rounded-full border px-3 py-1 text-[11px] font-medium transition ${
-                category === id
-                  ? "border-orange-500/50 bg-orange-500/20 text-orange-200"
-                  : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-white"
+              onClick={() => setMinimized((v) => !v)}
+              aria-label={minimized ? "Expandir noticias" : "Minimizar noticias"}
+              className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                minimized
+                  ? "border-orange-500/40 bg-orange-500/15 text-orange-200 hover:bg-orange-500/25"
+                  : "border-white/[0.08] bg-white/[0.03] text-slate-400 hover:text-white"
               }`}
             >
-              {label}
+              {minimized ? "▸ Ver noticias" : "▾ Minimizar"}
             </button>
-          ))}
+          </div>
         </div>
+        {!minimized && (
+          <>
+            <p className="text-xs text-slate-500">
+              Solo noticias relevantes para obra: construcción, materiales, licitaciones, normativa y arquitectura.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar (ej. cemento, licitación, BIM)…"
+                className="min-w-0 flex-1 rounded-lg border border-white/[0.1] bg-[#050b14] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-orange-500/40 focus:outline-none"
+              />
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="rounded-lg border border-white/[0.1] bg-[#050b14] px-2 py-2 text-xs text-slate-200 focus:outline-none"
+              >
+                <option value="">🌎 Todo LATAM</option>
+                <option value="colombia">🇨🇴 Colombia</option>
+                <option value="mexico">🇲🇽 México</option>
+              </select>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {CATEGORIES.map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setCategory(id)}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-medium transition ${
+                    category === id
+                      ? "border-orange-500/50 bg-orange-500/20 text-orange-200"
+                      : "border-white/[0.08] bg-white/[0.02] text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {isLoading ? (
+      {!minimized && (isLoading ? (
         <p className="py-10 text-center text-sm text-slate-500">Cargando noticias…</p>
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-center">
@@ -201,7 +239,7 @@ export function NewsTool() {
             </button>
           )}
         </div>
-      )}
+      ))}
     </div>
   );
 }
