@@ -68,3 +68,19 @@ Extras: `test-design-dxf.mjs`, `test-furniture-solver.mjs`, `test-frame.mjs`,
 - Deploys: producción = https://obrahub-cratere.vercel.app (auto en push).
 - Si el smoke de CI falla: ÚLTIMA acción tuya lo rompió — reverierte o arregla
   antes de seguir. Nunca dejes main roto.
+
+### Protocolo de entrega (agentes SIN acceso de push — ej. Codex cloud)
+
+Si `git push` te da 403: es GitHub rechazando una identidad no invitada —
+comportamiento correcto, no lo fuerces. Protocolo:
+
+1. Trabaja en una rama local: `git checkout -b codex/<tema>`.
+2. Haz commits locales normalmente (no requieren auth).
+3. **No intentes push** y **no toques credenciales guardadas** de otros
+   agentes (Windows Credential Manager / ~/.git-credentials): usar tokens
+   ajenos está prohibido.
+4. Deja la rama lista y avisa al operador humano o al agente con acceso
+   (ZCode). Quien tenga acceso corre `npm run verify`, revisa el diff y
+   hace el merge + push.
+5. Alternativa sin git: entrega el parche (`git diff > tema.patch`) y el
+   agente con acceso lo aplica y verifica.
