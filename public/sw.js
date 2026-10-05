@@ -66,11 +66,13 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Navigations: red SIEMPRE. Sin caché de HTML de la app: una app vieja
-  // cacheada es peor que un error de red honesto. Offline → shell /login.
+  // Navigations: red SIEMPRE y sin la caché HTTP del navegador. Sin esto,
+  // fetch(req) puede reutilizar un documento fresco de la caché HTTP aunque
+  // el service worker no guarde HTML; al iniciar sesión se rehidrata el build
+  // viejo. Offline → shell /login.
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req).catch(() =>
+      fetch(req, { cache: "no-store" }).catch(() =>
         caches.match(req).then((hit) => hit ?? caches.match("/login")),
       ),
     );
