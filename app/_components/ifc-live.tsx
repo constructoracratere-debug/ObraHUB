@@ -39,9 +39,11 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           const d1 = new THREE.DirectionalLight(0xffffff, 1.0); d1.position.set(50, 80, 30); scene.add(d1);
           const d2 = new THREE.DirectionalLight(0x99bbff, 0.4); d2.position.set(-40, 20, -30); scene.add(d2);
           // SIN rotación: web-ifc ya entrega flatTransformation normalizada a
-          // Y-up (igual que el visor de Documentos). Rotar aquí = modelo girado
-          // dos veces y sin relación con el plano 2D.
+          // Y-up (igual que el visor de Documentos). El scale.z=-1 des-espeja
+          // el plano (web-ifc mapea y→-z): así el 3D se lee IGUAL que el 2D —
+          // x a la derecha, y=0 arriba — y el edificio queda en z 0..D > 0.
           const root = new THREE.Group();
+          root.scale.set(1, 1, -1);
           scene.add(root);
           const grid = new THREE.GridHelper(60, 60, 0x1e3a5f, 0x11203a);
           scene.add(grid);
@@ -83,7 +85,9 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         const ifcText = planToIfc(plan, { includeFoundations: false }); // caja limpia en 000
         const bytes = new TextEncoder().encode(ifcText);
         if (modelRef.current >= 0) { try { api.CloseModel(modelRef.current); } catch { /* */ } }
-        const mid = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: true });
+        // COORDINATE_TO_ORIGIN: false — nuestro IFC vive en 0,0,0 por diseño;
+        // el recenter de web-ifc nos hundía el edificio BAJO tierra (y<0).
+        const mid = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: false });
         if (mid < 0) throw new Error("IFC inválido");
         modelRef.current = mid;
         let count = 0;
@@ -117,13 +121,13 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           root.add(m3);
           count++;
         });
-        // Encuadre automático al tamaño del modelo.
+        // Encuadre automático al tamaño del modelo (el espejo z no afecta el bbox).
         const box = new THREE.Box3().setFromObject(root);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3()).length() || 10;
-        // La rejilla apoya en la base real del modelo (web-ifc recentra).
+        // Rejilla apoyada en la base del edificio (y=0 con el flag off).
         const grid: THREE.GridHelper | undefined = (sceneRef as any).grid;
-        if (grid) { grid.position.set(center.x, box.min.y - 0.01, center.z); }
+        if (grid) { grid.position.set(center.x, box.min.y, center.z); }
         const cam: THREE.PerspectiveCamera = (sceneRef as any).cam;
         const ctl: any = (sceneRef as any).ctl;
         if (cam && ctl) {

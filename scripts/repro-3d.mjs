@@ -30,7 +30,8 @@ const THREE = req("three");
 const api = new WebIfc.IfcAPI();
 await api.Init();
 const bytes = new TextEncoder().encode(ifcText);
-const mid = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: true });
+// Flag OFF: nuestro IFC vive en 0,0,0; el recenter de web-ifc lo hunde bajo tierra.
+const mid = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: false });
 console.log("model id:", mid);
 
 const boxes = [];
@@ -72,6 +73,8 @@ console.log(`tamaños: X=${sx.toFixed(2)} Y=${sy.toFixed(2)} Z=${sz.toFixed(2)} 
 check(`extensión X ≈ ${W} (±0.4)`, Math.abs(sx - W) < 0.4);
 check(`extensión Y ≈ ${fft} altura (±0.4)`, Math.abs(sy - fft) < 0.4);
 check(`extensión Z ≈ ${D} (±0.4)`, Math.abs(sz - D) < 0.4);
+check(`edificio SOBRE el suelo: min.y ≥ -0.01 (flag off, sin recenter)`, all.min.y >= -0.01);
+check(`coordenadas positivas en X: 0..${W}`, all.min.x > -0.01 && all.max.x <= W + 0.01);
 const WALL = 3512223829;
 const walls = boxes.filter((b) => b.type === WALL);
 const upright = walls.filter((b) => (b.max.y - b.min.y) > fft - 0.3 && (b.max.y - b.min.y) < fft + 0.3);
