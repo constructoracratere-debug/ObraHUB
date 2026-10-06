@@ -127,12 +127,14 @@ class DxfBuilder {
   }
 
   /** Símbolo RELLENO (manija de puerta, marca de corte, zapata): SOLID —
-   *  relleno verdadero, sin achurado. El poché de muros es aparte (hatch). */
+   *  relleno verdadero, sin achurado. El poché de muros es aparte (hatch).
+   *  Lleva 370 como cualquier entidad (la política de grosor es una sola). */
   solid(rawLayer: string, x0: number, y0: number, x1: number, y1: number) {
     const l = this.layerOf(rawLayer);
+    const lw = this.lw370(l);
     // Orden de vértices SOLID: 1→2→4→3 (patrón Z) para orientar el relleno.
     this.entities.push(
-      `0\nSOLID\n8\n${l}\n10\n${f(x0)}\n20\n${f(y0)}\n30\n0.0\n` +
+      `0\nSOLID\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(x0)}\n20\n${f(y0)}\n30\n0.0\n` +
       `11\n${f(x1)}\n21\n${f(y0)}\n31\n0.0\n` +
       `12\n${f(x0)}\n22\n${f(y1)}\n32\n0.0\n` +
       `13\n${f(x1)}\n23\n${f(y1)}\n33\n0.0\n`,

@@ -929,7 +929,7 @@ const PRIM_COLORS: Record<string, string> = {
 const PEN_PX: Record<string, number> = { cut: 2.1, achu: 0.9, cubt: 1.25, profile: 1.25, elec: 0.9, hid: 0.9, ejes: 0.7, text: 0.7 };
 function penPx(layer: string, thin = false): number {
   const base = PEN_PX[PEN_BY_LAYER[layer] ?? "profile"];
-  return thin ? base * 0.75 : base;
+  return thin ? base * 0.72 : base; // ×0.72 unificado en pantalla/PDF/DXF
 }
 
 export function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {

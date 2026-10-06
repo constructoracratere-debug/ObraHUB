@@ -154,6 +154,7 @@ check("plotMm: interpola escalas intermedias (1:75 → cut 0.55)", (() => {
 check("370 por ENTIDAD a la escala real de la lámina (A-01 @1:50 → cut 0.60)", /8\nA-MUROS\n370\n60\n/.test(dxf));
 check("achurado en su propia fila A-MURO-ACHU (0.30 @1:50)", /8\nA-MUROS-ACHU\n370\n30\n/.test(dxf));
 check("símbolos F ≠ poché: SOLID macizo (marca de corte en A-CORTE)", /0\nSOLID\n8\nA-CORTE\n/.test(dxf));
+check("SOLID también lleva 370 de entidad (política única de grosor)", /0\nSOLID\n8\nA-CORTE\n370\n60\n/.test(dxf));
 check("plantilla de capa conserva default ISO (370=70 en tabla A-MUROS)", /LAYER\n2\nA-MUROS\n70\n0\n62\n[-\d]+\n6\nCONTINUOUS\n370\n70/.test(dxf));
 check("flags de primitiva pasan al DXF: dash → 6 DASHED en entidad", /8\nA-PUERTAS\n6\nDASHED\n370\n13\n/.test(dxf));
 check("flags de primitiva: ejes discontinuos conservan CENTER", /8\nA-EJES\n6\nCENTER\n370\n13\n/.test(dxf));
