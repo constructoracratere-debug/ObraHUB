@@ -1,0 +1,5387 @@
+
+===== PAGE 1 (595x842) =====
+Con el respaldo de los miembros del Consejo:
+L
+i
+b
+e
+rtad
+y
+O
+r
+d
+e
+n
+
+===== PAGE 2 (595x842) =====
+
+
+===== PAGE 3 (595x842) =====
+Actualización:
+ARQ. SERGIO TRUJILLO JARAMILLO
+
+===== PAGE 4 (595x842) =====
+Sala Plena
+Sandra Milena Vargas Navas
+Presidente, Delegada de la Ministra de Vivienda, Ciudad y 
+Territorio
+ 
+Flavio Romero Frieri
+Secretario Permanente, Presidente Nacional Sociedad 
+Colombiana de Arquitectos 
+ 
+Martha Luz Salcedo Barrera
+Delegada del Rector de la Universidad Nacional de 
+Colombia 
+ 
+Liliana Giraldo Arias
+Representante de las Universidades con Facultades de 
+Arquitectura 
+ 
+Cristina Zaray Narváez De Castro
+Representante de las Profesiones Auxiliares de la 
+Arquitectura 
+Equipo Directivo
+Diana Fernanda Arriola Gómez
+Directora Ejecutiva 
+ 
+Karen Holly Castro Castro
+Subdirectora Jurídica
+Irma Cristina  Cardona Bustos
+Subdirectora de Fomento y Comunicaciones
+Nelson Enrique Ospino Torres
+Jefe de Oficina Administrativa y Financiera 
+Consejo Profesional Nacional de Arquitectura y sus 
+Profesiones Auxiliares
+www.cpnaa.gov.co
+Carrera 6 No. 26b - 85 Oficina 201
+Teléfono 350 2700 ext. 101 - 124
+Bogotá - Colombia
+Los autores se hacen responsables del contenido de la 
+presente obra.  Prohibida la reproducción total o parcial de 
+este libro por cualquier medio, sin permiso por escrito del 
+CPNAA. © Derechos reservados del Consejo Profesional 
+Nacional de Arquitectura y sus Profesiones Auxiliares.
+ISBN: 978-958-98830-9-9
+Tiraje: 2.100 ejemplares
+Cumplido el depósito legal (Ley 44 de 1993, decreto 460 
+de 1995 y decreto 358 de 2000).
+Impreso en Colombia - 2017
+MÓDULO 2
+Documentaciones sobre práctica profesional  - Guía y 
+estándares para el desarrollo gráfico del proyecto
+Actualización 2016
+Consultoría y Dirección General:
+Arq. Sergio Trujillo Jaramillo
+Elaborado por:
+Arq. Sergio Trujillo Jaramillo
+Arq. Pablo Silva Saray
+Arq. Juan Tusso Gómez
+Textos:
+Introducción, redacción y revisión:
+Arq. Sergio Trujillo Jaramillo
+Arq. Pablo Silva Saray
+Arq. Juan Tusso Gómez
+Equipo Consultor:
+Diseño de Paisaje:
+Arq. Diana Wiesner Ceballos
+Patrimonio y Restauración:
+Arq. German Téllez García
+Espacio Urbano y Público:
+Arq. Nathalie Montoya Arango
+Arq. Diego López Chalarca.
+Revisión Externa:
+Arq. Fabio Corredor Sánchez
+Arq. Consuelo Bedoya Riveros
+Primera Edición 2005
+Coordinador general
+Guillermo Fischer M.
+Elaborado por:
+Philip Weiss Salas
+Documento Preliminar
+Hernando Vargas Caicedo
+Comite de Redacción:
+Enrique Silva Gil
+Sergio Trujillo Jaramillo
+Philip Weiss Salas
+Juan Carlos Rojas Iragorri
+Juan Guillermo Cleves
+Ricardo Leguízamo
+Mario Pinilla Lozano
+Guillermo Fischer M.
+WEISS SALAS. Philip.
+
+===== PAGE 5 (595x842) =====
+“Por un país diseñado y construido
+a partir de la ética”
+
+===== PAGE 6 (595x842) =====
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+6
+ÍNDICE DE CONTENIDOS
+TABLA DE CONTENIDOS
+CAPÍTULO
+PAG.
+ 1.0 
+INTRODUCCIÓN
+8
+  
+Prólogo
+9
+ 1.1 
+NOTAS BREVES EN TORNO AL DESARROLLO HISTÓRI­
+CO DE LA REPRESENTACIÓN
+10
+ 1.2 
+A PROPÓSITO DE LA ACTUALIZACIÓN DE LA GUÍA Y 
+LOS ESTÁNDARES
+20
+Actualización de la Guía
+20
+Accesibilidad de la Guía: La Comunicación Gráfica y Los 
+Lenguajes Paralelos 
+21
+Cubrimiento de la Guía: Extensión a Servicios Profesiona­
+les Afines al Diseño Arquitectónico
+21
+Operatividad de la Guía: La Calificación Académica y Pro­
+fesional 
+23
+ 1.3 
+CÓMO LEER ÉSTA GUÍA
+24
+ 1.4 
+PRECISIONES SOBRE HERRAMIENTAS DIGITALES: ME­
+TODOLOGÍAS CAD Y BIM 
+26
+Metodología CAD 
+26
+Metodología BIM 
+26
+Desarrollo de las Metodologías CAD y BIM 
+27
+Las Metodologías BIM como Nueva Herramienta de Re­
+presentación
+27
+Conclusión 
+29
+ 1.5 
+LOS ESTÁNDARES GRÁFICOS INTERNACIONALES
+30
+Norma Internacional ISO, International Organization for 
+Standardization
+30
+Norma Nacional, Instituto Colombiano de Normas Técni­
+cas y Certificación – ICONTEC – 
+31
+Norma Estadounidense, American Institute of Architects 
+–AIA–
+32
+Normas Adoptadas Para la Actualización de la Presente 
+Guía y Estándares para el Desarrollo Gráfico del Proyecto 
+Arquitectónico y Afines. 
+32
+Notas al Píe (Endnotes)
+33
+ 2.0 
+DESARROLLO DE LOS ESTÁNDARES GRÁFICOS
+34
+ 2.1 
+Organización preliminar
+36
+ 2.2 
+CONFIGURACIÓN DEL SISTEMA DE CAPAS
+38
+ 2.3
+LOS SISTEMAS GRÁFICOS DE REPRESENTACIÓN 
+38
+ 2.4
+CONVENCIONES DE DIBUJO: ORIENTACIÓN
+40
+ 2.5
+CONVENCIONES DE DIBUJO: LA NOCIÓN DE ESCALA
+44
+ 2.6
+CONVENCIONES DE DIBUJO: TIPOS DE LÍNEAS
+46
+
+===== PAGE 7 (595x842) =====
+7
+CAPÍTULO
+PAG.
+2.7
+CONVENCIONES DE DIBUJO: DIMENSIONES
+48
+2.8
+TIPOS DE PLANCHA: TIPO 1 - PLANTAS
+52
+2.9
+TIPOS DE PLANCHA: TIPO 2 - ALZADOS O FACHADAS 
+60
+2.10
+TIPOS DE PLANCHA: TIPO 3 - CORTES
+62
+2.11
+TIPOS DE PLANCHA: TIPO 4 - VISTAS A ESCALA AM­
+PLIADA 
+64
+2.12
+TIPOS DE PLANCHA: TIPO 5 - DETALLES
+                                   TIPO 6 - CUADROS Y DIAGRA­
+MAS
+66
+2.13
+TIPOS DE PLANCHA: TIPO 7 Y 8 - DEFINIDO POR EL 
+USUARIO 
+68
+2.6
+TIPOS DE PLANCHA: TIPO TIPO 9 - REPRESENTACIO­
+NES EN 3D
+70
+2.6
+CUADROS
+70
+2.6
+SÍMBOLOS
+74
+2.6
+NOTAS
+76
+3.0 
+ÁREAS AFINES DE APLICACIÓN DE LAS GUÍAS Y ES­
+TÁNDARES GRÁFICOS
+81
+3.1
+Diseño Interior y de Mobiliario 
+86
+3.2 
+Diseño Urbano 
+84
+3.3  
+Espacio Público 
+88
+3.4  
+Diseño de Paisaje 
+90
+3.5  
+Restauración 
+92
+4.0 
+PRESENTACIÓN DE DOCUMENTOS 
+96
+4.1
+Formato y Proporciones 
+96
+Organización de la Plancha 
+97
+4.2
+El Rótulo
+98
+4.3
+Guía para Impresión de Dibujos 
+100
+ 5.0 
+BIBLIOGRAFÍA
+102
+“Pensar la arquitectura nos ayuda a no enamorarnos de 
+la calidad gráfica de nuestros dibujos.” 
+Peter Zumthor
+Perugia, Rogelio Salmona
+
+===== PAGE 8 (595x842) =====
+Ilustración de Abraham Bosse. Impresión de Pierre Des-hayes .1648
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+8
+1. INTRODUCCIÓN
+
+===== PAGE 9 (595x842) =====
+9
+La Introducción del presente documento ofrece 
+unas notas breves en relación a la evolución his­
+tórica del dibujo en arquitectura, la cual es seguida 
+de una descripción de los contenidos y alcances de 
+la actualización de la Guía: allí se describen temas 
+como el formato utilizado para diagramar el pre­
+sente documento y la manera de usar e interpretar 
+la información aquí consignada. 
+Posteriormente, se desarrollan los temas más rele­
+vantes en torno al uso de las herramientas digita­
+les y su afectación por parte del conjunto de entra­
+mados normativos aplicables y vigentes nacional e 
+internacionalmente.
+En el capítulo 2 y 3 se han agrupado los temas re­
+lacionados con el inicio de la representación en el 
+proceso proyectual, la organización del material 
+gráfico tanto físico como digital, algunas nociones 
+básicas del dibujo técnico y la descripción com­
+pleta de convenciones para la estandarización de 
+la misma representación. Este capítulo de la Guía 
+esta complementado  con información sobre es­
+tándares gráficos aplicables a áreas específicas, 
+con cubrimiento tanto general como pormenori­
+zado. 
+Finalmente en el capítulo 4 se encuentra la infor­
+mación referente a la presentación de la informa­
+ción, los formatos de papel, la identificación de las 
+planchas, la impresión y algunas sugerencias para 
+el manejo del material físico en archivo. 
+PRÓLOGO
+La primera edición de la Guía y Estándares para el 
+Desarrollo Gráfico del Proyecto, publicada por el 
+CPNAA en 2005, desarrolló una porción importan­
+te de los temas que resultan útiles y pertinentes al 
+propósito de establecer  unas pautas de comunica­
+ción entre los agentes involucrados en el proceso 
+gráfico del proyecto arquitectónico. La presente 
+actualización, ha requerido un acopio de informa­
+ción complementaria que ayuda a comprender la 
+evolución y complejidad acaecida desde entonces 
+en relación al dibujo y a la representación en ar­
+quitectura.
+Los avances en las herramientas digitales han cam­
+biado rápidamente la forma en la que nos aproxi­
+mamos al proyecto, permitiendo pensar los están­
+dares de dibujo dentro de una doble mirada que 
+nos sitúa en un presente que se torna ascendente­
+mente complejo, en la medida que no menosprecia 
+las experiencias culturales acumuladas y decanta­
+das históricamente.
+Desechando la opción más obvia de acometer una 
+Guía con una excluyente mirada de futuro, la cual 
+nos situaría en una perspectiva escuetamente téc­
+nica y estrictamente digital, hemos preferido com­
+plejizar la mirada en términos de reconocer el valor 
+y vigencia de una tradición vertida en reflexiones 
+esclarecedoras a través de la palabra escrita y de 
+dibujos analógicos, ambas formas de conocimiento 
+que siguen constituyendo caminos verídicos para 
+el desarrollo actual de las ideas en arquitectura.  
+Esta actualización de la Guía, mantiene entonces 
+su núcleo temático en torno al cometido de pro­
+veer información técnica que permita estandarizar 
+la práctica profesional de la comunicación gráfica 
+aplicable a proyectos de arquitectura y áreas afi­
+nes, con la inclusión paralela y constante de apor­
+tes reflexivos y dibujos analógicos emblemáticos 
+los cuales, ya lo decíamos, propician una tensión 
+constante entre el mundo de las ideas y de los he­
+chos, entre la teoría y la práctica, entre el futuro 
+proyecto y los sedimentos históricos acumulados 
+en torno a la constitución material del espacio. 
+“El dibujo es un método de conocimiento... 
+es pensar, construir, comunicar...”
+Enric Miralles
+Introducción - Prólogo
+Casa Kidosaki, Tadao Ando, 1982
+
+===== PAGE 10 (595x842) =====
+Acrópolis, Atenas, Germán Samper, 1960
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+10
+1.1 NOTAS BREVES EN TORNO AL DESARROLLO HISTÓRICO 
+DE LA REPRESENTACIÓN EN ARQUITECTURA
+El origen y la diversidad de peripecias históricas 
+acaecidas en relación a la representación en arqui­
+tectura nunca ha sido un tema sencillo de escru­
+tar. A la escasez de documentación, se añade en 
+muchos casos la imposibilidad de precisar tanto las 
+técnicas como las modalidades desplegadas para 
+idear y construir los primeros desarrollos edifica­
+torios. Sin embargo, es posible constatar algunas 
+invariantes en las culturas de la antigüedad,  tales 
+como el valor ritual que yace implícito en las di­
+versas modalidades para representar una edilicia 
+que devela por lo general, una concepción singu­
+lar del mundo, constatación que subraya la preva­
+lencia de la arquitectura como actividad humana 
+aglomerante de las artes y lenguaje perpetuo de 
+las civilizaciones. 
+Explorar las modalidades y los medios históricos 
+de representar la arquitectura es abordar, ni más 
+ni menos,  el devenir de la comunicación humana.
+  
+Primeros Testimonios
+Los diferentes pueblos sumerios concibieron sus 
+emplazamientos colectivos a través de un lenguaje 
+inspirado en las presencias de la naturaleza envol­
+vente, incorporando a sus dioses los valores e im­
+prontas que interpretaran las condiciones peculia­
+res de la ciudad o el territorio sobre el cual ejercían 
+su patronazgo. 
+NOTAS BREVES EN TORNO AL DESARROLLO HISTÓRICO DE LA REPRESENTACIÓN
+EN ARQUITECTURA
+
+===== PAGE 11 (595x842) =====
+11
+eran instrucciones útiles a los efectos de construc­
+ción de templos, tumbas y palacios.
+La representación pictórica y mural que ha so­
+brevivido en estos edificios, relata con cierta cla­
+ridad el estilo de vida y la especial devoción por 
+perpetuarla en el tiempo. A través de la búsqueda 
+de la perfección de los elementos simbólicos que 
+representan variedad de objetos y referencias al 
+entorno, los artistas egipcios figuraban y represen­
+taban con claridad un mundo en demanda de ser 
+inmortalizado.
+Por fuera del estricto ámbito religioso y ceremo­
+nial, resultan muy interesantes los modelos en ar­
+cilla de viviendas populares egipcias que aunque 
+estaban destinados a testimoniar la vida domésti­
+ca después de la muerte, son indicio claro de una 
+aguda intuición espacial, aplicada en este caso a 
+obras edilicias de pequeño formato y de la más 
+sencilla procedencia. El uso de modelos tridimen­
+sionales a escala, va a constituirse desde entonces 
+y en varias culturas, en una herramienta de gran 
+utilidad para atestiguar el devenir de la represen­
+tación arquitectónica.
+Geometría y Abstracción
+Ello se comprueba en el modelo del escultor-ar­
+quitecto griego, arquetipo y artífice de un conoci­
+miento integrativo extremadamente sofisticado, el 
+cual le permite nuevas manera de aproximarse a la 
+arquitectura y a su través, a múltiples modalidades 
+de representación e integración con otras artes. 
+A la aguda sofisticación  geométrica se suma una 
+Esta condición creaba enemistades y conflictos 
+entre las diferentes ciudades donde el Templo, la 
+obra de arquitectura por excelencia y habitáculo 
+de los dioses, constituye un lugar único de con­
+centración divina, fin último y legado de los re­
+yes-sacerdotes que regían sobre cada aldea. En la 
+efigie de uno de estos gobernantes, Gudea, quien 
+gobernó sobre la ciudad de Lagash (Irak) en el si­
+glo XXII A.E.C., se imprimió el primer bajorrelieve 
+a escala de una obra arquitectónica de la cual se 
+guarda testimonio.
+Se trata del dibujo de la planta arquitectónica de 
+un templo que descansa sobre el rey a quien se le 
+representa acompañado de inscripciones conme­
+morativas a sus ejecutorias. Esta primera alusión 
+gráfica a una edificación, sirve como prueba de la 
+capacidad de abstracción y de la necesidad huma­
+na de idear maneras para testimoniar la arquitec­
+tura.
+Símbolo y Ritual
+Los métodos de registro en el antiguo Medio 
+Oriente, basados en dibujos o escrituras sobre ar­
+cilla, nunca han facilitado la conservación de este 
+tipo de documentos, a diferencia de lo acontecido 
+en civilizaciones posteriores como las acontecidas 
+a lo largo del rio Nilo, en el antiguo Egipto, don­
+de los fines religiosos y fúnebres permanecieron 
+como la razón primordial para un desarrollo arqui­
+tectónico perenne: una representación del mun­
+do, testificada ritual y simbólicamente en una ar­
+quitectura sólida y monumental, logró ensamblar 
+todas las artes en un solo esfuerzo colectivo a lo 
+largo de siglos.
+Aunque no conocemos con exactitud las prácticas 
+proyectuales en el antiguo Egipto, los testimonios 
+jeroglíficos describen ciertas rutinas en las cante­
+ras y no pocos procesos de construcción. Se puede 
+suponer la existencia de métodos escritos para la 
+descripción de tales procedimientos, a través de 
+testimonios como los aportados por el Papiro de 
+Ahmes en el cual, si bien se describen operaciones 
+aritméticas y geométricas, se puede presumir que 
+“Para el artista, dibujar es descubrir.”
+John Berger
+Introducción - Notas Breves en Torno al Desarrollo Histórico de la Representación en Arquitectura
+Teatro Delfos, Alvar Aalto, 1963
+
+===== PAGE 12 (595x842) =====
+Esquema y Perspectiva, Donato Bramante 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+12
+enorme capacidad de abstracción espacial, conjun­
+ción que se devela en los métodos de proporción 
+aplicados a la concepción de las formas edificadas, 
+los cuales se extenderán por los pueblos helénicos 
+y perdurarán muchos siglos a través del legado ro­
+mano.
+La arquitectura griega, aunque rica en la diversidad 
+y calidad de edificaciones construidas, encuentra 
+su mayor expresión en el Templo, obra icónica que 
+condensa los valores helénicos a través de un len­
+guaje propio que condensa y exalta una visión del 
+mundo señalada por profundos valores éticos y 
+religiosos, condiciones que  brindan los alicientes 
+colectivos para una notable depuración y ritualiza­
+ción del espacio. 
+El paradigma de estas indagaciones se materializa 
+en la Acrópolis y en el Partenón de Atenas, atri­
+buido a Fidias (490- 431 A.E.C), el más elocuente 
+de los escultores y arquitectos griegos, quien bajo 
+el mecenazgo ateniense de Pericles (495- 429 
+A.E.C), situó al hombre en el lugar central de la re­
+presentación unitaria de las artes, la arquitectura y 
+el conjunto ceremonial. 
+Este nuevo tipo de arquitecto se personifica en 
+Hipodamo de Mileto (Siglo V A.E.C), artífice pla­
+nificador y a la vez teórico social, quien formula 
+nuevos modelos de ciudad representados en pla­
+nos reticulados concebidos con un agudo rigor 
+geométrico y enormes bondades operativas, hasta 
+el punto de constituirse en un esquema formal ar­
+quetípico que luego sería adoptado en Roma para 
+el desarrollo de la plantilla del campamento militar, 
+instituyéndose desde entonces como un referen­
+cia que se expandirá sucesivamente como morfo­
+logía recurrente en ulteriores tramas urbanísticas.
+El Tratado como Canon
+A través Marco Vitrubio, arquitecto romano del 
+Siglo I E.C, y sus Diez Libros de Arquitectura, nos 
+aproximamos a una obra definitiva por su sensibili­
+dad, rigor y capacidad integradora, la cual enaltece 
+el valor de la literatura, la geometría y  el dibujo 
+como modalidades de representación inherentes a 
+la labor del arquitecto, evidencia de lo cual  es lo 
+expresado por él en el Libro 1 de sus Libros, cuan­
+do afirma: 
+“Conviene que el arquitecto sea literato, para 
+poder con sus escritos asegurar sus estudios 
+en la memoria. Dibujante, para trazar con 
+elegancia las obras que se le ofrecieren. La 
+geometría auxilia mucho a la arquitectura, 
+principalmente por el uso de la regla y el 
+compás, con lo cual más fácilmente se 
+describen las plantas de los edificios en 
+los planos, se forman escuadras, se tiran 
+nivelaciones y otras líneas.”1
+
+===== PAGE 13 (595x842) =====
+13
+Para Vitrubio, debe constituir un empeño noble 
+del arquitecto, el proyectar edificios, ciudades y 
+maquinarias, de manera sabia y en equilibrio con 
+la naturaleza, propósitos que demandan las herra­
+mientas propias del oficio para llegar a “una apta 
+colocación y elegante efecto de composición”:
+“Las Especies de disposición, que en griego 
+se llaman ideas, Icnografía, Ortografía y 
+Escenografía. La Iconografía es un dibujo en 
+pequeño, formato con la regla y el compás, del 
+cual se toman las dimensiones para demarcar 
+el terreno del área del vestigio o planta del 
+edificio. Ortografía es una representación 
+en pequeño de la frente del edificio futuro 
+y de su figura por elevación y con todas sus 
+dimensiones. Y la Escenografía es el dibujo en 
+sombreado de la frente y los lados del edificio, 
+que se alejan y concurriendo todas la líneas en 
+un punto. ”2 
+La descripción de tales Ideas, contenidas sin am­
+bigüedad en el texto de Vitrubio, constituye el 
+primer testimonio del despliegue en el dibujo de 
+proyecciones geométricas aplicadas a la planifica­
+ción, el diseño y la construcción de obras arquitec­
+tónicas.
+En legado regulador de Roma, testimoniado y 
+compendiado por Vitrubio, se aplica por igual a la 
+proyectación y representación de campos de bata­
+lla como de asentamientos urbanos, constituyén­
+dose en referente normativo que contribuye a la 
+expansión de las colonias y de las obras civiles du­
+rante el gobierno de la dinastía Antonina en el siglo 
+II E.C., período durante el cual el desarrollo arqui­
+tectónico encuentra cierto grado de estandariza­
+ción, producto del aprendizaje adquirido a través 
+del contacto con las comunidades del oriente del 
+Imperio, Egipto o Grecia y como deriva del fuerte 
+sistema estatal de regulación pública.
+El Reposo de las Abadías
+ 
+Con la caída del Imperio Romano y el dominio que 
+la Iglesia ejerce durante la dispersa e introvertida 
+Edad Media europea, los empeños edificatorios se 
+concentran en lentas y pausadas infraestructuras 
+militares y religiosas, para cuya edificación y pre­
+servación se despliegan métodos de construcción, 
+tipologías y patrones formales que se preservan 
+casi invariables durante muchos siglos.
+Los modelos edificatorios y los soportes físicos 
+que se preservan en el medioevo, son una herencia 
+viva pero inalterable que late en la quietud de con­
+ventos y abadías, en cuyas bibliotecas y archivos 
+se guardan y reproducen las invariantes represen­
+tativas de la tradición greco-romana, a la manera 
+de cánones regulatorios asumidos para entonces 
+como valores universales que promulgan las for­
+mas, patrones y técnicas del arte de la edificación. 
+Luz y Ligereza
+La levedad y audacia de los grandes edificios góti­
+cos que se erigieron desde el norte europeo hasta 
+la península Itálica, representan una evolución que 
+anuncia la fractura de la inercia medieval, en cuan­
+to desarrollo tecnológico, sistema constructivo y 
+lenguaje formal. El templo gótico concentra el es­
+fuerzo colectivo de comunidades que construyen 
+bajo la dirección de clérigos-arquitectos o maes­
+tros constructores durante los últimos siglos de la 
+tardía edad media.
+Se trata de edificios construidos durante largos 
+periodos de tiempo y en desarrollos progresivos, 
+amparados justamente en la persistencia de la re­
+presentación gráfica y en ocasiones en modelos a 
+escala, claves documentales que aseguran la con­
+tinuidad y proveen la coherencia. 
+Las ilustraciones esquemáticas, los dibujos y los 
+prolijos detalles de plantas y elevaciones, ejem­
+plifican los avances tecnológicos derivados de las 
+exigentes demandas geométricas y espaciales tan 
+propias de la precisión estructural del cuerpo gó­
+tico. Las virtuosas documentaciones de la época, 
+traducen su complejidad, adelgazamiento e inma­
+terialidad, propósitos que reclamaron instrumen­
+tos de representación muy sofisticados que deri­
+“Cuando algo se dibuja, el cerebro y la mano trabajan juntos.”
+Tadao Ando
+Introducción - Notas Breves en Torno al Desarrollo Histórico de la Representación en Arquitectura
+
+===== PAGE 14 (595x842) =====
+Baños de la Villa Adriana, Andrea Palladio, 1570s 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+14
+Intercambio y Humanismo
+Frente a los tiempos lentos del medioevo europeo, 
+otras pulsaciones laten en Bizancio, Medio Orien­
+te y el Magreb, ya que son los califatos las entida­
+des que  propician una fértil expansión educativa y 
+cultural de vastos territorios del Oriente y el norte 
+de África. Durante la llamada Edad de Oro del Islam, 
+los procesos científicos y filosóficos propiciaron 
+un fértil desarrollo arquitectónico amparado en el 
+refinado trabajo de arquitectos letrados, quienes 
+asimilan el conocimiento adquirido gracias a la in­
+vestigación y al contacto con las diferentes y com­
+plejas culturas involucradas en las rutas comercia­
+les de Oriente. 
+Es a través de la retoma progresiva de los inter­
+cambios mercantiles con los pueblos árabes, como 
+las repúblicas y principados italianos inician la frac­
+tura del aislacionismo europeo al prolongar el vir­
+tuosismo del recién caído imperio Bizantino, fenó­
+meno que propicia prodigiosos desarrollos en las 
+artes y la ciencia a través de visiones humanistas 
+que concilian estos “nuevos” conocimientos con la 
+tradición clásica griega y romana. 
+En el naciente Renacimiento, los métodos de re­
+presentación arquitectónica, amparados ahora en 
+una instrumentación técnica y geométrica muy so­
+fisticada, no se limitarán a la ilustración aislada de 
+palacios, iglesias o edificios públicos: su obra máxi­
+ma en cuanto a representación, se ampara inequí­
+vocamente en el Tratado.
+Los Tratados renacentistas, como género epistolar 
+regulatorio, establecen en la Europa posmedieval 
+una profunda correspondencia entre la teoría, las 
+ilustraciones y la factura constructiva, en aras de 
+consolidar cánones que se expandan colectiva­
+mente como un consenso compartido en torno a 
+la vigencia de la tradición clásica. En estos bellísi­
+mos documentos, alternados por igual de ilustra­
+ciones en planta, elevaciones, leyendas, detalles 
+constructivos o vistas tridimensionales, asombran 
+no sólo las ejecuciones gráficas sino las reiteradas 
+correspondencias entre las disciplinas del hacer, 
+del rehacer como atemporalidad y del canon for­
+varon desde el siglo XI, en la transición del boceto 
+aislado a la producción sistemática de planos, ma­
+quetas y detalles, lo cual significa el advenimien­
+to del dibujo técnico como tal, ya que se trataba 
+de producir dispositivos que a lo largo de mucho 
+tiempo, pudiesen asegurar la integralidad arqui­
+tectónica de la edificación.
+Muy destacable dentro de la tradición gótica, es 
+la constatación de novedosas modalidades de 
+representación que a escalas diversas, acuden a 
+recursos expresivos tales como la isométrica y la 
+axonometría, experiencias que se comparten con 
+la pintura de la época y significaron una aproxima­
+ción preliminar a la perspectiva cónica que se de­
+sarrollará ulteriormente en el Renacimiento.
+
+===== PAGE 15 (595x842) =====
+Sant’Ivo della Sapienza,Grabado y Planta, Francesco Borromini - Roma, 1643
+15
+mal como imagen icónica que encuentra una nue­
+va dimensión expresiva a través de la unión entre 
+la palabra escrita, el concepto abstracto y la figura 
+retórica. 
+El Tratado en el Renacimiento significa la exalta­
+ción de la representación como dispositivo de co­
+municación y canon ideal de belleza. La búsqueda 
+de la serenidad y el equilibrio, principios incuestio­
+nables que se nutren estructuralmente de la tradi­
+ción clásica,  proceden de la unidad armónica deri­
+vada de la mirada humanista e integradora entre la 
+vida cotidiana y la plena convicción de la vigencia 
+inmaterial del arte clásico.
+Sean representaciones a tinta o en grafito, los bo­
+cetos renacentistas coexisten con la severidad del 
+Tratado y condensan, como ningún otro documen­
+to, la densa cultura artística de sus artífices y la 
+exaltada libertad expresiva de la época.
+ 
+Anticipaciones
+Filippo Brunelleschi (1377-1446 E.C), deviene 
+como el claro paradigma del arquitecto renacen­
+tista cuando dibuja, despieza y emprende la cons­
+trucción de la catedral de Santa María del Fiore en 
+Florencia, a la cual dedicará años de investigación 
+y construcción que culminan con el desarrollo pro­
+digioso de su cúpula. El modo operativo de Bru­
+nelleschi resulta enriquecido en la medida que 
+combina el proceso gráfico-analítico de la obra, 
+al amparo de medios de representación basados 
+en instrucciones escritas y dibujadas en su célebre 
+Memorandum, conjunto de descripciones del pro­
+ceso edificatorio que se complementan con la he­
+chura de Modellos, maquetas de madera o piedra a 
+escala que ilustraban certeramente aquellos pro­
+cesos y soluciones que las planimetrías conocidas 
+hasta entonces no permitían desarrollar.
+El valor de estos nuevos sistemas de representa­
+ción, enriquecidos en muchos casos por la singular 
+formación pictórica de sus artífices, se nutre a tra­
+vés del perfeccionamiento de la visión en Perspec­
+tiva, insumo renacentista que expande los recur­
+“Nada de tomar la geometría como algo que tiene sus leyes...
+preferimos pensar en el movimiento de las cosas, del sol, del aire que atraviesa.”
+Enric Miralles
+Introducción - Notas Breves en Torno al Desarrollo Histórico de la Representación en Arquitectura
+
+===== PAGE 16 (595x842) =====
+Carceri, Placa III, Giovanni Battista Piranesi, 1760s
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+16
+sos expresivos disponibles y ajusta con precisión 
+la ilustración del edificio a la realidad de la visión 
+humana. 
+La obra de Leon Battista Alberti (1404-1472 E.C), 
+nítidamente influenciada por la herencia tratadista 
+romana, retoma el legado de Vitruvio y desarrolla 
+documentaciones muy novedosas en relación a los 
+métodos y herramientas aplicables a la proyección 
+y materialización de obras arquitectónicas. 
+Es así como en su obra De Pictura, Alberti retoma 
+los desarrollos de la perspectiva científica estable­
+cidos por Brunelleschi, e incorpora aquellos prin­
+cipios geométricos útiles para el desarrollo gráfico 
+del edificio, convirtiendo tal experiencia en el pri­
+mer tratado moderno de representación que com­
+plementa más tarde en su célebre obra De re ædifi­
+catoria, con la cual concentra y describe principios 
+que serán definitivos para el devenir inmediato de 
+la arquitectura occidental. 
+A Alberti le suceden otros autores como Giorgio 
+Vasari con “Las vidas de los más excelentes arquitec­
+tos, pintores y escultores italianos” (1550 E.C), Ja­
+copo Vignola con “Tratado de los cinco órdenes de 
+arquitectura” (1562 E.C) y Andrea Palladio, quien 
+con su espléndida obra "Los cuatro libros de la ar­
+quitectura" (1570 E.C), constituyen invaluables do­
+cumentaciones normativas ilustradas con dibujos, 
+detalles de construcción y formas de representa­
+ción de proyectos, las cuales se publican y divul­
+gan con relativa facilidad gracias al desarrollo de la 
+imprenta en la segunda mitad del siglo XV.
+Es tal el impacto cultural que adquieren estas obras 
+referenciales de representación, que artistas-hu­
+manistas como Masaccio, Donatello, Piero de la 
+Francesca, Bramante y Leonardo da Vinci, entre 
+otros, asimilan en su obra los términos y métodos 
+de dibujo y modelado desarrollados hasta enton­
+ces, instituyéndose como una influencia plástica 
+que se prolonga en Europa hasta los siglos XV y 
+XVI, instituyéndose como un referente sustantivo 
+para el desarrollo de los modelos modernos de re­
+presentación.
+Primeras Modernidades
+El advenimiento del período Barroco, del Clasi­
+cismo Francés y del Rococó, comportan la preva­
+lencia intensa del dibujo y la representación como 
+componentes sustanciales de su propósitos comu­
+nicativos.
+Es tal la intensificación de estos recursos, que es 
+posible construir visualmente las condiciones de 
+ilusión y teatralidad tan propias a los desarrollos 
+estilísticos que acontecen a partir del siglo XVII, 
+en los cuales la intencionalidad por la deformación, 
+parte justamente de extremar los recursos de la 
+representación gráfica.
+
+===== PAGE 17 (595x842) =====
+17
+tores o estudiantes, se ampara en una noción de 
+racionalidad que define un carácter de la época, 
+crean una atmósfera de objetividad no exenta de 
+sueños o fantasías y de no pocas visiones drama­
+tizadas en términos de licencias expresivas, usual­
+mente acentuadas a través de dramáticas perspec­
+tivas.
+La autonomía y valoración de la arquitectura dibu­
+jada, adquieren en el siglo XVIII y XIX la singular 
+atención de ciertos arquitectos quienes impreg­
+nados del espíritu de la época, recurren a la po­
+tencia del dibujo en cuanto traductor de visiones 
+y reflexiones impregnadas de cargas utópicas y vi­
+sionarias alinderadas estrictamente en el territorio 
+gráfico, no en el edificio construido, donde reposa 
+toda la potencia crítica e ideológica: sólo así pue­
+den asimilarse los bellos y evanescentes dibujos de 
+Bouleé, Ledoux o Lequeu. 
+Modernidad Plural
+No obstante el valor referencial que mantienen en 
+occidente los Tratados y la tradición clásica, con 
+reapariciones intermitentes en el mundo académi­
+co y profesional como acontece con el movimiento 
+Romántico de finales del siglo XIX e incluso, has­
+ta bien entrado el siglo XX, los nuevos patrones 
+figurativos y artísticos se imponen como produc­
+tos de una época señalada por la industrialización, 
+los cambios demográficos, los nuevos materiales y 
+tecnologías, entre otros, transformando la vida co­
+tidiana de las masas, sus patrones de gusto y con 
+ellos, el advenimiento de modelos de representa­
+ción adecuados a una sociedad en plena evolución 
+a la modernidad.
+Quizás por la proximidad temporal, podemos con 
+mayor certeza reconocer las distintas ramificacio­
+nes del pensamiento moderno y con ellas, las mo­
+dalidades que a lo largo de su desarrollo adquiere 
+la representación, cuyo contradictorio sentido de 
+unicidad y pluralidad se exacerba como nunca an­
+tes.
+Desde la rigurosidad de un Mansart, a la exube­
+rancia de Bernini o más aún, de Borromini, los di­
+bujos pero sobre todo los bosquejos de la época se 
+asumen como métodos de análisis y observación, 
+pero también de inspiración o ensoñación. Tan­
+to, que además de dispositivos encaminados a la 
+materialización constructiva del proyecto, las re­
+presentaciones devienen en seductoras ilusiones, 
+realidades ficticias o excesos ornamentales, siem­
+pre al amparo de adicionar a la experiencia de la 
+arquitectura una densa intensificación sensorial.
+La exuberancia visual de la época contrasta con 
+una meticulosidad técnica nutrida por el avance 
+que en el siglo XVII adquieren la navegación y la 
+ingeniería militar, experiencias que aportan instru­
+mentos de medición cada vez más precisos al di­
+bujo técnico, tales como escalas, compases, reglas 
+paralelas o escuadras y especialmente, es enrique­
+cida por los aportes de Gaspard Monge (1746-
+1818 E.C), quien desarrolla los principios de la 
+geometría descriptiva, herramienta definitiva que 
+regula técnicamente la normas de representación, 
+ya en la antesala de la época maquinista.
+Revisiones
+La sensibilidad por lo genuino y lo clásico que 
+pendularmente reinstala lo griego, lo romano y la 
+tradición renacentista en la arquitectura europea, 
+retorna al dibujo el papel de esclarecedor de la rea­
+lidad constructiva y dimensional de la edificación, 
+en el entendido de resolver con certeza sus com­
+ponentes y clarificar verídicamente sus ensambles.
+Las representaciones de planta o secciones, des­
+critas con una meticulosidad gráfica conmovedora, 
+comparten el aura común del rigor y la precisión, 
+imperativos éticos que se traducen en la necesi­
+dad de formular normativas que consoliden los 
+primeros desarrollos de las convenciones gráficas, 
+antesala de lo que hoy reconocemos como los es­
+tándares modernos de representación.
+La construcción de un lenguaje disciplinar único, 
+compartido por igual entre arquitectos, construc­
+“Es preciso conocer al máximo los problemas de nuestro tiempo, pero también las necesidades esenciales 
+del hombre, pues el hombre es nuestra principal unidad de medida.” 
+José Antonio Coderch
+Introducción - Notas Breves en Torno al Desarrollo Histórico de la Representación en Arquitectura
+
+===== PAGE 18 (595x842) =====
+Esquemas para una Iglesia en Berlin, 
+Karl Friedrich Schinkel, 1828
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+18
+Sin perder su condición artística y emocional, visi­
+ble en la persistencia del sketch desde las primeras 
+modernidades, el espíritu moderno de la represen­
+tación es marcado por la eficiencia y la integrali­
+dad, esto es, una documentación rigurosa que re­
+sume estética, materialidad y constructividad.
+El acelerado despliegue del pensamiento moder­
+no, expande por igual los protocolos y convencio­
+nes gráficas, al punto de globalizar como nunca 
+antes pautas de representación que trascienden 
+culturas, historias y geografías diversas.
+Una mirada más atenta, sin embargo, permite re­
+conocer al mismo tiempo los acentos y modalida­
+des distintas que adquiere la representación y que 
+traducen con singular elocuencia, las múltiples lec­
+turas interpretativas de lo moderno.
+Ello es claro, cuando nos aproximamos a los dibu­
+jos de Wright, de Aalto, Saarinen o Salmona, cu­
+yas líneas traducen la emocionada valoración de 
+la naturaleza y la geografía que envuelven el edi­
+ficio, a punto de mitificarla y enaltecerla a través 
+de encuadres expandidos que traducen un sentido 
+de valoración gráfica, al cual no le obsesiona cosa 
+distinta que relativizar del proyecto su condición 
+objetual.
+La contraparte de un Expresionismo que se ampa­
+ra como movimiento en una vehemente liberación 
+personal y apasionada de las fuerzas artísticas, no 
+puede sino corresponder aquellos dibujos tensos, 
+fantásticos o utópicos que tensan la expresión 
+plástica del proyecto y exceden premeditadamen­
+te su realidad posible, tal como puede verificarse 
+en los dibujos de Taut, Scharoum, Mendelsohn o 
+Utzon.
+La estética de la razón, al igual que el historicismo, 
+se reinstala intermitente en cada periodo de la his­
+toria, tal como acontece en arquitectos modernos 
+tan distantes en el tiempo como Garnier y Meier. 
+Su paradigma gráfico, la racionalidad y la claridad 
+expresiva: nada sobra pero tampoco, son lícitas las 
+ausencias.
+Representaciones austeras en blanco y negro, for­
+mas angulosas y ascéticas, son recurridas por igual 
+por creadores como Perret o Behrens, Gropius o 
+Mies, o por movimientos como el Futurismo, el 
+Neoplasticismo o la Bauhaus.
+El propósito compartido, el imperativo ético, casi 
+confesional, de reducir la representación a lo esen­
+cial del proyecto, un mutismo que confía todas las 
+fuerzas al proyecto mismo, no sin rodearlo en mu­
+chas ocasiones de una críptica atmósfera espiri­
+tual.
+La axonometría recobra valor, en la medida en 
+que se reconoce su objetividad y neutralidad, in­
+dependiente de elucubraciones representativas: el 
+volumen, la superficie y la escala métrica se ajus­
+tan a la meticulosa realidad del edificio, invariantes 
+comunes en arquitectos como Le Corbusier y más
+
+===== PAGE 19 (595x842) =====
+19
+representación gráfica de los proyectos. En la dé­
+cada de los ochentas se inicia en nuestro medio, de 
+manera incipiente, la aparición de los programas 
+Cad y a partir de la década de los noventas se pre­
+senta la gran transición a estos nuevos modelos de 
+trabajo mediante el uso de herramientas digitales. 
+Es en este momento donde grandes empresas del 
+sector de la construcción deciden migrar a este sis­
+tema de trabajo y con esto se genera que entida­
+des educativas también piensen en que es impor­
+tante realizar capacitación en este sentido. 
+El siglo XXI entra en nuestro medio con una gran 
+revolución en la representación y administración 
+de los proyectos y es así como en la década actual 
+ya se vislumbra una manera diferente de conce­
+bir los proyectos y emerge la modalidad de trabajo 
+mediante el modelado, administración, planeación 
+de la edificación mediante modelos integrados que 
+unifiquen conceptos de diseño y construcción has­
+ta ahora dispersos.
+Si bien la época digital que vivimos ha diluido el va­
+lor de la mano como prolongación de una cultura 
+artesanal que se remonta muchos siglos atrás, su 
+papel en la cultura arquitectónica parece resistir 
+y permanecer, no obstante tengamos que recono­
+cer la eficiencia, precisión y velocidad que para el 
+proyecto representa el establecer normas y están­
+dares para su adecuado conocimiento y manipula­
+ción, razón de ser y propósito final de la presente 
+actualización del Módulo del CPNAA.
+contemporáneamente, en muchos otros como Eis­
+enmann o Koolhaas.
+Sin la distancia necesaria pero compartiendo mu­
+chas recurrencias expresivas, quienes en la moder­
+nidad han confiado, quizás en exceso, en el poder 
+liberador y estético de la técnica, han aportado 
+episodios notables de representación gráfica que 
+han oscilado desde un virtuosismo pragmático, Fu­
+ller y Foster por ejemplo, a interesantes capítulos 
+de prospección futurista como los alentados por 
+el Metabolismo Japonés y Archigram, con dibujos 
+meticulosos y estimulantes que entremezclan mo­
+vimiento, utopía y virtuosismo tecnológico.
+A costa de replegar cualquier afectación artística 
+convencional, la exactitud de las representaciones 
+resultan abrumadoras y casi desafiantes, en su em­
+peño por exaltar lo funcional, la nueva tecnología 
+y el valor de lo constructivo, un talante por igual 
+compartido por arquitectos como Himmenblau y 
+Foster, Piano o Rogers. 
+Sin ánimo de ser en extremo prolijo, vale la pena 
+señalar por último aquellas vertientes modernas 
+que reafirman la autonomía de la arquitectura, en 
+el claro entendido que a través del dibujo se re­
+flexiona históricamente y se ilustran agudas for­
+mulaciones teóricas -Ungers,Krier,Abraham-, se 
+restituye la valoración en torno a la forma arqui­
+tectónica-Libeskind, Botta, Gregotti-,o se afirma 
+categóricamente la autonomía disciplinar-Grassi, 
+Khan, Rossi-.
+La cultura de la representación gráfica en la Moder­
+nidad, puede ser leída entonces como manifiestos 
+ideológicos: reflexiones y pasiones entremezcla­
+dos, las cuales comparten el común convencimien­
+to de que el dibujo constituye una forma trascen­
+dente de conocimiento de la arquitectura, que a 
+través de la representación se divaga, se especula, 
+se sueña o se polemiza, pero que en todo caso, su 
+ejercicio prolonga el loable hábito renacentista de 
+pensar dibujando.
+El acelerado cambio tecnológico e industrial no es 
+ajeno al ejercicio de la arquitectura y menos a la 
+“Prefiero dibujar a hablar. Dibujar es mas rapido y deja 
+menos espacio para la mentira”
+Le Corbusier
+Introducción - Notas Breves en Torno al Desarrollo Histórico de la Representación en Arquitectura
+Bahrain Fort, Antoine Predock, 2009
+
+===== PAGE 20 (595x842) =====
+Estudio de Estación de Energia, Antonio Sant’Elia, 1913
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+20
+A PROPÓSITO DE LA ACTUALIZACIÓN DE LA GUÍA Y ESTÁNDARES DE DESARROLLO
+GRÁFICO 
+1.2 A PROPÓSITO DE LA ACTUALIZACIÓN DE LA GUÍA Y 
+ESTÁNDARES DE DESARROLLO GRÁFICO
+--
+La rápida evolución y diversificación de las he­
+rramientas digitales demandan la necesidad de asi­
+milar tales transformaciones, a través en nuestro 
+caso de procederes que permitan a profesiones 
+u oficios relacionados, asimilar y compartir unos 
+productos disciplinares cada vez más complejos y 
+especializados.
+--
+Los antecedentes de documentos semejantes 
+a este, se remontan al siglo XIX con el emprendi­
+miento de estandarizar procesos y productos, una 
+necesidad que se materializa en los años de la Pri­
+mera Guerra Mundial con la creación del Comité 
+Alemán de Normalización, DIN, El primero de los 
+Actualización de la Guía
+--
+Una Guía actualizada implica calificar el ejerci­
+cio profesional en cuanto constituye un referente 
+de consulta que compromete información actuali­
+zada, rigor documental y eficiencia comunicativa. 
+La continua actualización del conocimiento y de 
+las herramientas que gravitan en torno al desarro­
+llo gráfico del proyecto arquitectónico, modifican 
+las prácticas disciplinares en cuanto decantación 
+de procesos colectivos que derivan en consensos 
+o acuerdos, sentido último de la noción de están­
+dar.
+
+===== PAGE 21 (595x842) =====
+21
+Cubrimiento de la Guía: Extensión a 
+Servicios Profesionales Afines al Diseño 
+Arquitectónico
+--
+Una comunicación gráfica más directa, integral 
+e instrumental entre los arquitectos y entre ellos 
+y las actividades profesionales afines o comple­
+mentarias a la arquitectura, es uno de los aspectos 
+más importantes a desarrollar en la actualización 
+del Módulo 02 de CPNAA. Unas pautas gráficas 
+y documentales precisas y compartidas entre los 
+agentes que usualmente intervienen o se derivan 
+del proyecto, son indispensables como referentes 
+comunes que optimizan los productos profesiona­
+les, permiten establecer canales de comunicación 
+explícitos entre sujetos profesionales diversos y 
+expanden los receptores de la información gráfica, 
+aún entre agentes carentes de formación especia­
+lizada.
+--
+La presente Guía cubrirá aquellos frentes es­
+pecializados del ejercicio profesional que en Co­
+lombia tienen mayor proximidad al ejercicio del 
+diseño arquitectónico, tales como: el diseño ur­
+bano, paisajismo, restauración, entre otros. En el 
+entendido de que estas disciplinas comparten una 
+base expresiva común, matizada con ciertos acen­
+tos gráficos particulares, de los cuales señalaremos 
+tan solo aquellos a nuestro juicio más relevantes, 
+reservando una mayor cubrimiento de los mismos 
+a textos técnicos con mayor grado de especializa­
+ción.
+muchos institutos nacionales que se aglomerarán 
+posteriormente en la regulatoria ISO, a partir de 
+1947. 
+--
+Es sustantivo comentar que la estructura origi­
+nal del Módulo 02 del CPNAA, se desarrolla en el 
+año 2005 en un claro momento de transición entre 
+los patrones de representación análogos y los di­
+gitales. Hoy en día, estas últimas herramientas han 
+adquirido una cobertura y sofisticación cada vez 
+mayor, en cuanto representan instrumentos que 
+agudizan la precisión, posibilitan interactuaciones 
+de la información e incrementan la productividad 
+al interior del desarrollo proyectual. 
+Accesibilidad de la Guía: La Comunicación 
+Gráfica y Los Lenguajes Paralelos
+--
+A pesar de la ineludible necesidad de estanda­
+rizar los productos profesionales en aras de una 
+mayor eficiencia y más fluida comunicación, es 
+preciso ponderar la importancia de entender la 
+técnica de la representación en arquitectura como 
+una dimensión inseparable del mismo desarrollo 
+del proyecto como tal. Esto significa que en las di­
+versas modalidades de representación, subyacen 
+dimensiones que comprometen la naturaleza del 
+proceso creativo y como tales, son formas pecu­
+liares que en diversas instancias, contribuyen a su 
+modelación y hacen factible su conocimiento, lejos 
+de constituirse en un simple producto visual o en 
+una herramienta puramente expositiva. 
+--
+Un reconocimiento semejante, ha propiciado 
+que en la presente Guía se propicie un discurso 
+paralelo a la simple enunciación del estándar gráfi­
+co, como un insumo que provee la apelación cons­
+tante a la inefable potencia del dibujo artístico y la 
+pertenencia de las distintas formas de representa­
+ción a un devenir histórico ineludible, dimensiones 
+ambas que han alterado de manera significativa el 
+contenido reflexivo y la misma diagramación del 
+documento. 
+“Nada más fácil que imitar la estética clásica, ni más 
+difícil que acatarla”
+Nicolás Gómez Dávila
+Introducción - A Propósito de la Actualización de la Guía y Estándares de Desarrollo Gráfico
+Laboratorios Ingenieria Universidad Leicester, 
+James Striling, 1959
+
+===== PAGE 22 (595x842) =====
+Estudio de Capitel, Vicenzo Scamozzi, 1806
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+22
+
+===== PAGE 23 (595x842) =====
+23
+Operatividad de la Guía: La Calificación 
+Académica y Profesional
+--
+Una actualización que cumpla la doble condi­
+ción de recoger el espíritu del tiempo, en términos 
+de incorporar los avances globales más represen­
+tativos en cuanto a estándares gráficos y a la vez 
+acopiar, con afecto y sensibilidad, aquellas prácti­
+cas locales que siempre y por fortuna atemperan 
+la presunta hegemonía universal de la técnica, ha 
+sido una aspiración que de ser exitosa, deben cali­
+ficar y entretejer las usuales fracturas entre el ejer­
+cicio profesional y el mundo académico.
+--
+Con la polaridad en la presente Guía entre el 
+lenguaje gráfico y el textual, con la premeditada 
+tensión constante entre lo analógico y lo digital, 
+entre lo histórico y la contemporaneidad, espera­
+mos proveer al lector de una visión más integral y 
+humanística de los temas que se pueden suscitar 
+en torno a la representación en arquitectura.
+--
+La Guía también pretende inducir correspon­
+dencias más armónicas entre la documentación 
+gráfica que se trasiega en las oficinas y las instan­
+cias mismas donde ella se materializa, esto es, la 
+obra constructiva del proyecto. La convencional 
+segregación entre los Planos Generales y la docu­
+mentación de Detalles Constructivos, por ejemplo, 
+puede ser relativizada si aceptamos que en la rea­
+lidad cotidiana de la obra, ambas escalas requieren 
+una simultaneidad operativa que puede afectar 
+notablemente las modalidades de diagramación y 
+coexistencias de escalas de representación, even­
+tualidad que provee una mayor versatilidad de la 
+documentación gráfica.
+“Si no puedo dibujarlo, es que no lo entiendo.” 
+Albert Einstein
+Introducción - A Propósito de la Actualización de la Guía y Estándares de Desarrollo Gráfico
+Landmark Tower - U2 studio, Lorcan O ’ Herlihy
+
+===== PAGE 24 (595x842) =====
+ESQUEMA AXONOMÉTRICO Y PROYECCIÓN DE FACHADAS
+ORGANIZACIÓN PRELIMINAR
+En virtud del incremento en la cantidad de datos que suelen generarse alrededor de un proyecto, 
+es fundamental estructurar un Protocolo de almacenamiento y manejo de archivos. Si bien ello 
+se menciona tangencialmente en el capítulo Precisiones sobre herramientas digitales, aquí se con­
+signan las condiciones específicas que deben tenerse en cuenta al iniciar un proyecto y cuáles 
+son las alternativas disponibles para mantener un archivo de trabajo debidamente organizado. 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+24
+1.3 CÓMO LEER ESTA GUÍA
+ILUSTRACIÓN 
+TEXTO O ILUSTRACIÓN 
+PROYECTO ILUSTRADO
+
+===== PAGE 25 (595x842) =====
+25
+CÓMO LEER ESTA GUÍA
+El formato está organizado en cinco espacios, 
+cada uno con información específica asociados 
+a textos, tablas de ayuda, esquemas de ejem­
+plo, planos ilustrativos y referencias textuales 
+y gráficas. Este formato se mantiene en la to­
+talidad del documento para convertirlo en una 
+herramienta útil y de fácil lectura. 
+Introducción - Cómo Leer Esta Guía
+TEXTO - TABLA - IMAGEN
+CITA DE REFERENCIA
+IMAGEN DE REFERENCIA
+ÁREA DE REFERENCIA
+PROYECTO ILUSTRADO
+
+===== PAGE 26 (595x842) =====
+Modelo en CAD, Villa Baizeau, Le Corbusier - Túnez, 1928 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+26
+PRECISIONES SOBRE HERRAMIENTAS DIGITALES: METODOLOGÍAS CAD Y BIM
+1.4 PRECISIONES SOBRE HERRAMIENTAS DIGITALES: 
+SISTEMAS CAD Y BIM
+Metodología CAD 
+Computer-Aided Design, CAD: Diseño Asistido por 
+Computadoras, es un amplio catálogo de software 
+diseñados como herramienta gráfica muy útil y re­
+currida por arquitectos, ingenieros y diseñadores. 
+Estas metodologías se pueden dividir según sus 
+prestaciones y posibilidades de visualización en 
+dos grandes grupos: de Dibujo 2D – en dos di­
+mensiones- y de Modelado 3D, ambos basados en 
+sistemas cartesianos vectoriales de geometría eu­
+clidiana: punto, línea, plano y volumen, según sea 
+el caso.
+A través de estas metodologías el usuario tiene la 
+posibilidad de desarrollar planimetrías y dibujos 
+específicos en cualquier escala a través de un sis­
+tema de capas y propiedades que organiza la in­
+formación de manera lógica. Además, es posible 
+obtener pre-visualizaciones con cierto nivel de 
+realismo, a través de los sistemas de renderizado 
+3D.
+Metodología BIM
+Building Information Modeling, BIM: Modelado de 
+Información de Construcción o Modelado de In­
+
+===== PAGE 27 (595x842) =====
+27
+formación para la Edificación. Son programas di­
+námicos para el proceso de generación, gestión y 
+cuantificación de datos específicos para la repre­
+sentación gráfica de edificaciones en tres dimen­
+siones y tiempo real. 
+Como resultado de este proceso, se genera un 
+modelo que además de representar la arquitectura 
+del proyecto, incluye especificaciones, cantidades, 
+instalaciones y  demás propiedades de los diferen­
+tes elementos que componen la edificación, per­
+mitiendo que estos modelos, puedan ser utilizados 
+para ilustrar el proceso de cuantificación, cons­
+trucción y mantenimiento del proyecto. 
+Desarrollo de las Metodologías CAD y BIM
+ 
+Desde la aparición de las metodologías CAD a fi­
+nales de la década de los años sesentas, su uso ha 
+sido adaptado a diferentes disciplinas de diseño y 
+construcción. Basados en sistemas vectoriales, las 
+primeras aproximaciones a las metodologías CAD 
+desarrolladas en diferentes universidades comen­
+zaron a mostrarse útiles para diferentes mercados, 
+especialmente cuando se desarrollaran los prime­
+ros Trazadores (Plotters) los cuales permitieron la 
+difusión práctica de los sistemas virtuales.
+En la década de los setentas e inicio de los ochen­
+tas, las metodologías CAD son desarrolladas y afi­
+nadas por empresas privadas y universidades y así, 
+en la década de los 90’s, aparece la primera ver­
+sión de Medusa, pensado como un software de bajo 
+costo que posibilita su difusión comercial. A esta 
+primera aplicación pionera, le siguen otros pro­
+gramas como MicroStation, Architríon y AutoCad, 
+siendo este ultimo un programa que se adaptarían 
+y sería compatible con los sistemas operativos de 
+Microsoft, permitiendo así su mayor difusión. 
+Sobre la lógica de representar en áreas graficas “in­
+finitas” de sistemas vectoriales, donde la escala de 
+dibujo puede incluso corresponder a la escala real 
+del proyecto, pronto encontraron cabida como 
+aplicaciones arquitectónicas, al permitir simular 
+los sistemas análogos de representación gráfica 
+tradicionales pero aportando precisión, economía 
+y velocidad en la producción de las planimetrías.
+Desde entonces y durante treinta años, las meto­
+dologías CAD han evolucionado y difundido nota­
+blemente, hasta hacerse  indispensables en oficinas 
+de diseño y construcción y en no pocos ámbitos 
+académicos. No obstante y pese a su constante 
+actualización, se ha hecho patente la necesidad de 
+evolucionar hacia programas más integrales de re­
+presentación, especialmente en un entorno donde 
+el manejo de la información propende hacia atri­
+butos como la rapidez y la sencillez. 
+Es ante estas demandas donde aparecen las me­
+todologías BIM -Building Information Modeling-, 
+desarrollados específicamente para la industria de 
+la construcción, buscando asignar primacía al in­
+tercambio de información entre las diferentes dis­
+ciplinas que participan en el proceso de diseño y 
+representación, además de facilitar las etapas de 
+diseño arquitectónico y los procesos constructi­
+vos. 
+Las 
+Metodologías 
+BIM 
+como 
+Nueva 
+Herramienta de Representación
+El manejo de la información en las metodologias 
+CAD se halla compuesto por entidades geométri­
+cas-vectoriales, los cuales permiten la visualiza­
+ción de cualquier forma geométrica, peculiaridad 
+que ha inducido a los arquitectos a emplearlos, 
+en cuanto emulan los sistemas de representación 
+análogos del dibujo técnico tradicional.
+“Cuanto más moderno sea el equipo técnico y los
+ordenadores que usas, más importante es estar allí, 
+pisar el terreno del proyecto.”
+Norman Foster
+Introducción - Precisiones Sobre Herramientas Digitales:  Sistemas CAD y BIM
+Centro Cultural Santo Domingo,
+Daniel Bermudez, 2010
+
+===== PAGE 28 (595x842) =====
+Patrón de corte láser por computador para curvar madera,
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+28
+
+===== PAGE 29 (595x842) =====
+29
+Lo anterior, sumado a las limitaciones del entendi­
+miento geométrico del proyecto y del manejo de la 
+información y archivado propia del programa tiene 
+como consecuencia que los cambios de diseño im­
+pliquen modificaciones mayores a las planimetrías 
+y documentaciones desarrolladas, tarea que toma 
+tiempo en la modificación especifica de los archi­
+vos y es propensa a producir errores en el momen­
+to de construcción del edificio.
+Las Metodologías BIM, por otra parte, han asimi­
+lado las limitaciones propias de las metodologías 
+CAD como referencia para el avance de su sof­
+tware de diseño. Las entidades geométricas-vec­
+toriales, son remplazadas por unidades objetuales 
+que contienen en sí mismas diversa información: 
+dimensiones, acabados constructivos, aspecto 
+cromático, texturas, posibilitando obtener infor­
+mación complementaria como cantidades de obra, 
+comportamientos mecánicos de los materiales, 
+proceso de construcción e incluso pautas para el 
+mantenimiento.
+Además de proveer la información bidimensional 
+del proyecto, ella misma deriva hacia modelos de 
+visualización en tres dimensiones provistos con 
+una información muy detallada que permite al 
+usuario simular con certeza la realidad del edificio, 
+al tiempo que obtiene una documentación técni­
+ca complementaria para su construcción, análisis, 
+cuantificación y administración. 
+A través de un sistema de fácil edición de los mo­
+delos, los cambios y/o conflictos que se presenten 
+en todas las etapas de concepción y construcción 
+de una obra, son fácilmente verificables y subsa­
+nables, al permitir a los diversos agentes y equipos 
+que intervienen en el diseño y construcción la vi­
+sualización en tiempo real del edificio. 
+Conclusión
+Las Metodologías CAD y BIM son herramientas 
+digitales que pueden ser requeridos en los pro­
+cedimientos gráficos de expresión proyectual del 
+arquitecto y como tales, son métodos sujetos a  las 
+diferentes formas o hábitos de trabajo y más aún, 
+son adaptables a la modalidad peculiar en la que 
+cada arquitecto concibe la arquitectura y desarro­
+lla su proyecto.
+El presente Modulo de estándares para el desa­
+rrollo gráfico de los productos profesionales, no 
+adopta de manera pragmática una toma de partido 
+a favor de cualquiera de las metodologías mencio­
+nadas, ya que como referente normativo, es apli­
+cable a todos ellos o a opciones híbridas, las cuales 
+resultan de la mezcla a diverso grado de procedi­
+mientos análogos y digitales e incluso, mantiene su 
+vigencia frente a prácticas análogas radicales tales 
+como el dibujo enteramente manual.
+Los estándares buscan que dentro de la libertad de 
+uso que brindan los sistemas análogos y/o digita­
+les, se establezcan referentes profesionales comu­
+nes que favorezcan las buenas prácticas, fomen­
+ten el rigor disciplinar y agilicen la comunicación 
+entre los profesionales y las disciplinas asociadas y 
+afines a la arquitectura.
+“El ordenador ha abierto nuevas posibilidades de observar el espacio, un enorme poder de cálculo y un 
+conocimiento más íntimo y profundo de la complejidad. Pero no sustituye la intuición inicial.” 
+Cecil Balmond
+Introducción - Precisiones Sobre Herramientas Digitales:  Sistemas CAD y BIM
+
+===== PAGE 30 (595x842) =====
+PAISES REFERENTES - ISO -
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+30
+LOS ESTÁNDARES GRÁFICOS INTERNACIONALES
+1.5 LOS ESTÁNDARES GRÁFICOS INTERNACIONALES
+Actualmente la ISO funciona como una red de 
+institutos nacionales que opera en 162 países, re­
+gidos por una Secretaría General con base en Gi­
+nebra, Suiza. Los documentos desarrollados por 
+ISO, no son obligantes en ninguno de los países 
+miembros, ya que al no constituirse en entidad 
+gubernamental, no posee la capacidad de impo­
+ner taxativamente sus estándares normativos. Las 
+“Normas ISO” publicadas por la organización, fun­
+cionan como documentos base de referencia para 
+aquellas regulaciones desarrolladas por cada enti­
+dad nacional, según sea el caso. En Colombia, el 
+Instituto Colombiano de Normas Técnicas y Cer­
+tificación – ICONTEC – es un organismo miembro 
+de ISO y es la entidad rectora de la estandarización 
+en Colombia.
+En relación a la normativa aplicable al dibujo ar­
+quitectónico y afines, la ISO ha publicado la Nor­
+ma ISO 13567, Organization and Naming of Layers 
+Norma 
+Internacional 
+ISO, 
+International 
+Organization for Standardization
+La Organización Mundial para la Estandarización, 
+International Organization for Standardization, ISO, 
+(del griego ἴσος, “isos”, cuyo significado es: Igual), 
+es el organismo internacional promotor de norma­
+tivas para el desarrollo de estándares estratégicos 
+destinados a incrementar la eficiencia en la fabri­
+cación, el comercio y la comunicación de múltiples 
+productos, sistemas, bienes y servicios.
+La estandarización promovida por ISO, busca de­
+sarrollar especificaciones comunes que garanticen 
+eficiencia, calidad y seguridad, con miras a facili­
+tar la producción e intercambio de bienes a escala 
+globalizada. Desde 1947 la organización ha publi­
+cado más de 190.000 normas de estandarización 
+aplicables a múltiples campos del conocimiento, la 
+investigación y la industria.
+
+===== PAGE 31 (595x842) =====
+31
+for CAD ( ) la cual, en sus tres componentes, es­
+tablece los parámetros aplicables a la producción 
+de dibujos e imágenes en metodologías CAD. Esta 
+norma ha sido adaptada en varias oportunidades 
+por otras entidades para regular los estándares de 
+la producción de proyectos de arquitectura, como 
+por ejemplo la CAD Layer Guidelines del American 
+Institute of Architects – AIA – 
+Norma Nacional, Instituto Colombiano de 
+Normas Técnicas y Certificación 
+– ICONTEC –
+El Instituto Colombiano de Normas Técnicas y 
+Certificación – ICONTEC – es la entidad represen­
+tante de la Organización Mundial de Normaliza­
+ción – ISO – en Colombia desde 1963, y encargada 
+a nivel nacional de la creación, adopción y adapta­
+ción de normas y estándares para la certificación 
+de empresas, productos y actividades profesiona­
+les. 
+En cuanto a las normativas específicas para la re­
+gulación de los estándares de representación y 
+organización de archivos digitales destinados a 
+proyectos arquitectónicos y actividades afines, el 
+ICONTEC actualmente no cuenta con una nor­
+mativa propia ni una versión adaptada de la docu­
+mentación ISO, ya que como entidad, ha asimilado 
+literalmente la Norma ISO 13567 como modelo 
+base de referencia aplicable en Colombia.
+“Los conceptos solo pueden comunicarse eficazmente 
+si, durante el desarrollo del trabajo, se hace el esfuerzo 
+de erradicar las imperfecciones.”
+Toyo Ito
+Introducción - Los Estándares Gráficos Internacionales
+El Modulor, Le Corbusier, 1948
+
+===== PAGE 32 (595x842) =====
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+32
+Norma Estadounidense, American Institute 
+of Architects –AIA–
+En 1990 el American Institute of Architects – AIA 
+– hizo pública la primera edición de CAD Layer 
+Guidelines, texto normativo aplicable a la Unión 
+Americana, el cual ha sido actualizado en repetidas 
+ocasiones desde entonces. Como referencia para 
+el desarrollo de este documento, la AIA asimila la 
+Norma ISO 13567 - Organization and Naming of 
+Layers for CAD, como el modelo que organiza el 
+sistema de capas, las escalas y pautas gráficas de 
+representación general en las metodologías CAD 
+y la modifica en función de facilitar su uso y ex­
+pandir su empleo como estándar compartido para 
+diversas disciplinas.  
+La norma ISO 13567, propone un sistema de or­
+ganización de capas a través de códigos numéricos 
+poco intuitivos, los cuales deben ser aplicados de 
+manera uniforme por los usuarios. Para mejorar 
+este aspecto, AIA propone un sistema alfa numé­
+rico más flexible y versátil en su utilidad y desem­
+peño.
+El sistema AIA ha sido adaptado y/o apropiado 
+por varias entidades independientes a nivel inter­
+nacional, ya que representa un riguroso y juicioso 
+trabajo de adaptación a las circunstancias que ro­
+dean el entorno disciplinar de representación del 
+arquitecto y de sus profesiones afines. 
+Normas Adoptadas Para la Actualización 
+de la Presente Guía y Estándares para 
+el 
+Desarrollo 
+Gráfico 
+del 
+Proyecto 
+Arquitectónico y Afines
+La evolución y genealogía de los estándares y nor­
+mas mencionadas, describen a grandes rasgos el 
+devenir de los sistemas gráficos consolidados in­
+ternacionalmente y de mayor aceptación y uso. 
+Si la anterior edición en el año 2005 de la presente 
+Guía, reconoció oportunamente el aporte hecho 
+por la AIA al adaptar la norma ISO y ella a la vez 
+asimilarla al medio colombiano, la presente actuali­
+zación reitera y prolonga tal cometido, en el senti­
+do de reconocer su plena pertinencia como patrón 
+normativo de representación que ha sido adopta­
+do de manera expandida en medios profesionales, 
+institucionales y académicos. 
+Es importante reiterar que la aplicación del sistema 
+AIA de organización y jerarquización de capas, es 
+un desarrollo atribuible a la autoría del American 
+Institute of Architects AIA, el cual es retomado en 
+la presente Guía como un estándar internacional 
+de representación que tal como corresponde, se 
+le brinda todos los derechos y reconocimientos de 
+autoría en la presente publicación.
+
+===== PAGE 33 (595x842) =====
+Boceto Monumento Tercera Internacional, Moscú, 1919, Vladimir E. Tatlin
+33
+(Endnotes)
+1 VITRUVIO, Marco, “Los Diez libros de Arquitectura, 2006, Linkgua 
+S.L, Barcelona, España”, Libro 1, Capítulo 1
+2 VITRUVIO, Marco, “Los Diez libros de Arquitectura, 2006, Linkgua 
+S.L, Barcelona, España”, Libro 1, Capítulo 2
+“De un trazo nace la arquitectura.”
+Oscar Niemeyer
+Introducción - Los Estándares Gráficos Internacionales - Notas  al Píe
+Galería Nacional Washington D.C., I.M. Pei, 1978
+
+===== PAGE 34 (595x842) =====
+Esquema del desarrollo del proyecto en CAD y BIM.
+Ejemplo de estructura de carpetas en CAD.
+Pabellón Alemán. Mies Van Der Rohe - Barcelona, España,1929
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+34
+2. DESARROLLO DE LOS ESTÁNDARES GRÁFICOS -
+2.1 ORGANIZACIÓN PRELIMINAR
+Inicio Comparativo Entre CAD Y BIM
+Teniendo en cuenta que arquitectos, dise­
+ñadores, organizaciones u oficinas trabajan 
+con diferentes plataformas digitales, ya sean 
+CAD y/o BIM, se formulan algunas aclaracio­
+nes en torno a diferentes temas formulados 
+en la presente Guía.
+
+===== PAGE 35 (595x842) =====
+INDICADORES DE DISCIPLINA NIVEL 1
+COL
+DESCRIPCIÓN
+ G 
+General
+ X 
+Materiales peligrosos
+ O 
+Levantamientos, Cartografía
+ B 
+Geotecnia
+ W 
+Obras civiles
+ C 
+Civil
+ P 
+Paisaje
+ E 
+Estructura
+ A 
+Arquitectura
+ U 
+Urbanismo
+ I 
+Interiores
+ Q 
+Equipos
+ F 
+Protección contra fuego
+ H 
+Hidrosanitarios
+ D 
+Proceso
+ M 
+Mecánicos
+ L 
+Eléctricos
+ T 
+Telecomunicaciones
+ R 
+Recursos
+ Y 
+Otras disciplinas
+ Z 
+Contratistas Planos de taller
+DESIGNACIÓN DE TIPOS DE 
+ARCHIVOS MODELO
+COL
+DESCRIPCIÓN
+ PG 
+Plantas generales de terreno
+ PP 
+Plantas
+ PD 
+Plantas de demolición
+ PQ 
+Planta de equipos
+ PX 
+Planta existente
+ AL 
+Alzado
+ SC 
+Corte
+ DT 
+Detalle
+ CU 
+Cuadros
+ 3D 
+Isométrica - 3d
+ DG 
+Diagramas
+35
+ORGANIZACIÓN PRELIMINAR
+En virtud del incremento en la cantidad de datos que suelen generarse 
+alrededor de un proyecto, es fundamental estructurar un Protocolo de 
+almacenamiento y manejo de archivos. Si bien ello se menciona tangen­
+cialmente en el capítulo Precisiones sobre herramientas digitales, aquí se 
+consignan las condiciones específicas que deben tenerse en cuenta al 
+iniciar un proyecto y cuáles son las alternativas disponibles para mante­
+ner un archivo de trabajo debidamente organizado. 
+EJEMPLO DE DOCUMENTACION EN BIM (AUTODESK REVIT)
+“Un arquitecto nunca empieza de cero. El mito de la hoja en blanco es una mentira, yo siempre tengo ante 
+mí cuando voy a comenzar un proyecto una hoja en negro, la cual voy limpiando -en ella hay arquitectu­
+ras, lugares, tipos, experiencias-, la voy limpiando y va apareciendo el proyecto.”
+Rogelio Salmona
+Desarrollo de los Estándares Gráficos - Organización  Preliminar
+Archivos BIM
+En las metodologías BIM, a diferencia de las CAD, sólo se produce 
+un archivo por proyecto, el cual se va actualizando con la fecha, a 
+medida en la que progresa el desarrollo del proyecto. Como este tipo 
+de archivos tienen referenciados otros, se recomienda que el archivo 
+que se esté utilizando no tenga fecha, mientras que los archivos que 
+se van dejando de respaldo si la tengan. Este procedimiento permite 
+contar con un registro organizado a fin de no perder las referencias 
+en los archivos.  
+Nombre de archivos
+Los Archivos de los proyectos deben nombrarse en clara alusión al tipo 
+de documento que contiene, a fin de facilitar su búsqueda posterior. 
+Su definición debe referenciar el contenido principal y/o secundario 
+del mismo, tal como Planos Generales, Modelo de la edificación o del 
+terreno, Detalles, Cuadros, Memorias o similares.
+--
+Un Archivo Modelo, es una representación digital de un objeto, edifi­
+cio, un sector o un terreno. Su tamaño y dimensiones coinciden con 
+las que tales contenidos gráficos poseen en el “mundo real”.
+
+===== PAGE 36 (595x842) =====
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+36
+2.2 CONFIGURACIÓN DEL SISTEMA DE CAPAS
+
+===== PAGE 37 (595x842) =====
+37
+“... como mis dibujos, 
+que hacen una narración del espacio.”
+Rogelio Salmona
+Desarrollo de los Estándares Gráficos - Configuración del Sistema de Capas
+CONFIGURACIÓN DEL SISTEMA DE CAPAS
+En virtud de la complejidad y cantidad de infor­
+mación gráfica que pueden contener los archivos 
+que se usan en los sistemas digitales de CAD, fue 
+necesario adoptar un sistema que pudiera mante­
+ner organizada la información y a la vez cotejar los 
+distintos dibujos. Esto es lo que logra estandarizar 
+el Sistema de Capas: organizar una información, 
+compartida en términos comunes, con todas las 
+personas relacionadas o involucradas con el pro­
+yecto.
+En las metodologías BIM el sistema de capas 
+se encuentra pre configurado,  aunque se re­
+comienda estar atento a la capa en la cual se 
+está modelando, a fin de facilitar su trabajo o 
+consulta posterior.
+Indicador de Disciplina
+Este primer campo señala la Disciplina Principal a 
+la que pertenece la Capa.
+Grupo Principal
+Este campo identifica el elemento constructivo o 
+componente grafico al que alude la Capa.
+Grupo Secundario
+Este campo es opcional y señala diversas opciones 
+posibles de caracterización del Grupo Principal.
+Esta organización sucesiva de identificación de 
+campos, constituye una manera recomendable de 
+ordenar la información dentro de la hoja de traba­
+jo. Cualquier combinación razonable entre los gru­
+pos principales y secundarios es posible, siempre 
+que facilite una identificación rápida y sostenida 
+de los archivos.
+Proyecto Banco de Bogotá, 
+Gabriel Largacha,1981
+
+===== PAGE 38 (595x842) =====
+ESQUEMA AXONOMÉTRICO Y PROYECCIÓN DE FACHADAS
+Casa Farnsworth, Mies van der Rohe -  Illinois, EUA, 1951
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+38
+2.3 LOS SISTEMAS GRÁFICOS DE REPRESENTACIÓN
+LOS SISTEMAS GRÁFICOS DE REPRESENTACIÓN
+Los sistemas de representación y delineamiento en arquitectura y disciplinas afines, devienen de un juicioso 
+estudio de la geometría cartesiana. La forma, imagen,  proporciones y medidas del objeto representado, de­
+ben ser plasmados en suficientes ilustraciones que precisen y especifiquen sus características en el espacio 
+dimensional: largo, ancho y profundidad.
+Las vistas de las diferentes caras del objeto o edificio, se representan proyectando cada uno de los vértices 
+del volumen hacia un plano vertical imaginario perpendicular a cada uno de dichos vértices. Tal procedi­
+miento permite la representación en PROYECCIONES A ESCALA del proyecto, esto es, en plantas,  facha­
+das o alzados, cortes, secciones, detalles y similares.
+
+===== PAGE 39 (595x842) =====
+Casa Farnsworth, Mies van der Rohe - Illinois, EUA, 1951
+PERSPECTIVA
+CORTE - SECCIÓN
+PLANTA ARQUITECTÓNICA GENERAL 
+39
+“Dios es longitud, anchura, altura y profundidad.”
+Bernardo de Claravall
+Desarrollo de los Estándares Gráficos - Los Sistemas Gráficos de Representación
+Las Plantas, describen la información morfológica 
+y dimensional del objeto o proyecto, a través de 
+su proyección sobre el plano horizontal. Las Plan­
+tas deben ser entendidas como secciones o cortes 
+horizontales en verdadera magnitud del objeto o 
+proyecto representado, que dan cuenta de sus ca­
+racterísticas internas y por lo tanto, es importante 
+establecer una distancia vertical de corte respecto 
+al plano de piso asumido.
+Los Cortes son secciones verticales del objeto o 
+proyecto, que exponen sus características y dimen­
+siones internas en verdadera magnitud. La relación 
+espacial o de medida entre el componente vertical 
+y el horizontal, se proyecta externamente al dibujo 
+a través de cotas que ilustran su correspondiente 
+información dimensional. 
+Las Fachadas o Alzados, describen gráficamente los 
+costados del proyecto u objeto representado, a tra­
+vés de sucesivas proyecciones axiales sobre planos 
+verticales que ilustran en verdadera magnitud sus 
+dimensiones e imagen exterior. 
+Los Detalles Constructivos relacionan a través de 
+plantas, cortes, perspectivas, fachadas o similares, 
+representaciones detalladas a escalas mayores que 
+especifican, individualizan  e ilustran elementos o 
+componentes de importancia del proyecto u objeto.
+Además de las Proyecciones a Escala, es usual y po­
+sible en el desarrollo de la documentación gráfica, la 
+incorporación de representaciones Fuera de Escala, 
+tales como diagramas, perspectivas o representa­
+ciones 3D, las cuales complementan información 
+relevante en torno al proyecto u objeto. 
+Residencias Ofair, Oscar Niemeyer, 1943
+
+===== PAGE 40 (595x842) =====
+ORIENTACIÓN DEL DIBUJO - RETÍCULA DE EJES - FLECHA NORTE - AMPLIACIONES
+Casa Weiss, Louis Kahn - Pensilvania, EUA, 1950 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+40
+2.4 CONVENCIONES DE DIBUJO: ORIENTACIÓN
+
+===== PAGE 41 (595x842) =====
+41
+Desarrollo de los Estándares Gráficos - Convenciones de Dibujo - Orientación
+“Uno siempre debe dibujar. Dibujar con los ojos cuando 
+no pueda dibujar con el lápiz.” 
+Balthus
+CONVENCIONES DEL DIBUJO
+Los Estándares de Dibujo aportan guías uniformes 
+y estables, útiles para producir adecuadas docu­
+mentaciones gráficas que provean una lectura téc­
+nica suficiente que evite carencias o duplicidad en 
+la información. 
+Los estándares gráficos aluden a la necesaria do­
+cumentación de información básica como la locali­
+zación de la retícula de ejes de referencia, la escala 
+de la representación, los tipos de línea utilizados 
+para ilustrar diferentes elementos en los dibujos 
+y la forma apropiada de representación gráfica de 
+elementos o materiales, además del uso de ano­
+taciones. Propone adicionalmente, un conjunto de 
+símbolos compartidos internacionalmente para re­
+lacionar gráficamente elementos o componentes 
+del edificio u objeto ilustrado.
+Es importante tener en cuenta que los dibujos son 
+representaciones abstractas y que como tales, de­
+ben constituir documentos gráficos con la menor 
+cantidad de líneas posibles, las suficientes para 
+asegurar una documentación integral y plenamen­
+te coherente, evitando al máximo reiteraciones, 
+carencias, incoherencias o información no reque­
+rida. 
+Orientación del Dibujo y Flecha Norte
+--
+El Símbolo del sentido del Norte – Flecha Norte 
+–, debe mostrarse en todas las plantas de la docu­
+mentación a sus diversas escalas y permanecer de 
+manera consistente en el conjunto de planos, ya 
+sea como parte de la diagramación o del rótulo de 
+la plancha. 
+--
+La orientación de los dibujos dependerá de las 
+características propias de cada proyecto, pero se 
+recomienda mantener la dirección de este dentro 
+del primer cuadrante del plano cartesiano.
+--
+En las Plantas Generales, el piso principal de un 
+edificio fija la orientación gráfica de todas las de­
+más plantas superiores o inferiores.
+--
+Las Plantas pueden orientarse de diversas ma­
+neras en una plancha, con el fin de cumplir requi­
+sitos de diagramación o intenciones proyectuales. 
+Es recomendable que la totalidad de una planta se 
+ilustre en su integridad en una sola plancha. De 
+no ser ello posible, la planta puede subdividirse 
+en secciones más pequeñas, las cuales deben ser 
+referenciadas en esquemas diagramáticos de plan­
+tas (Planta Clave), indicando líneas de empates que 
+remitan a las planchas de escala ampliada corres­
+pondientes.
+--
+La orientación más común es aquella donde la 
+Flecha Norte señala la parte alta del bloque o plan­
+cha de dibujo, de manera que la orientación de la 
+retícula de ejes, el sentido de la edificación y la Fle­
+cha Norte son paralelos a la orientación de la plan­
+cha. Este criterio coincide con la elaboración usual 
+de mapas o documentaciones geográficas, donde 
+el Norte se ubica en la parte superior del formato 
+gráfico desplegado.
+--
+En proyectos de intervención que relacionan 
+escalas gráficas de orden urbano o similar, es re­
+comendable que las plantas de localización y/o 
+urbanismo, se dispongan con el Norte hacia el cos­
+tado superior del plano paralelo al formato de la 
+plancha.
+--
+Se recomienda que la retícula de ejes adopta­
+dos en la planimetría, sea paralela al formato de 
+plancha y se relacione su orientación respecto a la 
+Flecha Norte.
+--
+En representaciones a escalas arquitectónicas 
+o similares, es recomendable orientar la planta del 
+Plan maestro Chandigarh, Le Corbusier,1951
+
+===== PAGE 42 (595x842) =====
+ORIENTACIÓN DEL SISTEMA DE COORDENADAS - LOCALIZACIÓN 
+ORIENTACIÓN DEL SISTEMA DE COORDENADAS - PROYECTO 
+MIT Baker House Dormitory, Alvar Aalto - EUA, 1948 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+42
+
+===== PAGE 43 (595x842) =====
+43
+Desarrollo de los Estándares Gráficos - Convenciones de Dibujo - Orientación 
+“Dibujar es planear, organizar, ordenar, relacionar y 
+controlar.” 
+Joseph Albers
+Terreno o de Localización,  en la misma orientación 
+grafica que la dispuesta para las demás plantas de 
+piso, siempre que ello sea posible.
+--
+Es de gran importancia preservar la consisten­
+cia en la presentación de la información en el con­
+texto del conjunto planimétrico. Una ampliación 
+de planta o un detalle, deben mantener la misma 
+orientación y dirección gráfica en la plancha que 
+tienen en la planta de piso referenciada.
+Sistema de Retícula de Ejes
+Se emplea para referenciar la dimensión, frecuencia 
+y orientación de los elementos estructurales de un 
+edificio u objeto en los planos. 
+--
+Los ejes se usan como base de referencia para 
+proceder con el acotado general de todos los ele­
+mentos del edificio u objeto representado.
+--
+Los ejes verticales de la retícula deben ser nom­
+brados con índices numéricos de izquierda a dere­
+cha y dispuestos al lado superior del dibujo.
+--
+Los ejes horizontales de la retícula deben ser 
+indicados alfabéticamente de abajo hacia arriba y 
+dispuestos al lado derecho del dibujo.
+--
+Cuando se presenten elementos estructurales 
+de orden parcial y en posición diferente o inter­
+media entre dos ejes principales, debe disponerse 
+una sub numeración para referenciarlos. Por ejem­
+plo: Un muro menor o columna ubicada entre los 
+ejes 4 y 5, se indicaría como 4.1 o 41 o en el caso 
+de los ejes C y D, sería denominada como C.1 o C1.
+Sistema de Coordenadas
+--
+El Sistema de Coordenadas se utiliza para pre­
+cisar la localización o ubicación de los ejes del pro­
+yecto a mojones topográficos geo-referenciados.
+--
+El amarre a coordenadas se aplica a partir del 
+dimensionamiento sobre líneas bases para replan­
+tear o localizar diversos componentes de una edi­
+ficación y su ubicación en referencia a puntos fijos 
+horizontales y/o verticales. Dependiendo de cada 
+proyecto y de sus singularidades, es posible refe­
+renciar puntos topográficos especiales o aquellos 
+que se originen en el trazado específico del pro­
+yecto. 
+--
+Para plantas con elementos radiales o geome­
+trías no ortogonales, las dimensiones deben ser 
+determinadas en relación a los ángulos y/o distan­
+cias radiales. 
+Niveles
+--
+Para efectos de documentar el dimensiona­
+miento vertical, los niveles topográficos son los 
+que originan el sistema de referencia de niveles de 
+la edificación, siempre en concordancia a las carac­
+terísticas de cada diseño en particular. 
+--
+Es recomendable establecer un Sistema de Ni­
+veles propio del cada proyecto en particular, sim­
+plificando al máximo la indicación de los mismos y 
+siempre relacionados al nivel 0.00 o nivel base más 
+bajo o nivel vertical de partida del proyecto.
+Área de Dibujo y Disposición de Plancha
+--
+El dibujo puede ser subdividido en áreas sepa­
+radas, a fin de evitar el traslapo de diferentes tipos 
+de información. 
+Salk Institute,  Louis Kahn, 1961
+
+===== PAGE 44 (595x842) =====
+IMPLANTACION ESCALA   1:500
+Casa de Cristal. Lina Bo Bardi - Sao Paulo, Brasil, 1951
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+44
+2.5 CONVENCIONES DE DIBUJO: LA NOCIÓN DE ESCALA
+--
+El Área de Dibujo es la porción de la plancha 
+que contiene dibujos, anotaciones, cuadros u otra 
+información gráfica o textual desplegada para ilus­
+trar el proyecto. La información de mayor relevan­
+cia debe primar visualmente en el diseño de la dia­
+gramación gráfica de la plancha.
+La Noción de Escala
+--
+La Escala es la relación matemática y propor­
+cional que existe entre las dimensiones reales y 
+las utilizadas para el desarrollo gráfico del dibujo, 
+mapa o plano.
+--
+La selección de la Escala adecuada, es determi­
+nada por una legibilidad del dibujo acorde con la 
+información que el documento gráfico provea.
+--
+Tanto en los sistemas CAD como en los BIM, 
+los dibujos se crean a Escala real, en el lienzo del 
+respectivo programa. 
+--
+La Escala debe expresarse en forma numérica y 
+puede complementarse con su equivalente gráfi­
+co, en términos de Escala Gráfica.
+--
+Pese a que los dibujos tanto en CAD como en 
+BIM se ejecutan a escala real, elementos com­
+plementarios como cotas, textos, bloques y som­
+breados, entre otros, se pueden ajustar automá­
+En cualquier caso es fundamental atender a 
+la escala de dibujo, ya que de ello depende 
+el tamaño en que el programa representa los 
+símbolos, textos, números y similares. Inclu­
+sive la densidad de los achurados, cambia de 
+conformidad a la escala utilizada. Se reco­
+mienda utilizar bloques dinámicos preconfi­
+gurados que permitan ajustarse a cualquier 
+escala sin tener que redibujarlos.
+
+===== PAGE 45 (595x842) =====
+ESCALAS MÉTRICAS ARQUITECTÓNICAS
+ESCALA
+DESCRIPCIÓN
+1:5000
+Planos del lote a escala urbana o territorial
+1:2000
+Planos del lote para su localización urbana
+1:1000
+Planos de lote con el proyecto
+1:500
+Planos generales del proyecto
+1:250-200
+Planos de plantas, alzados exteriores y cortes
+1:100
+Planos de plantas, alzados exteriores y cortes
+1:50
+Plantas de piso, alzados y cortes
+1:20
+Plantas ampliadas de piso, secciones de muro, 
+cimientos, cortes de fachada generales, otros
+1:10
+Secciones de muros, cimientos, intersecciones de 
+muros y muros con techo, conexiones, otros
+1:5
+Detalles de mamposteria, puertas y ventanas, 
+gabinetes. Intersecciones, conexiones (Cortes de 
+fachada detallados)
+1:2
+Detalle de puertas y ventanas, gabinetes y otros
+ESCALAS
+ESCALA
+1:5000
+1:2000
+1:1000
+1:500
+1:250-200
+1:100
+1:50
+1:20
+1:10
+1:5
+1:2
+DETALLE ESCALA	
+1:20
+PLANTA 1 ESCALA	
+1:100
+RELACION ENTRE ESCALA GRÁFICA Y NUMÉRICA
+Casa de Cristal. Lina Bo Bardi - Sao Paulo, Brasil, 1951
+45
+Desarrollo de los Estándares Gráficos - Convenciones de Dibujo - Noción de Escala
+ticamente según la escala y detalle de los dibujos 
+desplegados. Se recomienda, en todo caso, la uti­
+lización de los objetos, símbolos y escalas anota­
+tivas.
+Escala Gráfica
+--
+Las Escalas Gráficas son una herramienta útil 
+complementaria para ilustrar la escala de una re­
+presentación, ya que establece un comparativo 
+visual y matemático que puede ajustarse según el 
+tamaño del dibujo.
+“El dibujo es la liberación del arquitecto.”
+Alvaro Siza Vieira
+Pabellón de Portugal, Alvaro Siza Vieira, 2000
+
+===== PAGE 46 (595x842) =====
+UTILIZACIÓN DE LINEAS EN UNA PLANTA ARQUITECTÓNICA
+Casa Gilardi. Luis Barragán - Tacubaya, Mexico, 1976
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+46
+2.6 CONVENCIONES DE DIBUJO: TIPOS DE LÍNEAS
+
+===== PAGE 47 (595x842) =====
+VARIACIONES DE GRISES PARA PROFUNDIDAD EN ALZADOS
+Casa Gilardi. Luis Barragán - Tacubaya, Mexico, 1976
+47
+Desarrollo de los Estándares Gráficos - Convenciones de Dibujo - Tipo de Líneas
+“El diálogo con la arquitectura sólo llega después de un rato de silencio, de contemplación, de recorrido, 
+de estar dentro y fuera de ella... quien va consignando sus trazos en un papel, le ofrece generosa sus se­
+cretos...”
+Germán Samper
+Las Líneas
+--
+Ha sido usual usual que se apliquen diferentes 
+espesores de Línea para dar claridad y legibilidad 
+a los dibujos, bajo la premisa que los objetos más 
+cercanos o cortados, deben tener una línea más 
+gruesa. Aunque esta práctica aplica en numerosos 
+casos, actualmente se recomienda no cambiar el 
+espesor de las líneas, ya que puede restar preci­
+sión  al dibujo y a efectos de diferenciar los com­
+ponentes gráficos, es posible recurrir a gamas de 
+grises o variaciones de opacidad.
+Tipos de líneas
+Flechas de indicación: Son Líneas continuas termi­
+nadas en punta que relacionan notas, dimensiones 
+o símbolos en una parte del dibujo. Estas no deben 
+cruzarse entre sí y de ser posible, tampoco con las 
+líneas de cotas.
+Línea de corte: Se utilizan para indicar el corte en­
+tre dos componentes del elemento representado 
+o entre los niveles de un edificio u objeto. Es útil 
+para definir el empalme entre diferentes elemen­
+tos  como placas, con muros o cubiertas. En caso 
+de recurrirse, no debe olvidarse incorporar el es­
+quema para identificar la posición del corte en un 
+plano general.
+Línea de ejes: Esta es una línea delgada interrum­
+pida por un espacio con un punto. Se utiliza para 
+indicar centros de columnas, vigas, muros, apertu­
+ras o similares.
+Línea de dimensiones o cotas: Se compone de dos 
+líneas perpendiculares al elemento a medir, entre 
+cuyos límites se dispone otra línea con el número 
+que indica la dimensión a especificar. La intersec­
+ción entre estas líneas está marcada por un círculo 
+o una línea oblicua.
+Línea de límite de construcción: Define la superfi­
+cie o área de intervención del proyecto.
+Línea de empate: Señala la división entre dos o más 
+áreas de una edificación, la cual debe desplegarse 
+en planchas separadas por limitaciones derivadas 
+del tamaño del papel. Se debe complementar con 
+un dibujo diagramático que identifica la línea de 
+empate, a efectos de establecer la relación entre 
+fragmentos e incluso, acudir a dibujos de referen­
+cia a escala menor que describan el correspon­
+diente empate.
+Línea de proyección: Con esta línea se represen­
+tan todos aquellos elementos del dibujo que no se 
+incluyen en una determinada vista, pero que son 
+importantes como referencias. Por ejemplo, el din­
+tel de las puertas en una planta arquitectónica o la 
+proyección de un eventual alero de cubierta sobre 
+el piso.  La Línea de Proyección se representa con 
+una línea delgada intermitente.
+En un programa BIM, no se representan mu­
+ros y demás elementos arquitectónicos con 
+líneas: se representan con elementos virtua­
+les que tienen las mismas cualidades que el 
+elemento real, lo cual permite que el progra­
+ma interprete cuál es la representación del 
+elemento según la vista requerida.
+
+===== PAGE 48 (595x842) =====
+JERARQUÍA DE LAS DIMENSIONES 
+Villa Savoya, Le Corbusier - Paris, Francia, 1929
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+48
+2.7 CONVENCIONES DE DIBUJO: DIMENSIONES
+
+===== PAGE 49 (595x842) =====
+49
+Desarrollo de los Estándares Gráficos - Convenciones de Dibujo - Dimensiones
+Dimensiones
+El dimensionamiento se define como la incorpo­
+ración de valores numéricos a un plano, como ins­
+trumento gráfico de medida de los componentes 
+de los objetos representados y de la localización 
+de sus partes. Las dimensiones deben ser precisas 
+y adecuadas al fin para el cual se elabora el docu­
+mento gráfico, con un nivel de precisión que de­
+pende del nivel de detalle, la escala del dibujo y el 
+sistema tecnológico o constructivo utilizado, entre 
+otros.
+--
+Cada elemento debe relacionarse al sistema de 
+ejes del proyecto, en el caso de representaciones 
+de plantas y sus ampliaciones. Para los Cortes y 
+Fachadas, han de asociarse a la nivelación general 
+del edificio.  
+--
+Es recomendable localizar el mayor número de 
+cotas posible por fuera de la ilustración gráfica en 
+planta, fachada o corte. Debe minimizarse en lo 
+posible el cruce y traslapo gráfico con otros ele­
+mentos de la representación. 
+--
+Las líneas de cota deben ser ubicadas en hileras 
+paralelas y continuas a los elementos dimensiona­
+dos. El espacio entre hileras debe ser el suficiente 
+para que la numeración nunca se traslape con la 
+línea de cota siguiente. 
+--
+El tamaño del numeral debe relacionarse con el 
+tamaño del texto fijo en el dibujo. En lo posible, 
+el numeral debe localizarse en el punto medio y 
+sobre la línea de dimensión.
+Jerarquía de las Dimensiones
+La disposición de las cotas debe ir de lo general a lo 
+específico, desde afuera hacia adentro del dibujo. 
+Dimensionadas las distancias totales, las cotas 
+deben referenciar la retícula de ejes estructurales 
+o la altura de piso a piso en el caso de cortes y 
+elevaciones, para continuar con información 
+más específica de los elementos y componentes 
+contractivos del proyecto, siempre en referencia a 
+la escala del dibujo.
+--
+La forma de dimensionar depende de la natu­
+raleza del proyecto y de las características de su 
+sistema estructural. 
+--
+Los pórticos y marcos de acero, por ejemplo, se 
+dimensionan comúnmente entre ejes de columnas. 
+Esto resulta útil, si el tamaño de la columna se re­
+duce en los pisos superiores. Debe incluirse siem­
+pre la dimensión entre caras o bordes del edificio u 
+objeto y el eje más cercano. 
+--
+Para edificios de varios pisos en estructura de 
+concreto, las columnas perimetrales pueden di­
+mensionarse a la cara de la columna más que a 
+sus ejes, ya que es probable que la profundidad se 
+reduzca en pisos los superiores, mientras el para­
+mento de fachada permanece constante.
+Para trabajos de Restauración, Remodelación o 
+Renovación, la línea de dimensión debe usarse 
+solamente para determinar la localización de la 
+obra nueva. Por tal razón no ha de ser conti­
+nua, sino que debe vincular la localización de 
+la obra nueva como muros o vanos de puertas 
+con la referencia fija más próxima (eje de muro 
+o de columna existente, por ejemplo). Cuando 
+no se pueda determinar una dimensión en si­
+tio, debe añadirse bajo la línea de dimensión el 
+rótulo VEC (Verificar En Campo).
+“Quien observa termina por ver.”
+Glenn Murcutt
+Plaza San Pedro, 
+Fernando Chueca Goitía, 1967
+
+===== PAGE 50 (595x842) =====
+DIMENSIONES INTERIORES 
+Villa Savoya, Le Corbusier - Paris, Francia, 1929
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+50
+--
+Para dimensionar muros y divisiones, estructu­
+rales y no estructurales, además de  dimensionar 
+los elementos en su espesor real, es posible acotar 
+entre ejes de muros, lo cual brinda flexibilidad en 
+cuanto al espesor de los componentes que en la 
+obra final se dispongan. 
+  
+Dimensiones Verticales 
+--
+Los dibujos en planta deben contar, para efectos 
+del Replanteo, con su correspondiente referencia 
+con respecto a dos o al menos un mojón para des­
+de el mismo, asociar o amarrar las demás dimen­
+siones horizontales o verticales de la edificación. 
+Estos mojones deben indicarse con coordenadas 
+universales y niveles relativos a la altura promedio 
+del mar. Estas dimensiones deben estar consigna­
+das tanto en plantas como en alzados y cortes. Es 
+conveniente referenciar también a mojones, ele­
+mentos naturales o niveles viales de rasantes de 
+calzadas y/o sardineles, según su disponibilidad. 
+Dimensionado de Cortes y Alzados 
+--
+Las elevaciones deben dimensionarse cuida­
+dosa y consistentemente, dentro de la retícula de 
+ejes de columnas y área cubierta por el encuadre 
+del plano.
+--
+Debe indicarse una línea de extensión para 
+cada nivel de piso, en algunos casos sólo el nivel 
+estructural y en otros el nivel de piso fino o acaba­
+do, completándose con una línea de cota continua 
+que conecte las líneas de extensión, ilustrando de­
+bidamente la altura libre entre pisos o niveles. 
+--
+Dependiendo de la complejidad, tamaño del 
+proyecto y/o la escala del dibujo, en los cortes ge­
+nerales sólo se debe ilustrarse gráficamente las di­
+mensiones verticales más representativas. Las de­
+más dimensiones verticales, deben mostrarse en 
+los cortes de fachada y/o en detalles especiales. 
+Dimensionado de Cortes Fachada y Detalles 
+en Corte
+--
+Las líneas de cota para estos dibujos, al igual 
+que en los planos generales, se localizan habitual­
+mente por fuera del objeto o superficie detallada.
+--
+Para cortes generales y cortes de fachada, exis­
+ten dos tipos de líneas de cota: la primera, localiza­
+da más cerca del edificio, define las aperturas y su
+
+===== PAGE 51 (595x842) =====
+51
+ACOTADO DETALLES Y CORTES FACHADA
+Desarrollo de los Estándares Gráficos - Convenciones de Dibujo - Dimensiones
+relación con la estructura del edificio y/o el acota­
+do de los elementos específicos componentes del 
+proyecto. Las líneas más exteriores se remiten a 
+las alturas entre pisos y en los cortes generales, a 
+las alturas totales del edificio.
+--
+Para detalles en corte o cortes de fachada, 
+debe incluirse todo el dimensionamiento detallado 
+en cotas que no se incorporaron en los dibujos de 
+planos generales o escalas mayores de represen­
+tación. 
+--
+Todos los dibujos deben contar, en lo posible 
+con la misma orientación.
+Precisión de las Dimensiones
+--
+La precisión en las dimensiones debe corres­
+ponder con la naturaleza del objeto a acotar, las 
+exigencias propias del sistema constructivo, el tipo 
+de dibujo a representar y la escala del mismo. Re­
+dondear las cifras en ciertos niveles de desarrollo 
+previo del proyecto es posible, pero deben usarse 
+valores exactos para los casos de proyectos defini­
+tivos y planos de detalles o similares.
+--
+Cuando la longitud de líneas de dimensiones o 
+línea de cota es demasiado corta para acomodar el 
+valor numérico, este debe mostrarse o bien al lado 
+de la línea o conectado a ella mediante una línea 
+de extensión.
+Indicaciones en Planimetría
+--
+Elementos como indicadores de materiales, in­
+dicadores de espacio, indicadores de objetos, tex­
+tos, notas, tablas, cuadros, diagramas, referencias 
+o similares, serán piezas gráficas que se incorporan 
+progresivamente de conformidad al grado de de­
+sarrollo de la documentación gráfica del proyecto. 
+-Ver capítulos Cuadros y Símbolos-
+La representación de los valores de las Cotas, 
+Niveles y Dimensiones depende de la escala del 
+dibujo arquitectónico. El tamaño de la fuente 
+utilizado en los caracteres de los valores, debe 
+ser proporcional al dibujo y a las líneas, buscan­
+do permitir siempre una correcta y clara visua­
+lización.  Las metodologías CAD  y BIM, poseen 
+las herramientas que adaptan de manera auto­
+mática las anotaciones y tamaño de elementos 
+según la escala definida en las planimetrías. 
+“Diseño es pensamiento hecho visual.”
+Saul Bass
+Almacenes Schocken, Erich Mendelsohn, 1927
+
+===== PAGE 52 (595x842) =====
+PLANOS GENERALES
+Casa Wilkie. Fernando Martínez -  Bogotá, Colombia, 1962 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+52
+2.8 TIPOS DE PLANCHA: TIPO 1 - PLANTAS GENERALES
+TIPOS DE PLANCHA
+Los Tipos de Planchas hacen referencia a la na­
+turaleza de la documentación, ya sea consistente 
+en dibujos a escala – tales como plantas, alzados, 
+cortes, ampliaciones y/o detalles -  e información 
+complementaria del proyecto fuera de escala – ta­
+les como diagramas, cuadros, referencias, repre­
+sentaciones 3D o similares-, incorporados de ma­
+nera simultánea o desagregada en la planimetría 
+del proyecto. 
+Las Planchas se agrupan en categorías identifica­
+das serialmente a través de caracteres alfanuméri­
+cos que organizan el conjunto de planchas.
+La lista de verificación, a continuación descrita, re­
+presenta una guía general sobre cómo codificar la 
+información según el contenido incluido en cada 
+uno de los distintos tipos de plancha, según la Fase 
+de desarrollo del proyecto. Estas guías no preten­
+
+===== PAGE 53 (595x842) =====
+53
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Plantas Generales
+“La arquitectura es como la música, un conjunto de 
+bellas piezas para formar una bella sinfonía.”
+Renzo Piano
+den ser absolutas, sino responder a un protocolo 
+mínimo para organizar el conjunto planimétrico de 
+cada proyecto.
+Plancha Tipo 0. Planos Generales
+Contienen información gráfica de naturaleza ge­
+neral e introductoria, que aplica a todo el proyec­
+to arquitectónico y a toda disciplina afín o técni­
+camente complementaria. Una vez dispuesta la 
+plancha de títulos y/o créditos, la primera plancha 
+aporta la  información base del proyecto tal como 
+como el índice de planos, la identificación de códi­
+gos, el listado codificado de materiales, símbolos 
+gráficos, abreviaturas, eventuales resúmenes nor­
+mativos  y de ser posible, un plano de localización 
+a escala del proyecto y/o una imagen referencial 
+del mismo. 
+Plancha Tipo 1. Plantas
+Los elementos gráficos básicos que componen las 
+plantas incluyen: 
+□
+□Escalas de Dibujo.
+□
+□Retícula de Ejes.
+□
+□Flecha de Norte.
+□
+□Plantas claves: en proyectos complejos, son 
+aquellos diagramas anexos al dibujo principal que 
+ilustran la relación entre distintos elementos de las 
+plantas, o donde el tamaño de la planta demanda 
+varios dibujos de la misma.
+Además de estos elementos gráficos básicos, cada 
+planta debe incluir aquellos elementos particulares 
+o específicos que demande su propósito y escala.
+Plantas Arquitectónicas Generales
+Son aquellas representaciones que relacionan 
+cada piso o nivel de la edificación u objeto, además 
+de las plantas de cielo rasos reflejados, en caso de 
+requerirse, las plantas de cubierta, plantas de inte­
+riores y aquellas que demande cada proyecto en 
+particular para su integral y coherente documen­
+tación gráfica.
+Plantas de Pisos o Niveles
+Las representaciones arquitectónicas suelen gene­
+rarse a partir de las Plantas. Las mismas, aportan 
+información clave en torno a la disposición y di­
+mensiones de los componentes físicos de la edi­
+ficación y su entorno, tales como tipos de divisio­
+nes, naturaleza de las superficies de piso, paredes 
+y proyecciones de cubiertas, recintos, puertas, 
+ventanas u otros, así como las debidas referencias 
+a los dibujos de alzados, cortes, plantas ampliadas, 
+detalles y similares.
+Las Plantas de Pisos o Niveles, se relacionan grá­
+ficamente a media altura de la elevación de cada 
+piso o nivel. Para los casos de proyectos de alta 
+complejidad, es recomendable indicar la altura a la 
+cual se dibuja la planta o relacionar diversas plan­
+tas según la altura del corte horizontal de la misma.
+Debe numerarse el Piso sobre el terreno como pri­
+mer piso y/o planta baja, según cada país o región. 
+Todos los Pisos o Niveles sobre o bajo el primer 
+piso, deben numerarse hacia arriba o hacia abajo 
+en forma secuencial. Los sótanos y semisótanos se 
+identifican con el sufijo “S” de manera secuencial 
+hacia abajo. 
+Lista de Verificación de Plantas de Pisos o Nive­
+les:
+□
+□Número y nombres de los recintos.
+□
+□Cotas o dimensiones en planta. Referenciar 
+Centro Cultural Rovaniemi, Alvar Aalto, 1966
+
+===== PAGE 54 (595x842) =====
+EJEMPLO DE PLANTA DE PISO - ESC 1:100 Y SUS CONVENCIONES
+Casa Wilkie. Fernando Martínez -  Bogotá, Colombia, 1962 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+54
+muros y divisiones, cambios de nivelo similares y 
+sus distancias a ejes.
+□
+□Referenciar Niveles.
+□
+□Indicar tipos de divisiones interiores.
+□
+□Referenciar elementos como puertas, ventanas, 
+muebles y equipos, entre otros.
+□
+□Referenciar Alzados.
+□
+□Referenciar Cortes.
+□
+□Referencias Cortes de Fachada.
+□
+□Referenciar detalles a otras escalas de la planta.
+
+===== PAGE 55 (595x842) =====
+55
+“El arte de ver, ese arte es esencial para un arquitec­
+to, saber cómo ver de tal manera que la visión no sea 
+sobrepasada por el análisis racional.”
+Luis Barragán
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Plantas Generales
+□
+□Acabados de materiales de cada recinto, en es­
+pecial pisos.
+□
+□Referenciar juntas de expansión, control, sismo 
+y similares.
+□
+□Líneas de drenaje y pendientes de piso.
+□
+□Aparatos en general: Sanitarios, gabinetes, ex­
+tintores y similares.
+□
+□Muebles fijos y su relación a detalles construc­
+tivos.
+□
+□Vacíos de piso: Ascensores, montacargas, duc­
+tos, vacíos y escaleras. 
+□
+□Referencias a detalles y notas de planchas.
+□
+□Indicar especificaciones de materiales y ele­
+mentos.
+□
+□Proyecciones superiores: Datos significativos 
+de alturas libres en balcones, claraboyas, vigas y 
+aleros. Indicar con línea de proyección los elemen­
+tos superiores y añadir nota descriptiva del signifi­
+cado de la línea.
+□
+□Bordes de placa, bases de equipos y sardineles. 
+No mostrar muros y puentes en el siguiente nivel 
+por debajo o ítems que aparezcan en otra planta 
+de piso o cubierta. Asegurar que el conjunto de 
+planos estructurales contiene los detalles requeri­
+dos para ilustrarlos. 
+Plantas de Cielos Rasos Reflejados
+Estas Plantas relacionan gráficamente la disposi­
+ción reflejada de los elementos de que componen 
+los cielos rasos sobre las plantas de piso.
+Lista de Verificación de las Plantas de Cielos Ra­
+sos Reflejados:
+□
+□Elementos de plomería e instalaciones, solo en 
+el caso de ser significativos para ilustrar el diseño 
+de los Cielos Rasos. 
+□
+□Referenciar Niveles.
+□
+□Cotas o dimensiones de Cielos Rasos en planta.
+□
+□Referenciar detalles para condiciones de borde 
+de los Cielos Rasos, juntas de expansión, control y 
+sismo presentes en ellos.
+□
+□Nichos, apliques, líneas o relieves de ilumina­
+ción.
+□
+□Referenciar cortes y detalles, en secciones y/o 
+elevaciones.
+□
+□Indicar materiales y aspectos de acabados ar­
+quitectónicos de Cielos Rasos y/o cubiertas.
+□
+□Dimensionar, en caso de ser necesario, otros 
+accesorios de iluminación,  instalaciones, equipos 
+especiales, bandejas, rociadores y similares.
+□
+□Indicar y dimensionar paneles o escotillas de 
+acceso en Cielos Rasos y/o cubiertas, en caso de 
+requerirse.
+□
+□Indicar divisiones para protección contra fuego 
+y otras divisiones que se extiendan a través del 
+plano de Cielos Rasos y/o cubiertas.
+□
+□Relacionar y dimensionar claraboyas y cenita­
+les.
+□
+□Indicar elementos localizados sobre Cielos Ra­
+sos o cubiertas que requieran localización especi­
+fica.
+□
+□Borrar aperturas de puertas y radios de giro, a 
+menos que están se extiendan hasta el plano de 
+Cielos Rasos o cubiertas.
+□
+□Indicar especificaciones de materiales, acaba­
+dos y otros elementos.
+Plantas de Cubiertas
+Las representaciones gráficas de Cubiertas deben 
+agruparse y dibujarse a las mismas escalas de las 
+demás plantas de pisos o niveles de la edificación, 
+ya sea plantas generales o ampliaciones de las mis­
+mas. 
+Lista de Verificación Plantas de Cubiertas:
+□
+□Relaciona la disposición de la Cubierta en su 
+contexto o localización, sin mostrar información 
+del terreno o del edificio bajo la línea de cubierta.
+Notre-Dame du Haut, Le Corbusier, 1950
+
+===== PAGE 56 (595x842) =====
+EJEMPLO DE PLANTA DE PISO AMPLIADA Y DETALLADA  
+Casa Wilkie. Fernando Martínez -  Bogotá, Colombia, 1962 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+56
+□
+□Retícula de ejes, solo en caso de ser necesaria para referenciar elementos estructurales o equipos de 
+cubierta.
+□
+□Extensión y dirección de las pendientes hacia drenajes de cubierta. Señalar bajantes, tragantes, gárgolas 
+y similares.
+
+===== PAGE 57 (595x842) =====
+57
+“Cuando dibujas, miras mucho más intensamente algo.”
+Henry Moore
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Plantas Generales
+□
+□Relacionar niveles de puntos altos, cumbreras, 
+drenajes para confirmación y determinación preci­
+sa de grados y dirección de pendientes. 
+□
+□Revestimientos y/o acabados de cubiertas, su­
+perficies de circulación, cambios de materiales, 
+juntas de expansión, control y sismo.
+□
+□Antenas, soportes, pararrayos, equipos o simi­
+lares, montados sobre cubierta.
+□
+□Indicar dimensiones de claraboyas, cenitales y 
+bordillos.
+□
+□Indicar acceso y escaleras a cubiertas.
+□
+□Referenciar detalles e ítems instalados en cu­
+bierta.
+□
+□Indicar especificaciones de materiales, acaba­
+dos y otros elementos.
+Plantas de Equipamiento Interior
+Relacionan gráficamente en planta todo tipo de 
+mobiliario fijo, dotaciones, accesorios, equipos o 
+similares que forma parte integral de la edificación. 
+Estas Plantas se dibujan sobre plantas generales o 
+detalladas de piso, carentes de símbolos, cotas u 
+otros elementos que perturben su claridad gráfica.
+Lista de Verificación plantas de Equipamiento In­
+terior:
+□
+□Indicar los recintos con equipos o mobiliario fijo 
+u otras áreas que deben ampliarse, mediante línea 
+de guiones a su alrededor y referenciar a plano 
+ampliado o plano de detalle.
+□
+□No duplicar información señalada en planos de 
+menor escala.
+□
+□Aperturas para alumbrados y rejillas.
+□
+□Referencias los niveles de los espacios con 
+equipamiento.
+□
+□Tablas, cuadros, notas y similares, pertinentes 
+a cada planta.
+□
+□Juntas de expansión y sismo si se intersectan y 
+afectan el mobiliario fijo, el equipamiento o la ins­
+talación de los mismos.
+□
+□Gabinete de incendios, debidamente coordina­
+do gráficamente con plantas arquitectónicas y pla­
+nos de estudios técnicos.
+□
+□Fuentes, bebederos, enfriadores de agua y 
+otros accesorios de plomería. 
+□
+□Divisiones, gabinetes de baño, accesorios y si­
+milares.
+Clasificación del Equipamiento Interior y del Mo­
+biliario fijo:
+A efectos de proveer documentación gráfica com­
+plementaria, los mismos se pueden clasificar según 
+su naturaleza y características, así:
+Clase 1: ítems fijos con conexiones permanentes 
+a redes. 
+Clase 2: ítems transportables con conexión a 
+redes de rápida desconexión o flexibles.
+Clase 3: ítems móviles sin conexión a redes, 
+incluyendo mobiliarios de oficina y hogar.
+Clase 4: ítems consumibles, tales como utensilios, 
+dotaciones y  herramientas.
+Otras Plantas
+Dentro del conjunto de Planchas Tipo 1, se iden­
+tifican otros tipos de Plantas que corresponden a 
+otras áreas disciplinares complementarias al de­
+sarrollo de proyectos arquitectónicos y afines, las 
+cuales requieren convenciones y/o elementos par­
+ticulares y específicos. 
+Tales planimetrías, contienen los insumos gráficos 
+básicos de las Plantas Arquitectónicas, a las cua­
+les se les adicionan aquellos elementos específicos 
+requeridos, según sea el caso, por cada disciplina.
+Plantas de Arquitectura del Paisaje
+Incluyen una documentación gráfica del lugar de 
+intervención y de la preparación del sitio, con in­
+Plano Urbano de Mileto, Hipodamos, 475 A.E.C.
+
+===== PAGE 58 (595x842) =====
+EJEMPLO DE PLANTA DE PISO AMPLIADA Y DETALLADA  
+Casa Wilkie. Fernando Martínez -  Bogotá, Colombia, 1962 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+58
+dicación de estructuras, elementos y/o vegetación 
+a preservar, remover o relocalizar, relacionando 
+tipos de plantas, vegetación u otros que forman 
+parte integral de la nueva intervención. 
+Deben incluir los límites del proyecto de Paisaje, 
+relacionados al contexto físico natural y artificial y 
+a las redes técnicas, tales como tendidos de irriga­
+ción, iluminación y similares.
+Especificación de la vegetación y demás compo­
+nentes incluidos en proyecto de Paisaje. La con­
+vención dada a cada especie vegetal debe ser clara 
+y de fácil lectura, relacionando en cuadro adjunto 
+su nombre vulgar y científico, cantidad por espe­
+cie, tamaño, color y demás datos pertinentes. 
+Incluir ejes de siembra, su disposición y composi­
+ción de la Planta del Paisaje.
+Si el proyecto de Paisaje adiciona elementos arqui­
+tectónicos, ellos deben incorporarse gráficamente 
+dentro del proyecto, debidamente especificados y 
+relacionados en plantas adjuntas.
+Los sistemas y equipos de irrigación o demás dota­
+ciones requeridas, deben dimensionarse, localizar­
+se y especificarse en las Plantas.
+
+===== PAGE 59 (595x842) =====
+59
+“Un caballo pintado a rayas no es una cebra.”
+Louis I. Khan
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Plantas Generales
+Plantas Civiles
+Las Plantas Civiles describen gráficamente las 
+condiciones físicas de un entorno o terreno, pre­
+vio a una intervención arquitectónica, en caso de 
+requerirse. Se trata de una documentación estre­
+chamente ligada a la topografía natural o al releva­
+miento artificial preexistente. 
+Las Plantas Civiles incluyen planos de demolición 
+en sitio y de Contorno o Control Dimensional.
+Plantas de Demolición en Sitio
+□
+□Límites de superficies, piezas o elementos que 
+deben removerse del sitio.
+□
+□En caso de demoliciones exteriores, deben 
+incluirse información gráfica como vegetación, 
+alumbrado exterior, áreas pavimentadas a remo­
+ver y similares.
+□
+□Las Plantas de Demolición deben incluir los lí­
+mites del espacio de demolición y en caso de ha­
+berlos, aquellos elementos a proteger y preservar. 
+Plantas de Contorno o Control Dimensional
+□
+□Plantas de base con información gráfica que in­
+cluye topografía, mojones, vegetación, alumbrado 
+exterior, áreas pavimentadas y demás elementos 
+físicos.
+□
+□Localización de puntos de control topográfico.
+□
+□Las construcciones deben localizarse, en lo po­
+sible, con coordenadas horizontales. Las estructu­
+ras deben localizarse relacionadas a la retícula de 
+ejes.
+□
+□No incluyen dimensiones o alzados de estruc­
+turas ya señalados en planos arquitectónicos o es­
+tructurales.
+□
+□Relacionar pendiente del terreno y límites de 
+operación de drenaje.
+□
+□Puntos de altura crítica, localizados en relación 
+con puntos de control topográfico, estructuras o 
+líneas de base de vías.
+□
+□Tamaño y disposición de nuevas redes de dre­
+naje
+□
+□Interrelación entre edificios, vías, áreas de par­
+queo, cerramiento y redes.
+□
+□Contornos físicos modificados por el nuevo di­
+seño.
+□
+□Localización de acceso y egreso a las construc­
+ciones.
+□
+□Disposición horizontal para cerramientos.
+□
+□Afectación física de bordes y sardineles.
+□
+□Relacionar árboles y vegetación a proteger, re­
+mover o relocalizar.
+Museo Banco de la República, 
+Enrique Triana, 2004
+
+===== PAGE 60 (595x842) =====
+EJEMPLO DE ALZADO Y SUS SÍMBOLOS
+Casa Bianchi. Mario Botta - Riva San Vitale, Suiza, 1973
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+60
+2.9 TIPOS DE PLANCHA: TIPO 2 - ALZADOS O FACHADAS
+Plancha Tipo 2. Planos de Alzados o Fachadas
+Alzados o Fachadas se representan gráficamente a 
+partir de la proyección desde las plantas. Definen 
+la imagen y el componente vertical del proyecto u 
+objeto. 
+□
+□Los Alzados o Fachadas son representaciones 
+en verdadera magnitud, son derivados de las plan­
+tas arquitectónicas y sujetos a la debida identifica­
+ción y referencia a su orientación.
+□
+□En los dibujos de Fachada, es necesario incluir 
+como información básica los niveles del proyec­
+to, cotas verticales y símbolos correspondientes a 
+ejes estructurales, especificaciones de acabados, 
+códigos de ventanas, puertas y demás elementos 
+que la componen.
+□
+□Los elementos especiales de Fachada, deben 
+ser identificados en su especificidad e incluidos en 
+la correspondiente Cartilla de Detalles.
+□
+□Los elementos estructurales ocultos, deben ser 
+identificados en Alzados o Fachadas a través de 
+líneas punteadas de proyección.
+□
+□Los materiales usados en Alzados o Fachadas 
+pueden ser indicados por medio de identificar 
+a través de achurados específicos cada material 
+o con el recurso de Notas de Especificación, de 
+acuerdo a cada caso y a la escala del dibujo. 
+□
+□Es importante evidenciar gráficamente la rela­
+ción entre el Alzado o la Fachada y la topografía o 
+contexto del edificio. Si existen elementos del te­
+rreno que sobresalen sobre el alzado del proyecto, 
+ellos deben ser relacionados con sus respectivos
+
+===== PAGE 61 (595x842) =====
+EJEMPLO DE ALZADO Y SUS SÍMBOLOS
+61
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Alzados
+“La cuestión reside en saber hasta qué punto la mente y el ojo son capaces de absorber y comprender  y 
+este problema ha estado presente, sin solución afortunada, desde los últimos años del siglo XVIII.”
+Colin Rowe
+niveles. Tras estos elementos deben indicarse los 
+elementos estructurales a través de línea de pro­
+yección.
+Aunque es común en los dibujos de Alzados o Fa­
+chadas relacionarlas como proyecciones directas 
+de plantas oblicuas o curvas, ello no es convenien­
+te para efectos de garantizar precisión en los dibu­
+jos técnicos y constructivos. En tal propósito, las 
+elevaciones curvas y/u oblicuas deben mostrarse 
+en representación plana o en verdadera magni­
+tud, según sea el caso, identificadas debidamente 
+como “Alzados Desdoblados”.
+Lista de Verificación de Alzados, Fachadas:
+□
+□Escala del dibujo.
+□
+□Referencia a cortes y cortes de fachada.
+□
+□Tipos característicos y alcance de los materiales 
+de Alzados y Fachadas, juntas de empate, moldu­
+ras y acabados.
+□
+□Acotado de piso a piso, de componentes es­
+tructurales y cotas verticales generales.
+□
+□Relación gráfica de los elementos del edificio 
+bajo terreno, en líneas discontinuas.
+□
+□Señalar dinteles, alfajías, canaletas, relieves, va­
+nos, voladizos y similares.
+□
+□En pisos superiores indicar claraboyas, cenita­
+les y aparatos localizados sobre el techo.
+□
+□Relacionar escaleras, pasamanos, barandas y si­
+milares.
+□
+□Identificar gráficamente elementos adyacen­
+tes al edificio u objeto, tales como muros de con­
+tención, edificios adyacentes, espacios públicos y 
+componentes paisajísticos.
+□
+□Referencias detalles típicos y no típicos.
+□
+□Relacionar juntas de expansión, de control, jun­
+tas móviles y sísmicas.
+□
+□Identificar instalaciones lumínicas, de señaliza­
+ción y similares. 
+Alzados Interiores
+Son requeridos en proyectos que demandan alto 
+grado de detalle o cuyo propósito directo es el Di­
+seño Interior, la Restauración o la remodelación 
+parcial o total. Además de los elementos generales 
+descritos para alzados y fachadas, incluir:
+Lista de verificación de Alzados Interiores:
+□
+□Elementos eléctricos de toda naturaleza, tales 
+como paneles de acceso, cajas, salidas y aparatos 
+especiales. Indicar tamaño y relacionar especifica­
+ción.
+□
+□Penetración de ductos y tuberías.
+□
+□Puertas, vanos y ventanas.
+□
+□Cambios de material en pared, incluyendo aca­
+bados y/o aplicaciones acústicas.
+□
+□Acotados verticales y en casos especiales, in­
+cluir también acotados horizontales.
+□
+□Las demás que el proyecto específico requiera, 
+según su condición y naturaleza.
+
+===== PAGE 62 (595x842) =====
+EJEMPLO DE CORTE Y SUS SÍMBOLOS
+Casa Bianchi. Mario Botta - Riva San Vitale, Suiza, 1973
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+62
+2.10 TIPOS DE PLANCHA: TIPO 3 - CORTES
+Plancha Tipo 3. Cortes
+Cortes de la Edificación u Objeto
+Los dibujos de Cortes representan gráficamente la naturaleza, medidas y relaciones verticales en verdadera 
+magnitud de una edificación u objeto, a fin de proveer, en plena coherencia con las plantas y demás dibujos, 
+una información integral sobre sus distintos componentes.
+Normalmente, los Cortes de una edificación u objeto son representados a la misma escala de las plantas de 
+piso. El número de cortes, dependerá del propósito de garantizar plena y suficiente información gráfica, de 
+conformidad a su complejidad.
+□
+□La escala del dibujo de Corte depende de la complejidad de los elementos incluidos en el dibujo. Todos 
+los componentes del proyecto que sean referenciadas en otros planos y sean pertinentes de ser represen­
+tados en Corte, pueden incluirse en esquema o referencia cruzada.
+□
+□Para el dibujo de los Cortes, aplican criterios similares al dibujo de los Alzados, especialmente en cuanto 
+a la descripción gráfica integral de los elementos y componentes verticales del proyecto u objeto represen­
+tado.
+
+===== PAGE 63 (595x842) =====
+EJEMPLO DE CORTE Y SUS SÍMBOLOS
+Colegio Las Mercedes. Leonardo Alvarez, Diego Suárez, Sergio Trujillo - Bogotá, Colombia, 2006
+63
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Cortes
+“Dibujar es como hacer un gesto expresivo con la ven­
+taja de la permanencia.” 
+Henri Matisse
+Lista de verificación Cortes:
+□
+□Planta Clave que muestre la convención y línea 
+de Corte en relación al edificio u objeto.
+□
+□Indicar escala en todos los Cortes.
+□
+□Relacionar ejes estructurales.
+□
+□Identificar líneas de empate.
+□
+□Identificación de los espacios cortados.
+□
+□Número de recintos dentro del Corte, si es per­
+tinente.
+□
+□Cotas verticales de piso a piso, de piezas es­
+tructurales y/o de espacios.
+□
+□Niveles generales del proyecto y de aquellos 
+elementos cortados.
+□
+□Alturas de piso fino, de cielos rasos y de divisio­
+nes cortadas por la sección.
+□
+□Materiales predominantes, símbolos de ele­
+mentos y listas de abreviaciones. 
+□
+□Indicación de detalles y cortes de fachada.
+□
+□Especificaciones generales.
+□
+□Escala Humana, de ser pertinente.
+□
+□Se deben proporcionar los cortes de fachada 
+necesarios, de conformidad a la complejidad del 
+edificio u objeto, de manera que relacionen su na­
+turaleza constructiva, materiales, ensambles y aca­
+bados interiores y exteriores. 
+□
+□Es preciso referenciar aquellos detalles a escala 
+mayor que se identifiquen en el dibujo del corte de 
+fachada. 
+□
+□Referenciar en Corte componentes como ven­
+tanas, dinteles, alfajías, voladizos u otros detalles 
+específicos del proyecto. 
+□
+□Al dibujar más de un corte de fachada en una 
+misma plancha, es recomendable alinear los pisos 
+horizontalmente, preservando las líneas de niveles. 
+□
+□Eliminar aquellas cotas repetidas según las je­
+rarquías en el dibujo.
+□
+□Incluir referencias a detalles.
+□
+□Para eliminar la repetición de información entre 
+los Tipos de Cortes, es recomendable establecer 
+una jerarquización de las anotaciones y los acota­
+mientos.
+Casa en Bogotá, Carlos Morales, 1980
+
+===== PAGE 64 (595x842) =====
+EJEMPLO DE UNA PLLANTA A ESCALA AMPLIADA	
+Casa Calderón. Fernando Martínez - Bogotá, Colombia, 1963
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+64
+2.11 TIPOS DE PLANCHA: 
+TIPO 4 - VISTAS A ESCALA AMPLIADA
+Plancha Tipo 4. Vistas a Escala Ampliada
+Las Vistas a Escala Ampliada, son representaciones gráficas reproducidas a una escala mayor, a fin de pro­
+porcionar información más detallada que no puede ser incluida en dibujos a otra escala.
+El grado de detalle dimensional y de especificaciones, se incrementa en proporción a cada elevación de la 
+escala gráfica representada. 
+Plantas Ampliadas de Piso
+Las porciones ampliadas de Plantas, se señalan o referencian en el plano respectivo con una línea punteada 
+alrededor de las áreas o espacios que van a ser incluidos como Planta a Escala Ampliada.
+Los espacios típicos que suelen requerir Plantas Ampliadas son aquellos como puntos fijos, baños, cocinas, 
+fosos de ascensores, mesones, muebles fijos, entre otros. Es posible proceder a un despiece del proyecto 
+en plantas de gran tamaño, las cuales describan en detalle su configuración, siempre en relación a la com­
+plejidad del mismo.
+
+===== PAGE 65 (595x842) =====
+PLANTA GENERAL DE REFERENCIA SEÑALANDO ÁREA AMPLIADA
+Casa Calderón. Fernando Martínez - Bogotá, Colombia, 1963
+65
+“Dibujar es la sinceridad enmascarada en una pirueta.”
+Claude Serre
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Vistas a Escala Ampliada
+En tales casos, es importante no duplicar informa­
+ción ya consignada en plantas menores, con ex­
+cepción de información básica y referencial como 
+por ejemplo, identificación de espacios, cotas prin­
+cipales y retícula de ejes.
+Estos planos deben se acotados con meticulosi­
+dad e incluir los símbolos de referencia a detalles y 
+cuadros de elementos constructivos. 
+En Plantas Ampliadas de baños, cocinas o recin­
+tos especiales, se deben identificar los ejes de los 
+aparatos y salidas sanitarias, eléctricas, de redes o 
+similares, dimensiones de cabinas e instalaciones 
+especiales. La identificación de acabados y mate­
+riales debe ser indicada y referenciada a los dise­
+ños de detalles constructivos.
+Planta y Corte de Escaleras
+Las Plantas y Cortes de escaleras deben ser ubi­
+cadas cerca al corte del punto fijo como referen­
+cia gráfica, y en ellas se deben mostrar acotados 
+generales, números de pasos o huellas, sentido 
+de ascenso, altura entre pisos, ancho y largo de 
+los escalones y del descanso, número, dimensión 
+y diseño de narices y contrahuellas, detalles de 
+pasamanos y barandas, siempre con referencias 
+a detalles ampliados. Se deben indicar los apoyos 
+estructurales.
+Planta y Corte de Foso de Ascensores
+El proveedor de los equipos de ascensores debe 
+proporcionar la información técnica y dimensional 
+del mismo, en plantas y cortes. 
+Los Cortes de Fosos de ascensores, deben ilustrar 
+gráficamente aquella información relevante como 
+altura de puertas, niveles de paradas, foso de ins­
+pección, cabinas de máquinas, ductos de ventila­
+ción y demás componentes exigibles.
+Casa Miller, Richard Neutra, 1937
+
+===== PAGE 66 (595x842) =====
+EJEMPLO DE DETALLE
+Detalle Banca en Concreto, Sergio Trujillo - La Vega, Cund., Colombia, 2012
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+66
+2.12 TIPOS DE PLANCHA: 
+TIPO 5 - DETALLES Y TIPO 6 - CUADROS Y DIAGRAMAS
+Plancha Tipo 5. Detalles Constructivos
+Los planos de Detalles Constructivos, consisten en 
+representaciones ampliadas que ilustran la natura­
+leza constructiva y dimensional de aquellos com­
+ponentes especiales o complejos de un edificio u 
+objeto. Los Detalles de productos manufacturados 
+que requiera la edificación, pueden ser representa­
+dos a través de un esbozo simplificado. 
+Los detalles facturados en obra, pueden ser dividi­
+dos en tres (3) grupos, así:
+□
+□Detalles en Planta que incluyen divisiones, jun­
+tas de expansión y control, nichos contra incendio 
+y cualquier elemento constructivo cuya compleji­
+dad deba ser descrita gráficamente en dibujos de 
+planta.
+□
+□Los Detalles en Corte, los cuales se derivan ha­
+cia corte de fachada o corte general del edificio, 
+según la escala, ya sean interiores o exteriores. Es­
+tos describen aquellos elementos que deban ser 
+relacionados gráficamente en la dimensión vertical 
+de la edificación u objeto.
+□
+□
+□
+□Los Detalles Tridimensionales, tales como dibu­
+jos isométricos o axonométricos, son desplegados 
+para ilustrar información gráfica que no es posible 
+evidenciar integralmente en representaciones bi­
+dimensionales.
+Plancha Tipo 6. Cuadros y Diagramas
+Los Cuadros tienen una forma tabular, mientras 
+los Diagramas son representaciones gráficas. Am­
+
+===== PAGE 67 (595x842) =====
+67
+“El arquitecto es un albañil que sabe latín.”
+Adolf Loos
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Detalles, Cuadros y Diagramas
+bos proveen una porción notable de información 
+cuantitativa, textual y gráfica complementaria a 
+los dibujos y planos propiamente dichos.
+Cuadros y Diagramas pueden ser asociados a las 
+especificaciones técnicas del edificio u objeto o in­
+tercalarse con los dibujos. Algunos de los Cuadros 
+y Diagramas más habituales y significativos son los 
+siguientes:
+Cuadros: Los Cuadros proporcionan un formato 
+consistente y útil para agrupar conjuntos de ele­
+mentos relacionados en la edificación. Un formato 
+tipo y una composición posible de los mismos, son 
+especificados en detalle en el capítulo de Cuadros.
+Diagramas: Los diagramas son representaciones 
+gráficas no necesariamente a escala, ilustrados con 
+dimensiones o proporciones estables. Ellos pueden 
+representar la planta de un elemento constructivo 
+o un alzado. También pueden ser de naturaleza es­
+quemática, como los diagramas mecánicos, hidráu­
+licos y de flujos eléctricos.
+Cuadros de Puertas, Marcos y Ventanas: Los tipos 
+de Puertas, Marcos y Ventanas, pueden no ser di­
+bujados a escala, siempre y cuando su ilustración 
+permita una descripción adecuada y suficiente a 
+través de representar componentes similares pero 
+de diferente dimensiones. 
+Los tipos pueden ilustrar también puertas, marcos 
+o ventanas construidas en diferentes materiales. 
+El mismo tipo puede representar una puerta de 
+madera o de metal aligerado, por ejemplo. Es en 
+el Cuadro de Puertas, Marcos y Ventanas, donde 
+se diferencian las características particulares de 
+cada uno de ellos, por medio de la descripción de 
+cada tipo, del material y de sus dimensiones, entre 
+otros.
+Si existen Puertas, Marcos o Ventanas con diseños 
+similares, la columna de Tipo en el cuadro, puede 
+no necesitarse, si se especifican las diferencias di­
+mensionales. 
+En ellos, se ilustra gráficamente las dimensiones en 
+cotas de los vanos y anchos de juntas, en caso de 
+haberlas. 
+Es importante agrupar las Puertas, Marcos y Ven­
+tanas de acuerdo con el lugar de ubicación de cada 
+apertura o vano, relacionando el nivel de piso de la 
+edificación y el material de acabado constructivo 
+de borde.
+Las medidas finales de estos elementos, aunque 
+son especificadas en los correspondientes Cua­
+dros, deben ser revisadas en obra para verificar sus 
+dimensiones reales. 
+Cuadros de Divisiones: Las Divisiones de espacios 
+se representan en la planta de cada piso, según un 
+identificador que relaciona el tipo de superficie de 
+borde y de relleno, identificados a través de código 
+alfanumérico secuencial.
+Sus especificaciones y características, ya sean cor­
+tafuego, acústicas, térmicas o similares, deben ser 
+debidamente consignados en los correspondien­
+tes detalles constructivos y 8relacionados en los 
+Cuadros de Divisiones.
+Las metodologías BIM, proporcionan mayor 
+facilidad del manejo de la información que 
+puede derivarse en tres dimensiones y/o 
+hacia la Cartilla de Detalles Constructivos 
+de un proyecto, gracias a su facilidad de co­
+municación entre las documentaciones bidi­
+mensionales y tridimensionales. 
+Museo Arte Fort Worth, Tadao Ando, 1997
+
+===== PAGE 68 (595x842) =====
+EJEMPLO MODELO 3D EN SISTEMA CAD
+Villa dall’Ava. OMA, Rem Koolhaas - París, Francia - 1985-1991
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+68
+2.13 TIPOS DE PLANCHA: 
+	
+TIPO 7 Y 8-DEFINIDO POR EL USUARIO
+	
+TIPO 9 - REPRESENTACIONES EN 3D
+Plancha Tipo 7 y 8. Planchas Discrecionales
+Estas series de Planchas, permiten a los arquitectos y diseñadores acomodar  tipos de planchas adicionales 
+que proveen información gráfica, textual, diagramática o documental, que no se relaciona en las Planchas 
+anteriormente descritas. 
+Plancha Tipo 9. Representaciones 3D
+Las representaciones gráficas en 3D, proveen documentación adicional del proyecto u objeto, y son 
+vertidas en dibujos axonométricos, isométricos, dibujos oblicuos, perspectivas libres, fotografías y si­
+milares, entendidos como recursos gráficos posibles y discrecionales que contribuyen a la ilustración 
+complementaria e integral del proyecto y de su proceso constructivo.
+Con los sistemas BIM o de Modelado de Información para la Edificación, este tipo de representación tri­
+dimensional ha adquirido un papel relevante en el proceso de diseño, comunicación y coordinación con 
+aquellas áreas técnicas que están comprometidas en el desarrollo del proyecto arquitectónico, en los 
+cuales las plataformas BIM han comprobado ser de gran utilidad en virtud de la interactividad gráfica 
+de la información.
+
+===== PAGE 69 (595x842) =====
+EJEMPLO MODELO 3D EN SISTEMA BIM
+Villa dall’Ava. OMA, Rem Koolhaas - París, Francia - 1985-1991
+69
+“El arquitecto se encuentra tan condicionado por una 
+geometría artificiosa e inhumana que la siente ‘natural y 
+espontánea’, no conoce otra lengua.”
+Bruno Zevi
+Desarrollo de los Estándares Gráficos - Tipos de Planchas - Definido por el Usuario - Representaciones en 3D
+En las metodologías  BIM,  la orientación deja 
+de ser una simple representación estática 
+que señala la orientación, para  convertirse 
+en una poderosa herramienta para el análisis 
+de la asoleación y de otros factores climáti­
+cos y ambientales que afectan la implanta­
+ción de un edificio.
+Todas las categorías de tipos de planchas 
+anteriormente descritas, aplican como pro­
+tocolo gráfico tanto para los dibujos produci­
+dos en los sistemas tradicionales CAD, como 
+para los desarrollos en plataformas BIM.
+Estadio de Braga, 
+Eduardo Souto De Moura, 2003
+
+===== PAGE 70 (595x842) =====
+PARTES Y CONSTRUCCIÓN DE UN CUADRO  
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+70
+2.14 CUADROS
+Cuadros
+Los Cuadros organizan y sistematizan información relacionada al proyecto, ya sea gráfica, numérica o tex­
+tual, asociada en grupos temáticos, elementos o componentes arquitectónicos y/o constructivos. 
+El Cuadro como conjunto temático debe contar con un encabezado a manera de título y un mínimo de dos 
+columnas y/o filas de información relacionada.
+Para su formulación, es importante tener en cuenta:
+□
+□Consistencia en la titulación, términos de columnas y abreviaturas
+□
+□Disponer un espacio adecuado para consignar la información en el tamaño de columna. 
+□
+□Un título de columna corto posible que permita ajustar las variaciones de ancho de columna. 
+□
+□Posibilitar ampliar los Cuadros al agregar filas o columnas. Cuadros complejos deben permitir separacio­
+nes horizontales y subdivisiones en grupos de información relacionada.
+□
+□Debe preverse el formato de los Cuadros para su disposición dentro de los tamaños de planchas o car­
+tillas y manuales del proyecto.
+
+===== PAGE 71 (595x842) =====
+71
+“El dibujo debe acercarse a la escritura.”
+Enric Miralles
+Desarrollo de los Estándares Gráficos - Cuadros
+□
+□Es importante prever el método de reproduc­
+ción, el tamaño mínimo del texto para una correcta 
+legibilidad. 
+□
+□Los Cuadros deben organizarse de manera co­
+herente, jerárquica y secuencial, procurando usar 
+el mismo tipo de fuente que en la planimetría ge­
+neral.
+Componentes de un Cuadro
+Los Cuadros pueden contener información de di­
+versa naturaleza, lo cual condiciona la estructura y 
+organización del mismo. Como elementos básicos, 
+el Cuadro debe contener las siguientes categorías 
+principales:
+Título del Cuadro: contar con encabezado, fuente, 
+color, casilla o textura distintiva. 
+Columna de Ítem: situada el extremo izquierdo del 
+Cuadro, esta columna corresponde a la identifica­
+ción de la temática que describe el Cuadro, ya sea 
+alfanumérica, gráfica o a través de convenciones. 
+Columna de descripción del Ítem: describe el nom­
+bre de cada elemento referido. 
+Columna de características distintivas: describe 
+los ítems contenidos en el Cuadro. Dependiendo 
+de su complejidad, cada cuadro puede contener 
+columnas múltiples de datos distintivos. 
+Columna de observaciones: se relacionan las ob­
+servaciones especiales o únicas sobre el ítem, a 
+través de notas, simples términos descriptivos o 
+un código de referencia cruzada.
+Gordon Wu Hall,  Robert Venturi, 1981
+
+===== PAGE 72 (595x842) =====
+EJEMPLO DE FORMATOS DE CUADROS 
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+72
+
+===== PAGE 73 (595x842) =====
+73
+“Solo vale la pena aprender lo que no se puede 
+explicar.” 
+Le Corbusier
+Desarrollo de los Estándares Gráficos - Cuadros
+Construcción de Cuadros
+Un Cuadro simple puede expandirse incluyendo 
+columnas adicionales con información distintiva. 
+La información debe localizarse de manera lógica 
+y en un formato coherente y consistente. 
+La variación entre Cuadros simples y expandidos, 
+está en relación directa con la cantidad y compleji­
+dad de la información, lo cual suele implicar la adi­
+ción o sustracción de columnas e identificadores. 
+Un Cuadro simple puede presentar información 
+característica en un nivel simple de identificadores 
+de columna (una fila simple de categorización). 
+Un Cuadro expandido provee información que se 
+descompone en subcategorías que pueden hacer 
+parte de la subdivisión en una o varias columnas, 
+creando más niveles de identificadores de colum­
+na que pueden ser nombrados a través de conven­
+ciones clave que se agregan a un Cuadro extra y 
+preliminar.
+Las diferentes categorías y subcategorías de un 
+Cuadro, pueden ser identificadas con un color o 
+textura  de casilla o cambiando la fuente de texto, 
+a fin de hacer más fácil la lectura jerárquica de la 
+información.
+Formatos de Cuadros. Ejemplos
+Los siguientes ejemplos, corresponden a los Cua­
+dros más utilizados en Colombia. Los mismos, pue­
+den aplicarse en planos, cartillas o especificaciones, 
+dependiendo de los requerimientos del proyecto. 
+Las líneas de división y de borde son opcionales 
+	
+Los formatos más utilizados en Colombia son:
+□
+□Cuadro de Puertas (carpintería metálica, vinilo, 
+madera u otro). 
+□
+□Cuadro de Ventanas (carpintería metálica, vini­
+lo, madera u otro).
+□
+□Cuadro de Puertas-Ventanas (carpintería metá­
+lica, vinilo, madera u otro).
+□
+□Cuadro de Elementos Varios en metal, vinilo, 
+madera u otro (tales como marquesinas, flanches, 
+marcos y similares).
+□
+□Cuadro de Muebles Fijos. 
+□
+□Cuadro de mampostería.
+□
+□Cuadro de Divisiones Interiores y similares.
+Instituto Van Andel, Rafael Viñoly, 2009
+
+===== PAGE 74 (595x842) =====
+PARTES Y CONSTRUCCIÓN DE UN CUADRO  
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+74
+2.15 SÍMBOLOS
+
+===== PAGE 75 (595x842) =====
+75
+“Los detalles no son detalles. Ellos son el diseño”
+Charles Eames
+Desarrollo de los Estándares Gráficos  - Símbolos
+Símbolos
+La presente Guía compila una variedad de Símbo­
+los estándar usados en la práctica habitual del me­
+dio arquitectónico nacional e internacional. 
+Ellos se identifican y clasifican según su represen­
+tación gráfica, categorizada de acuerdo al tipo del 
+Símbolo referenciado.
+La estandarización de los Símbolos asegura una 
+comunicación gráfica clara y concisa entre las pla­
+nimetrías compartidas por arquitectos, especialis­
+tas técnicos, consultores y demás agentes especia­
+lizados afines a la arquitectura.
+Los Símbolos son representaciones gráficas reco­
+nocibles y aceptadas ampliamente como conven­
+ciones, esto es, acuerdos compartidos a través de 
+consensos compartidos. 
+Clasificación de Símbolos
+Símbolos de Referencia: Estos Símbolos remiten 
+al lector a información localizada en otra plancha 
+o área del conjunto de dibujos. También aportan 
+información básica con respecto al dibujo o a cual­
+quier dato referido en el mismo. Escala Indepen­
+diente.
+Tipos de Línea: El Tipo de Línea representa obje­
+tos y convenciones graficados a través de líneas 
+sencillas,  dobles o caracterizadas según su trazo. 
+La simbología de línea depende de su tipo, de la 
+función que cumple en el dibujo y de lo que está 
+representando. Ver Tipos de Líneas. Escala Inde­
+pendiente.
+Símbolos de Identidad: Indican objetos individua­
+les y se usan por lo general en dibujos mecánicos 
+y eléctricos. Cada símbolo identifica elementos es­
+pecíficos dentro del sistema. Escala Independien­
+te.  
+Plantillas: Aluden a símbolos asociados a los obje­
+tos reales que se están representando, cómo por 
+ejemplo puertas, ventanas, radios de giro o mobi­
+liario. Escala Dependiente.
+Convenciones de Materiales: Las Convenciones 
+indican gráficamente ciertos materiales y se usan 
+para diferenciar materiales. Pueden aplicarse en 
+plantas, alzados, cortes, ampliaciones o detalles. 
+Su uso debe ser organizado y controlado para no 
+interferir en una lectura clara del dibujo. Su escala 
+debe ser apropiada al tamaño del dibujo.
+Textos: Desplegados para indicar notas, palabras 
+clave, elementos particulares y similares. Deben 
+ser proporcionales a la escala del dibujo. 
+La escala de los símbolos es relativa a la es­
+cala del dibujo arquitectónico en el cual se 
+consignan, a fin de facilitar su lectura, tanto 
+en pantalla como en impresiones físicas a ta­
+maños predeterminados.
+La escala de los símbolos puede ser:
+Dependiente: El tamaño de impresión real de 
+los símbolos depende de la escala del dibujo 
+o de la vista del modelo.
+Independiente: El tamaño de impresión real 
+de los símbolos es consistente, no importa 
+cuál sea la escala del dibujo.
+Por ello es importante tener en cuenta las 
+herramientas de escalado automático ofreci­
+das por las metodologías CAD y BIM.
+Einsteinturm, Erich Mendelsohn, 1920
+
+===== PAGE 76 (595x842) =====
+BLOQUE TÍPICO DE NOTAS
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+76
+2.16 NOTAS
+NOTAS
+Las Notas son elementos de texto adjuntos a una representación gráfica que proporcionan información so­
+bre las características del proyecto, aclaraciones gráficas en torno a su dibujo, instrucciones concernientes 
+al uso de la planimetría o de la ejecución constructiva, las cuales no pueden especificarse de otra manera.
+Las Notas en los dibujos, al constituirse parte integral de la documentación del proyecto, pueden tener 
+consecuencias legales importantes. Los términos usados dentro de las Notas deben ser consistentes con 
+los utilizados en los textos de especificaciones oficiales del proyecto. Las Notas deben ser precisas y con­
+sistentes
+Tipos de Notas
+Con el fin de garantizar una documentación suficiente, coherente e integral de un proyecto, además de la 
+claridad en su dibujo, es definitiva la coordinación entre estos y los textos de las especificaciones u otros 
+documentos técnicos complementarios, en los cuales juega un papel importante un sistema de Notas fluido, 
+organizado y coherente. A este propósito, se identifican cinco tipos de Notas:
+
+===== PAGE 77 (595x842) =====
+JERARQUÍA DE LOS TIPOS DE NOTAS GENERALES
+77
+Desarrollo de los Estándares Gráficos - Notas
+Notas Generales: Se aplican a todo el conjunto de 
+planos y tienen validez para todas las disciplinas. 
+Se localizan dentro de la serie de Planos Arquitec­
+tónicos Generales. Las Notas Generales son apli­
+cables a toda la documentación gráfica sin recurrir 
+a una excesiva reiteración. 
+Notas Generales de Disciplina: Las Notas Genera­
+les de Disciplina son aquellas anotaciones deriva­
+das de los estudios técnicos complementarios del 
+proyecto y se aplican a todas las planchas subse­
+cuentes dentro de este conjunto. No deben repe­
+tirse en planchas de disciplina diferente.
+Notas Generales de Plancha: Se usan para comu­
+nicar información o instrucciones específicas en 
+una representación. Las Notas Generales de Plan­
+cha deben tabularse secuencialmente dentro del 
+bloque de notas y redactarse en modo imperativo. 
+NOTA: Las Notas Generales, Generales de Dis­
+ciplina y Generales de Plancha, no corresponden 
+directamente a una representación gráfica y no es­
+tán enlazadas directamente por un símbolo a otros 
+dibujos o especificaciones del proyecto. Estos  tres 
+tipos de Notas, pueden aparecer en la misma plan­
+cha y se organizan en el orden enunciado. 
+Notas de Referencia: Se emplean para identificar 
+representaciones gráficas de ítems y relacionarlas 
+directamente con aspectos determinados de las 
+especificaciones. Las Notas de Referencia pueden 
+identificar requerimientos generales o de ejecu­
+ción. 
+Las Notas de Referencia se pueden localizar dentro 
+del área gráfica de la plancha o dentro del cuadro 
+de notas del dibujo. Consisten en un indicador 
+conectado al dibujo por una línea indicativa. Cada 
+símbolo que aparece en la plancha se lista en el 
+bloque de notas de la plancha, junto con una corta 
+nota de texto genérica que describe el gráfico. 
+Para mayor claridad y una identificación más 
+exacta, una Nota de Referencia dada es única 
+para el objeto y el material que ésta señala.  Las 
+Notas de Referencia constan de los siguientes 
+componentes:
+a.	 Raíz – Es el número de la sección de la 
+especificación correspondiente a la localización 
+del ítem, del objeto o del material dentro del texto 
+de especificaciones generales del proyecto.
+b.	 Punto Decimal – Es el elemento que sirve para 
+separar la raíz de los sufijos modificadores.
+“…El primer paso es a través de nuestras manos, produ­
+cir los dibujos, producir los planos, todo lo que produci­
+mos con las manos…”
+Alberto Campo Baeza
+Museo de Arte Aarhus, Morten Schmidt, 2003
+
+===== PAGE 78 (595x842) =====
+COMPONENTES NOTAS DE REFERENCIA
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+78
+c.	 Sufijo – Es una letra mayúscula siguiente al 
+punto decimal, que permite múltiples notas de 
+referencia que remiten a la misma sección de la 
+especificación. Las letras I y O no deben usarse, 
+ya que pueden confundirse visualmente con los 
+números 1 y 0. Las notas de referencia siempre 
+tienen un Sufijo.
+d.	 Modificadores de Sufijo – Los caracteres 
+numéricos opcionales que siguen al sufijo permiten 
+la creación de numerosas notas de referencia 
+únicas, que estarían de otra manera limitadas por 
+la disponibilidad de las letras del alfabeto. Éstos 
+pueden personalizarse, tanto como sea necesario, 
+para una diferenciación adicional entre ítems 
+relacionados o similares con diferentes atributos 
+(Tamaño, color, grosor, etc.). Los Modificadores de 
+Sufijo, cuando se utilizan, deben incluir al menos 
+dos caracteres numéricos. 
+Notas Clave de Plancha: Las Notas Clave de Plan­
+cha están inscritas dentro del área del gráfico y de 
+notas dentro del bloque de dibujo. Deben ir seña­
+ladas con un símbolo hexagonal como indicador 
+de notas clave, el cual contiene un numeral, acom­
+pañado de una línea que conecte e identifique el 
+ítem. El numeral que aparece en cada indicador 
+debe ser listado en el bloque de Notas de la Plan­
+cha, junto con las notas que describen los gráficos. 
+Los numerales se asignan secuencialmente.
+Las Notas Claves de Plancha no deben utilizarse 
+para identificar ítems referenciados en el texto de 
+especificaciones.
+
+===== PAGE 79 (595x842) =====
+NOTAS CLAVE DE PLANCHA
+79
+Desarrollo de los Estándares Gráficos - Notas
+Observaciones 
+Las Notas pueden y suelen variar según las carac­
+terísticas de cada proyecto. Sin embargo, es impor­
+tante y práctico establecer una biblioteca estándar 
+que almacene los detalles, las especificaciones y 
+sus notas de referencia, para su posterior adapta­
+ción y eventual reutilización en otros proyectos. 
+“Escucha al hombre que trabaja con sus manos.”
+Louis I. Khan
+Biblioteca Virgilio Barco, 
+Rogelio Salmona, 2002
+
+===== PAGE 80 (595x842) =====
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+80
+3. ÁREAS AFINES DE APLICACIÓN DE LAS GUÍAS Y 
+ESTÁNDARES GRÁFICOS
+
+===== PAGE 81 (595x842) =====
+Sección Parque Güell, Antoni Gaudi, 1900-1914
+81
+GUÍAS Y  ESTÁNDARES PARA ÁREAS
+ESPECIALIZADAS
+En atención a la diversidad creciente de aplica­
+ción disciplinar en áreas afines a la arquitectura, 
+hemos creído conveniente iniciar un proceso de 
+aproximación más especializado a los estándares 
+de representación aplicables a algunos de sus deri­
+vaciones más significativas, entre las cuales hemos 
+identificado el diseño interior y de mobiliario, el di­
+seño urbano y de espacio público, la arquitectura 
+del paisaje y la restauración. En el entendido de 
+que se trata de una experiencia inicial y somera, 
+la aproximación parte de sendos estudios de caso, 
+representados a través de ejemplos gráficos y una 
+lista de chequeo que identifica aquellos requeri­
+mientos de representación mínimos que cada una 
+de estas áreas especializadas demanda, además de 
+los protocolos generales ya descritos. 
+“El boceto ayuda a la construcción porque es la única 
+parte espontánea del proceso. En él todo es
+improvisación, sorpresa, uno no sabe lo que va a pasar.”
+Santiago Calatrava
+
+===== PAGE 82 (595x842) =====
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+82
+3.1 DISEÑO INTERIOR Y DE MOBILIARIO
+PLANTA Y ALZADO DE CASA OBREGÓN - ESC 1:200
+Casa Obregón. Rafael Obregón - Bogotá, Colombia, 1955
+
+===== PAGE 83 (595x842) =====
+Unidad Habitación Marsella, Le Corbusier, 1949
+83
+Áreas Afines de Aplicación de las Guías y Estándares Gráficos - Diseño de Interior y Mobiliario
+LISTA REQUERIMIENTOS DE CONTENIDOS 
+GRÁFICOS MÍNIMOS
+DESCRIPCIÓN
+VERIFICACIÓN
+ 1.   
+ DETALLES DE ELEMENTOS ARQUITECTÓNICOS 
+DEFINICIÓN DE MATERIALES 
+Y ACABADOS
+X
+ 2.   
+PISOS 
+X
+ 3.   
+COLORES A UTILIZAR
+X
+ 4.   
+ÁREAS DE DEMOLICIÓN
+X
+ 5.   
+PLANTA DE CIELO RASO
+X
+ 6.  
+CERRAMIENTOS
+X
+ 7.   
+CERRADURAS
+X
+ 8.  
+APARATOS SANITARIOS
+X
+ 9.  
+PUERTAS
+X
+ 10. 
+ MOBILIARIO E 
+ILUMINACIÓN 
+CARPINTERÍA FIJA
+X
+ 11.  
+MOBILIARIO
+X
+ 12.  
+SISTEMA DE ILUMINACIÓN
+X
+ 13. 
+ CONVENCIONES DE REPRESENTACIÓN 
+GRÁFICA 
+DIMENSIONES
+X
+ 14. 
+NOMENCLATURAS 
+X
+ 15. 
+ORIENTACIÓN
+X
+ 16. 
+ETIQUETAS DE ESPACIOS
+X
+ 17.  
+ESCALA
+X
+ 18. 
+IDENTIFICACIÓN DEL PLANO
+X
+ 19. 
+PERSPECTIVAS 
+X
+ 20. 
+REFERENCIAS A PLANOS  
+OTRAS ESCALAS
+X
+DISEÑO INTERIOR Y DE MOBILIARIO
+Por constituirse en una escala de operación 
+que aplica sobre espacios y superficies muy 
+precisas y delimitadas, la escala y los están­
+dares de representación exigen una defini­
+ción muy meticulosa de los elementos dibu­
+jados en cuanto a sus dimensiones y detalles, 
+cromatismo, textura y materialidad, ya que 
+se trata de una documentación gráfica que 
+se comparte eventualmente entre proyectis­
+tas, clientes, fabricantes o contratistas.
+Si bien la escala de desarrollo gráfico del Di­
+seño Interior y de Mobiliario puede ser aso­
+ciada a la aplicada a planos generales y de 
+detalle arquitectónicos, las demandas de los 
+dibujos son especialmente prolijas en el sen­
+tido de documentar gráficamente elementos 
+tales como pisos, paredes, cubiertas y cielos 
+rasos, muebles fijos, estructuras de soporte, 
+acabados, enchapes, ensambles y similares, 
+en plena correspondencia con estudios de 
+cromatismo, iluminación, catálogos de mobi­
+liario y objetos, entre otros, así como el aco­
+pio de muestras físicas complementarias. 
+“Debemos distinguir el núcleo de la verdad.  Solo las 
+preguntas que se refieren a la esencia de las cosas 
+tienen sentido.”
+Ludwig Mies van der Rohe
+
+===== PAGE 84 (595x842) =====
+Proyectos para Bogotá, Karl Brunner - Bogotá, Colombia, 1933
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+84
+3.2 DISEÑO URBANO
+PLANTA URBANA DE BOGOTÁ - ESC 1:20000
+
+===== PAGE 85 (595x842) =====
+Espacio Urbano, Leon Krier. 1980
+LISTA REQUERIMIENTOS DE CONTENIDOS GRÁFICOS 
+MÍNIMOS
+DESCRIPCIÓN
+VERIFICACIÓN
+ 1.   
+ REFERENTES NATURAL Y 
+ARTIFICIAL 
+CURVAS DE NIVEL (TOPOGRAFÍA)
+X
+ 2.  
+HIDROGRAFÍA Y OROGRAFÍA
+X
+ 3.  
+COBERTURAS VEGETALES Y 
+SISTEMAS VERDES
+X
+ 4.  
+MORFOLOGÍA URBANA
+X
+ 5.  
+LLENOS Y VACÍOS
+X
+ 6.  
+ESTRUCTURAL VIAL Y PERFILES 
+URBANOS
+X
+ 7.   
+EDIFICIOS REFERENCIALES
+X
+ 8.  
+ CONVENCIONES DE REPRESENTACIÓN 
+GRÁFICA 
+COORDENADAS
+X
+ 9.  
+NOMENCLATURAS 
+X
+ 10.  
+ORIENTACIÓN
+X
+ 11.  
+ESCALA
+X
+ 12.  
+IDENTIFICACIÓN DEL PLANO
+X
+ 13.  
+REFERENCIAS A PLANOS  EN 
+OTRAS ESCALAS
+X
+85
+PLANTA REGIONAL SABANA - ESC 1:500000
+Áreas Afines de Aplicación de las Guías y Estándares Gráficos - Diseño Urbano
+DISEÑO URBANO
+El área de operación del Diseño Urbano de­
+manda escalas de aproximación muy altas, 
+en las cuales los espacios cubiertos por la re­
+presentación operan en el sentido inverso a 
+las exigencias de su detalle.
+Geografía, ciudad y arquitectura, confluyen 
+aportando insumos representativos tales 
+como estrategias ambientales y diseños de 
+paisaje, manejo del agua y rondas hídricas, 
+ecología del lugar e infraestructura verde, 
+relevamientos topográficos y cartográficos, 
+documentos prediales y parcelarios, nomen­
+claturas urbanas, identificación de edificios 
+especiales, equipamientos, alturas de las edi­
+ficaciones, granulaciones de las tramas urba­
+nas, llenos y vacíos, perfiles de construccio­
+nes, de vías y demás datos pertinentes.
+La identificación de las áreas de intervención 
+con la identificación de las precedencias, 
+constituyen insumos de partida que se acom­
+pañan con memorias de proyecto, referen­
+cias gráficas, notas y cuadros, provenientes 
+tanto de información aportada por Sistemas 
+de Información Geográfica (SIG), tales como 
+relieves del terreno, ríos, lagunas y cursos de 
+agua, orografía, masas vegetales y similares, 
+como de Sistemas de Posicionamiento Glo­
+bal (GPS) que proveen orientación precisa, 
+escalas de planos y trazo reticular de coor­
+denadas, entre otros y que configuran una 
+porción importante de los componentes grá­
+“Las representaciones tienen una ‘realidad’ o ‘idealidad’
+específica.  Tienden hacia una presencia en la ausencia, 
+sea por la intervención subyacente de un afecto, sea 
+por la adjunción de un saber.”
+Henri Lefebvre
+
+===== PAGE 86 (595x842) =====
+Cartilla del Espacio Público de Bogotá - DAPD - Dirección Arq. Sergio Trujillo
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+86
+BOGOTÁ VISTA GENERAL
+
+===== PAGE 87 (595x842) =====
+PLANOS DE DIAGNÓSTICO O RELEVAMIENTO DE INFORMACIÓN
+DESCRIPCIÓN
+VERIFICACIÓN
+ GEOGRAFÍA 
+HIDROGRAFÍA
+X
+OROGRAFÍA
+X
+ PAISAJE 
+COBERTURA VEGETAL
+X
+SISTEMAS VERDES
+X
+PERFILES URBANOS
+X
+ MOVILIDAD 
+VEHICULAR
+PEATONAL
+X
+CICLORUTAS
+X
+OTROS SISTEMAS
+X
+ MORFOLOGÍA 
+PLANO DE NOLI
+X
+ESTRUCTURA URBANA
+X
+MANZANEO
+X
+ SOCIEDAD 
+SENDEROS
+X
+NODOS E HITOS
+X
+VOCACIONES URBANAS 
+X
+USOS DEL SUELO
+X
+PAISAJES DE DATOS
+X
+ ARQUITECTURA 
+EDIFICIOS  RESIDENCIALES
+X
+EDIFICIOS SINGULARES
+X
+EQUIPAMIENTOS Y EDIFICIOS PÚBLICOS
+X
+ INFRAES­
+TRUCTURA 
+REDES DE SERVICIOS
+X
+ÁREAS PARA ACTIVIDADES LOGÍSTICAS
+X
+Centro Civico de Bogotá, Le Corbusier. 1950
+87
+Áreas Afines de Aplicación de las Guías y Estándares Gráficos - Diseño Urbano
+ficos necesarios para abordar con solvencia 
+la representación de planos de localización, 
+de plantas, elevaciones e imágenes seriadas 
+que suelen ser necesarios para afrontar la es­
+cala del Diseño Urbano. 
+En Diseño Urbano es indispensable contar 
+con dos tipos de información planimétrica, 
+construida para todas y cada una de las ca­
+tegorías anteriormente mencionadas: una 
+de diagnóstico y relevamiento de la realidad 
+existente y otra de proyecto o intervención.
+Con respecto a las Escalas: el Diseño Urba­
+no establece una secuencia de escalas que 
+van desde la escala 1:5000, propia de la gran 
+escala y del análisis territorial, hasta la es­
+cala 1:2500, propia del proyecto de ciudad; 
+la escala 1:1000 se entiende como la esca­
+la maestra del proyecto urbano y la escala 
+1:500 como la escala privilegiada del diseño 
+urbano.
+Adicionalmente se deduce que, a cada esca­
+la, le corresponde un grado de definición de 
+la forma urbana y que, es en la escala 1:500 
+donde los problemas urbanos adquieren for­
+ma arquitectónica; por lo tanto, será en las 
+escalas de mayor detalle donde se concreta­
+rán las diversas soluciones proyectuales, an­
+tes de su materialización constructiva.
+“…los lugares son más fuertes que  las personas, el 
+escenario más que el acontecimiento.  Esa posibilidad 
+de permanencia es lo único que hace al paisaje o a las 
+cosas construidas superiores a las personas.”
+Aldo Rossi
+
+===== PAGE 88 (595x842) =====
+Plaza principal La Vega, Sergio Trujillo y Orlando C. - Cund. Colombia - 2012
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+88
+3.3 ESPACIO PÚBLICO
+REFERNCIA DE DIBUJO DE DETALLE - BARANDA ESPACIO PÚBLICO
+
+===== PAGE 89 (595x842) =====
+Plaza principal La Vega, Sergio Trujillo y Orlando C. - Cund. Colombia - 2012
+89
+PLANTA DETALLE PLAZA  - ESC 1:200
+Áreas Afines de Aplicación de las Guías y Estándares Gráficos - Espacio Público
+LISTA REQUERIMIENTOS DE CONTENIDOS 
+GRÁFICOS MÍNIMOS
+DESCRIPCIÓN
+VERIFICA­
+CIÓN
+ 1.   
+ REFERENTES NATURAL Y ARTIFICIAL 
+SUSTRATOS DEL SUELO
+X
+ 2.   
+OPERACIONES PÚBLICAS
+X
+ 3.   
+VEGETACIÓN PROPUESTA Y EXIS­
+TENTE
+X
+ 4.   
+ILUMINACIÓN ARTIFICIAL
+X
+ 5.   
+TIPOLOGÍA DE INTERVENCIÓN
+X
+ 6.   
+ESTRUCTURAL VIAL
+ 7.   
+EDIFICIOS REFERENCIALES
+X
+ 8.   
+ CONVENCIONES DE 
+REPRESENTACIÓN GRÁFICA 
+COORDENADAS
+X
+ 9.   
+NOMENCLATURAS 
+X
+ 10.  
+ORIENTACIÓN
+X
+ 11.  
+ESCALA
+X
+ 12.  
+IDENTIFICACIÓN PLANO
+X
+ 13.  
+REFERENCIA OTROS PLANOS
+X
+ESPACIO PÚBLICO
+La escala en la que se aborda la representa­
+ción gráfica del Espacio Público, corresponde 
+a un umbral intermedio entre el diseño ur­
+bano y el diseño arquitectónico. Suele fluc­
+tuar entre dibujos que ilustran proyectos de 
+plazas, parques, ejes viales u operaciones 
+públicas sobre sectores de ciudad, las cuales 
+demandan escalas altas e intermedias, has­
+ta ilustraciones que exigen representaciones 
+detalladas de pisos, mobiliarios, bordillos o 
+calzadas, andenes y luminarias, rampas, jar­
+dinerías, paisajismo, materas y un sinfín de 
+elementos complementarios, habitualmente 
+presentes en cualquier documentación de 
+proyectos de Espacio Público.
+Las plantas de localización de vías, edifica­
+ciones y espacios del área de intervención 
+o límites de proyecto, debe ser plena y cla­
+ramente especificada gráficamente. La re­
+ferenciación de los esquemas seriales de 
+planos, sobre todo en operaciones viales o 
+en intervenciones sobre espacios de gran en­
+vergadura, son de particular importancia.
+Las nivelaciones, secciones y perfiles, tanto 
+de los espacios o de los ejes públicos a inter­
+venir, deben ser reiteradamente documenta­
+dos a través de plantas y cortes de referencia, 
+ya que constituyen un insumo trascendente 
+para la comprensión de los diseños, su cuan­
+tificación y la correcta ejecución como pla­
+nos de obra. 
+Los proyectos de Espacio Público acostum­
+bran combinar diseños específicos con ele­
+mentos comerciales de catálogo, tales como 
+mobiliarios y piezas de pisos, lo cual debe ser 
+claramente explícito en la documentación, 
+así como las especificaciones generales de 
+los elementos y procesos de construcción, 
+muchos de los cuales al ser reiterativos, pue­
+den formar parte integral de los planos gene­
+rales o de la cartilla de detalles constructivos 
+y ser plenamente documentados e identifi­
+cados en cuanto a su número y localización 
+específica en el área de proyecto. 
+“La ciudad, la más importante obra del hombre lo reúne todo, y nada que se refiera al hombre le es ajeno.”
+Walt Whitman
+
+===== PAGE 90 (595x842) =====
+Droplet Garden, Diana Wiesner arquitectura y paisaje E.U. - China, 2011
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+90
+3.4 DISEÑO DE PAISAJE
+REFERNCIA DE DIBUJO DE PAISAJISMO
+
+===== PAGE 91 (595x842) =====
+Emplazamiento Salk Institute, Louis Kahn, 1960
+EJEMPLO DE PLAN DE PAISAJE
+CÓDIGO
+ 101 
+ 115 
+ 201 
+TIPO
+ARBOL
+ARBUSTO
+COBERTURA
+FOTO
+PLANTA
+SIGLA
+ AG 
+ Ta 
+ ab 
+NOMBRE 
+COMÚN
+ ALCAPARRO 
+GRANDE 
+ TOMATE DE 
+ÁRBOL 
+ ABEDUL 
+NOMBRE 
+CIENTÍFICO
+ Senna Viarum 
+ Solanum 
+Betaceum 
+ Hypericum 
+Patulum 
+ALTURA (m)
+ 10.  0 
+ 5.  0 
+ N/A 
+REQUIERE 
+TUTOR 2m
+ SI 
+ SI 
+ N/A 
+PROFUNDIDAD 
+MÍNIMA DE 
+AHOYADO (m)
+ 1.  0 
+ 1.  0 
+ .3 0 
+DIAM. COPA 
+(m)
+ 6.  0 
+ 5.  0 
+ N/A 
+DENSIDAD
+ N/A 
+ N/A 
+ 3  POR M2 
+CANTIDAD 
+(Und.)
+ 7.  0 
+ 2.  0 
+ 70.9 0 
+NATIVO
+ SI 
+ SI 
+ NO 
+91
+Áreas Afines de Aplicación de las Guías y Estándares Gráficos - Diseño de Paisaje
+ARQUITECTURA DEL PAISAJE
+Si bien las operaciones de Arquitectura del 
+Paisaje comparten muchos componentes de 
+representación gráfica con las operaciones de 
+espacio público, entre ellas la variabilidad en 
+las escalas de intervención, son detectables 
+muchas singularidades en virtud del papel pre­
+dominante que juega la vegetación y la morfo­
+logía del sitio en su elaboración.
+La arquitectura del paisaje es un cuerpo vivo y 
+en permanente transformación: esa es su ma­
+yor singularidad. A ello debe acogerse su repre­
+sentación.
+Documentar las preexistencias físicas y las con­
+diciones ambientales del proyecto, tales como 
+su localización, orientación, condiciones esta­
+cionales, pluviosidad, régimen de vientos, in­
+ventario forestal del área, condiciones geológi­
+cas y de suelos, entre otros, a través de plantas, 
+elevaciones, cuadros, imágenes o fotografías, 
+constituye información gráfica relevante.
+Los diseños de paisaje incluyen plantas, eleva­
+ciones y 3D, complementados con cuadros que 
+identifican las especies a erradicar, introducir o 
+trasladar, su número, identificación científica y 
+vulgar, su envergadura de siembra y evolución 
+en el tiempo, además de su condición cromáti­
+ca, textural o de floración, entre otros. 
+Combinar planos digitalizados con dibujos 
+manuales, fondos, fotografías y una multitud 
+de recursos gráficos adicionales, ofrecen una 
+enorme libertad discrecional a la documenta­
+ción gráfica usualmente aplicable a la Arquitec­
+tura del Paisaje.
+“Mi mano es una extensión de mis pensamientos,
+de mis pensamientos creativos.”
+Tadao Ando
+
+===== PAGE 92 (595x842) =====
+Restauración Iglesia Voto Nacional,  Maestría en Conservación. U.N. - Bogotá, Colombia, 2013
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+92
+3.5 RESTAURACIÓN
+CORTE LONGITUDINAL - ESC 1:750
+
+===== PAGE 93 (595x842) =====
+Casa K.C DeRhodes, Frank Lloyd Wright, 1906
+CONVENCIONES PLANOS DE CALIFICACIÓN
+DESCRIPCIÓN
+SÍMBOLO
+ 1.   
+CAUSAS QUÍMICAS Y
+ BIOLÓGICAS
+Vegetación Invasiva
+ 2.   
+Algas 
+ 3.   
+Liquenes 
+ 4.   
+Musgos
+ 5.   
+Oxidación / Corrosión
+ 6.   
+Eflorescencias
+ 7.   
+CAUSAS MECÁNICAS
+Grieta
+ 8.   
+Fisuración en mapa
+ 9.   
+Fractura
+ 10.   
+Desprendimiento
+ 11.   
+Faltante
+ 12.   
+Hundimiento
+ 13.   
+CAUSAS FÍSICAS
+Humedad capilar
+ 14.   
+Ensuciamineto
+ 15.   
+Hinchamiento
+ 16.   
+Deslajación
+ 17.   
+Astillamiento
+ 18.   
+Aveolización
+ 19.   
+CAUSAS ANTROPOGÉNICAS
+Rayones
+ 20.   
+Resanes
+ 21.   
+Deterioro térmico
+ 22.   
+Suciedad por velas
+ 23.   
+Perforación por impacto
+ 24.   
+Elementos incrustados
+93
+Áreas Afines de Aplicación de las Guías y Estándares Gráficos - Restauración
+RESTAURACIÓN
+Todo proyecto de Restauración debe contar 
+de partida con un meticuloso relevamiento 
+en planta y elevaciones del área objeto del 
+proyecto, de su materialidad e inventario y 
+diagnóstico de su estado físico, cumpliendo a 
+cabalidad los protocolos técnicos estipulados 
+internacionalmente para tales cometidos.
+Relevamientos fotográficos referenciados a 
+planos de plantas son habitualmente muy ne­
+cesarios, así como la disposición de cuadran­
+tes reticulares a diversas escalas de planos 
+generales y de detalle, tanto de levantamien­
+tos como de proyectos de intervención, los 
+cuales deben estar debidamente acompaña­
+dos de sus correspondientes escalas gráficas.
+“Si fotografía es dibujar con luz, arquitectura es idear, 
+proyectar y construir con luz.”
+Alvaro Siza Vieira
+
+===== PAGE 94 (595x842) =====
+Restauración Iglesia Voto Nacional,  Maestría en Conservación. U.N. - Bogotá, Colombia, 2013
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+94
+DETALLE CORTE LONGITUDINAL - ESC 1:100
+
+===== PAGE 95 (595x842) =====
+95
+Áreas Afines de Aplicación de las Guías y Estándares Gráficos - Restauración
+En el entendido de que áreas o edificacio­
+nes sometidas a restauración suelen estar 
+asociadas a proyectos de valor cultural y/o 
+patrimonial, las exigencia gráficas de la docu­
+mentación se incrementa notablemente, en 
+la medida en que deben reducirse al máximo 
+eventuales deformaciones o interpretacio­
+nes erradas de los planos.
+La especificación de las convenciones grá­
+ficas, las dataciones de época, la memoria 
+histórica y los planos de estado actual, en­
+tre otros, suelen preceder la documentación, 
+cuya intervención de restauro u obra nueva 
+se entremezcla con cuadros, especificacio­
+nes, recomendaciones y notas de diversa ín­
+dole, que acompañan cuidadosos dibujos de 
+plantas, elevaciones y detalles, debidamente 
+coordinados con los textos de especificacio­
+nes y procesos de construcción.
+“El orgullo de quienes no pueden edificar es destruir”
+Alexandre Dumas 
+En el proceso de producción de los pla­
+nos correspondientes a la Conservación 
+o Restauración del Patrimonio Inmueble, 
+existen tres momentos claramente diferen­
+ciados que forman parte de la documenta­
+ción exigida por el Ministerio de Cultura 
+y el Instituto Distrital de Patrimonio en el 
+trámite de proyectos para su aprobación:
+
+-Planos de Levantamiento (L): 
+Registran las características volumétricas 
+y espaciales, las dimensiones y la compo­
+sición material de los diferentes sistemas 
+y elementos que conforman el inmueble.
+
+-Planos de Calificación (C): 
+Incluyen el estado de conservación y los de­
+terioros o patologías que presentan los dife­
+rentes sistemas y elementos que conforman 
+el inmueble. Los diversos daños se represen­
+tan por medio de convenciones que general­
+mente se agrupan de acuerdo con su origen: 
+físico, químico, biológico o antropogénico.
+
+-Planos de Proyecto de Intervención (P): 
+Expresan la propuesta de intervención sobre 
+el inmueble y definen los tipos de acciones 
+y procedimientos que se llevarán a cabo en 
+los diferentes sistemas y elementos que in­
+tegran el edificio. Un conjunto de planos de 
+detalle complementan y precisan las decisio­
+nes expresadas en la propuesta para permitir 
+su ejecución en la obra.
+
+===== PAGE 96 (595x842) =====
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+96
+4. PRESENTACIÓN DE DOCUMENTOS
+4.1 FORMATO Y PROPORCIONES
+FORMATO Y DIMENSIONES DE LOS FORMATO  DE PAPEL ISO
+
+===== PAGE 97 (595x842) =====
+97
+LISTA FORMATOS DE PAPEL
+COD.
+MM
+INCH.
+DESCRIPCIÓN
+ A0 
+1189 X 841
+46.8 X 33,1 Grandes planos urbanos.
+ A1 
+841 X 595
+33.1 X 23.4
+Planos de permisos, planos cons­
+tructivos y presentaciones.
+ A2 
+495 X 421
+23.4 X 16.5
+Anteproyectos o trabajos escolares.
+ A3 
+421 X 297
+16.5 X 11.7
+Diagramas o explicar conceptos.
+ A4 
+297 X 210
+11.7 X 8.3
+ Casi idéntico al tamaño “carta”, 
+presentar renders.
+ A5 
+210 X 149
+8.3 X 5.8
+Similar a una cuartilla, se usa para 
+escritos, estimaciones o presu­
+puestos.
+ A6 
+149 X 105
+5.8 X 4.1
+Tarjeta postal, renders a modo de 
+fotografías.
+ A7 
+105 X 74
+4.1 X 2.9
+Tarjetas de presentacion y renders 
+pequeños
+Presentación de Documentos  - Formato y Proporciones
+FORMATO Y PROPORCIONES
+El formato utilizado internacionalmente para el 
+desarrollo e impresión de proyectos arquitectóni­
+cos, es el estipulado por la norma  ISO 216, la cual 
+se basa en la norma DIN 476, producto del tra­
+bajo del ingeniero alemán Walter Porstmann en el 
+año 1922. El formato es una derivación sistémica 
+de una plantilla de un metro cuadrado en la que 
+cada subdivisión del mismo tiene la mitad del área 
+y también la misma proporción entre sus lados. De 
+esta forma, el formato A0 es la base de un metro 
+cuadrado, el A1 es la mitad, A2 es un cuarto, A3 es 
+un cuarto de la pieza original, preservando siempre 
+la misma relación entre ancho y largo.
+ORGANIZACIÓN DE LA PLANCHA
+La plancha de dibujo se divide en tres áreas princi­
+pales: el área de bloques de dibujo, el área de ró­
+tulo y el área de bloque notas, siendo esta última 
+de carácter opcional y discrecional. Dentro de la 
+diagramación existen dos formas de disponer la 
+información: apaisada, o sea con el texto paralelo 
+al lado largo de la plancha o retrato, con el texto 
+perpendicular al mismo.
+Área de bloques de dibujo
+En esta área se consignan todos los dibujos del 
+proyecto, para organizar esta información se defi­
+ne una retícula la cual varía dependiendo del for­
+mato utilizado. En este espacio debe disponerse la 
+información gráfica, textual, de cuadros, diagramas 
+o similares, necesaria y suficiente para ilustrar el 
+proyecto en su totalidad. 
+Sistema de coordenadas del área de dibujo
+La retícula que organiza el espacio destinado a los 
+bloques de dibujo generalmente tiene 15cm de es­
+pacio entre ejes virtuales, los que a su vez se enu­
+meran o etiquetan con letras y números, verticales 
+y horizontales respectivamente, previendo de ser 
+posible, el mismo espacio para todas las retículas 
+de todas las planchas del proyecto.
+Se recomienda que estas coordenadas estén por 
+fuera del área de trabajo para evitar confusiones 
+con información pertinente al proyecto mismo. 
+Área de bloque de notas
+Esta zona que debe estar junto al rótulo y en ella se 
+se inscriben las anotaciones claves o generales que 
+complementan la información gráfica o de texto de 
+los dibujos. Puede haber más de un Bloque de No­
+tas dentro de un mismo dibujo u omitirlo en caso 
+de no ser requerido.
+En caso de necesitarse plantas clave de localiza­
+ción o detalle, estas se diponen en esta área de 
+Bloque de Notas.
+“Dibujar es atravesar el invisible muro de hierro entre lo 
+que sientes y eres capaz de hacer.”
+Vincent Van Gogh
+Palacio Asamblea Chandigarh, 
+Le Corbusier, 1965
+
+===== PAGE 98 (595x842) =====
+Biblioteca de la Universidad de Aveiro, Alvaro Siza Vieira - Portugal, 1995
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+98
+PARTES Y DISTRIBUCIÓN DE PLANCHA
+4.2 EL RÓTULO
+EL RÓTULO
+El área de Rótulo de la plancha, es la porción donde se consigna la información para su identificación y ma­
+nipulación. Esta área a su vez está dividida en conjuntos desagregados a fin de preservar un orden uniforme 
+de la información allí incluida. 
+Los grupos a incluir, según su pertinencia, son los siguientes:
+□
+□Identificación de plancha: Identificador de disciplina, tipo de plancha, numero de plancha frente al nú­
+mero total. Este bloque se ubica en ambos costados del rotulo para facilitar la búsqueda e identificación de 
+la misma.
+
+===== PAGE 99 (595x842) =====
+99
+PARTES Y DISTRIBUCIÓN DEL RÓTULO
+Presentación de Documentos  - El Rótulo
+□
+□Título de plancha: Contenido de la plancha, es­
+cala de los dibujos, fecha de producción, fecha de 
+copia e identificación del archivo digital.
+□
+□Bloque de administración: logotipo y autorías 
+de estudios técnicos y colaboradores, archivos de 
+referencia, planos de referencia, dibujado por,  re­
+visado por, aprobación del propietario o promotor, 
+derechos de autor, consecutivo de oficina ejecuto­
+ra y número del contrato.
+□
+□Bloque de entregas: Serie cronológica de entre­
+gas y revisiones del proyecto. Este bloque se com­
+pone de área para marca, fecha y descripción. Así 
+mismo se puede adjuntar información de adendos, 
+aclaraciones y revisiones. 
+□
+□Bloque de convenciones: Información de la se­
+rie de convenciones de especificación de materia­
+les o elementos especiales  de construcción. Usual­
+mente se compone de una descripción textual del 
+elemento y la textura gráfica que lo representa.
+□
+□Identificación del proyecto: Nombre y dirección 
+del proyecto, nombre del edificio o instalación, 
+número de fase en la secuencia de construcción 
+y logotipo del proyecto. También se puede incluir 
+información de contacto como teléfono, fax o co­
+rreo electrónico.
+□
+□Identificación del diseñador: Es el área del ró­
+tulo que identifica al diseñador del proyecto o la 
+compañía que produce el material planimétrico del 
+proyecto. Debe incluir datos como nombre, direc­
+ción, teléfono y correo electrónico. También pue­
+de tener el logotipo del diseñador, los sellos pro­
+fesionales, matriculas, nombre y direcciones de los 
+consultores.
+“En una línea el mundo se une, con una línea el mundo 
+se divide. Dibujar es hermoso y tremendo.” 
+Eduardo Chillida
+Sinagoga en Cleveland, 
+Erich Mendelsohn, 1946
+
+===== PAGE 100 (595x842) =====
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+100
+4.3 GUÍA PARA IMPRESIÓN DE DIBUJOS
+LISTA GENERAL DE 
+CAPAS
+ ESCALAS
+NOMBRE DE CAPA
+1:20
+1:50
+1:100
+1:200
+1:500
+ A-AIRE 
+ A-AIRE-DSUM 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-AIRE-DRET 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-AREA 
+ A-AREA-BRUT 
+ A-AREA-COMU 
+ A-AREA-COST 
+ A-AREA-NETA 
+ A-AREA-UTIL 
+ A-CARP 
+ A-CARP-MAD 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-CARP-MET 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-CLRA 
+0.2
+0.18
+0.15
+0.1
+0.1
+ A-CLRA-ACCE 
+0.2
+0.18
+0.15
+0.1
+0.1
+ A-CLRA-MARQ 
+0.18
+0.18
+0.15
+0.1
+0.1
+ A-CLRA-SUSP 
+0.2
+0.18
+0.15
+0.1
+0.1
+ A-CLRA-YESO 
+0.18
+0.18
+0.15
+0.1
+0.1
+ A-COLS 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-COLS-ACHU 
+0.1
+0.1
+0.1
+0.1
+0.1
+ A-CUBT 
+0.5
+0.4
+0.4
+0.3
+0.2
+ A-CUBT-BORD 
+0.5
+0.4
+0.4
+0.3
+0.2
+ A-CURB-NIVL 
+0.5
+0.4
+0.4
+0.3
+0.2
+ A-ECON 
+ A-ECON-COLS 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-ECON-EJES 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-ECON-ESCA 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-ECON-PLAC 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-ECON-VIGA 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-EJES 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-EJES-APAR 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-EJES-COLS 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-EJES-MUEB 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-EJES-MURO 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-ELEC 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-ELEC-APAR 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-EMAD 
+ A-EMAD-CERC 
+0.18
+0.1
+0.1
+0.1
+0.1
+ A-EMAD-COLS 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-EMAD-EJES 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-EMAD-ESCA 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-EMAD-PLAC 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-EMAD-VIGA 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-EMET 
+ A-EMET-CERC 
+0.18
+0.1
+0.1
+0.1
+0.1
+ A-EMET-COLS 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-EMET-EJES 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-EMET-ESCA 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-MET-PLAC 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-MET-VIGA 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-EQUP 
+0.25
+0.25
+0.25
+0.25
+0.15
+ A-EQUP-ASCE 
+0.25
+0.25
+0.25
+0.25
+0.15
+ A-EXTE 
+0.18
+0.1
+0.1
+0.1
+0.1
+ A-EXTE-REJA 
+0.18
+0.1
+0.1
+0.1
+0.1
+ A-HID 
+0.15
+0.13
+0.1
+0.1
+0.1
+ A-HID-APAR 
+0.15
+0.13
+0.1
+0.1
+0.1
+ A-HID-DUCT 
+0.15
+0.13
+0.1
+0.1
+0.1
+ A-MUEB 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-MUEB-ALM 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-MUEB-ARCH 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-MUEB-FIJO 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-MUEB-PANL 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-MUEB-SILL 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-MUEBL-TRAB 
+0.25
+0.18
+0.18
+0.15
+0.13
+ A-MURO 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-MURO-ACHU 
+0.4
+0.3
+0.2
+0.25
+0.15
+ A-MURO-ANTE 
+0.18
+0.15
+0.1
+0.1
+0.1
+ A-MURO-DINT 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-MURO-EXT 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-MURO-FUEG 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-MURO-MOVI 
+0.4
+0.3
+0.2
+0.25
+0.15
+ A-MURO-YESO 
+0.7
+0.6
+0.5
+0.25
+0.15
+ A-PISO 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PISO-ACHU 
+0.1
+0.1
+0.1
+0.1
+0.1
+ A-PISO-ASCE 
+0.18
+0.18
+0.1
+0.1
+0.1
+
+===== PAGE 101 (595x842) =====
+101
+ A-PISO-ESCA 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PISO-GRAN 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PISO-MAD 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PISO-MARM 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PISO-PIED 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PISO-PIRL 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PISO-RAMP 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PLAN 
+ A-PLAN-1 
+0.7
+0.6
+0.4
+0.2
+0.2
+ A-PLAN-2 
+0.6
+0.5
+0.3
+0.15
+0.15
+ A-PLAN-3 
+0.5
+0.4
+0.2
+0.1
+0.1
+ A-PRMT 
+0.2
+0.18
+0.18
+0.15
+0.15
+ A-PROY 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-PSAJ 
+ A-PSAJ-ACHU 
+0.15
+0.1
+0.1
+0.1
+0.1
+ A-PSAJ-ARB 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-PSAJ-PLAN 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-PSAJ-PRAD 
+0.18
+0.18
+0.18
+0.13
+0.13
+ A-PUER 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-SEÑ 
+0.15
+0.15
+0.15
+0.15
+0.15
+ A-TEXT 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-DIM 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-EJES 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-IDEN 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-NIVL 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-NOTA 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-REV 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-ROTL 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-SIMB 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-TEXT-TITL 
+0.2
+0.2
+0.2
+0.2
+0.2
+ A-URBA 
+ A-URBA-AFEC 
+0.2
+0.2
+0.18
+0.18
+0.15
+ A-URBA-AISL 
+0.2
+0.2
+0.18
+0.18
+0.15
+ A-URBA-ANDN 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-URBA-ANTJ 
+0.2
+0.2
+0.18
+0.18
+0.15
+ A-URBA-LIND 
+0.2
+0.2
+0.18
+0.18
+0.15
+ A-URBA-SARD 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-URBA-VIA 
+0.18
+0.18
+0.1
+0.1
+0.1
+ A-VENT 
+0.18
+0.18
+0.1
+0.1
+0.1
+Presentación de Documentos  - Impresiones
+GUIA PARA IMPRESIÓN DE DIBUJOS
+Con esta Guía se establece un estándar para im­
+presiones en blanco y negro, con la previa acla­
+ración que es aplicable a expresiones gráficas de 
+líneas con diferentes intensidades y espesores, 
+pero sin achurados o transparencias, propiedades 
+que en los sistemas más avanzados,  permiten la 
+diferenciación de elementos sin extender dema­
+siado la enumeración de capas desplegadas.
+Esta tabla de capas a su vez, permite ajustar el es­
+pesor de las líneas dependiendo de la escala del 
+dibujo que va a impresión, ya que si se imprimiera 
+el mismo dibujo a dos escalas diferentes, los es­
+pesores de línea le restarían resolución al dibujo. 
+Es recomendable aplicar sistemas de verificación 
+de las capas a través plantillas ya prediseñadas, 
+precaución que ayuda a unificar la calidad de los 
+dibujos.
+ Es importante aclarar que la tabla de capas 
+y sus respectivos espesores de línea, solo se 
+usan en sistemas CAD, ya que  es en estos 
+donde es necesario especificar este tipo de 
+variables. En plataformas BIM, estas varia­
+bles se pueden ajustar si es necesario, pero 
+en términos generales ya vienen pre-con­
+figuradas. Los elementos que se insertan 
+como muros, placas y similares,  reconocen 
+el sistema gráfico dejando la intensidad de 
+las líneas ajustada a la vista y tipo de expre­
+sión requerida. 
+“Los dibujos infantiles están relacionados indirectamente con el pensamiento arquitectónico, pero en 
+todo caso conducen a un entrelazamiento de la sección y la planta y a cierta unidad entre la construcción 
+horizontal y la vertical.”
+Alvar Aalto
+
+===== PAGE 102 (595x842) =====
+Boceto en Perspectiva, Otto Wagner - Viena, 1910
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+102
+5. BIBLIOGRAFÍA
+
+===== PAGE 103 (595x842) =====
+103
+“La arquitectura se basa en la ciencia, tanto como en la 
+intuición” 
+Jørn Utzon
+Bibliografía
+BIBLIOGRAFÍA 
+1.	 WEISS SALAS. Philip. 2005. Documentación 
+sobre Práctica Profesional, Guía y estándares 
+para el desarrollo gráfico del proyecto. CPNAA, 
+Bogotá, Colombia.
+2.	 AMIET, Pierre, 1980, Historia Ilustrada de 
+las Formas Artísticas Nº1. Oriente Medio, 
+Editorial Alianza, Madrid, España. 
+3.	 ANDRADE A. Fausto. 1999. Normas y 
+Convenios del Dibujo Arquitectónico. Ecuador, 
+Pontificia Universidad Católica del Ecuador, 
+Facultad de Arquitectura, Diseño y Artes 
+Carrera de Arquitectura.
+4.	 BASSLER, BRUCE.2008. Architectural Graphic 
+Standards: Student Edition. Hoboken, New 
+Jersey. John Wiley & Sons, Inc.
+5.	 BLUNT, Anthony. 1979. Borromini, Alianza 
+Editorial, Madrid.
+6.	 CALAVERA OPI, César, JIMENEZ RUIZ, Isabel. 
+2014. Dibujo Técnico I, Ediciones Paraninfo 
+S.A, Madrid, España. 
+7.	 CARBONARA, 
+Giovanni. 
+1985. 
+Restauro 
+dei monumenti guida agli elaborati grafici. 
+Università degli studi di Roma “La Sapienza”. 
+Scuola di specializzazione per lo studio ed il 
+restauro  dei monumenti. Roma. 
+8.	 CHING, FRANK D.K. 2014. Manual de Dibujo. 
+Editorial Gustavo Gili, S.A. Barcelona. 
+9.	 CHUECA GOITIA, Fernando. 1968. Breve 
+Historia del Urbanismo, Alianza Editorial, 
+Madrid.
+10.	 DESROCHES 
+NOBLECOURT, 
+Christiane, 
+1985. Historia Ilustrada de las Formas Artísticas 
+Nº2. Egipto. Editorial Alianza, Madrid, España. 
+11.	 DEXTER, Emma. 2005, Vitamin D, New 
+Perspectives in Drawing, PHAIDON. Londres.
+12.	 EDICIONES CEAC, S.A (Ed.). 1985. Planos y 
+Croquis de Edificios. Barcelona, España. 
+13.	 FUNDACIÓN 
+ONCE 
+– 
+FUNDACIÓN 
+ARQUITECTURA 
+COAM. 
+(Ed.). 
+2011. 
+Accesibilidad Universal Y Diseño Para Todos – 
+Arquitectura Y Urbanismo. Madrid. 
+14.	 FRANCO 
+SALAMANCA, 
+Germán. 
+2012 
+El 
+levantamiento 
+arquitectónico: 
+una 
+aproximación 
+metodológica. 
+Universidad 
+nacional de Colombia. Facultad de Artes. 
+Bogotá. 
+15.	 GOMBRICH, E.H.,1950, La Historia del Arte, 
+Phaidon Press Limited, New York, Estados 
+Unidos de América. 
+16.	 HARVARD 
+UNIVERSITY, 
+HARVARD 
+PLANNING & PROJECT MANAGEMENT 
+(Ed.). 2009. CAD and Image Standards for 
+Construction Documentation. Cambridge, MA
+17.	 International Organization for Standardization 
+(Ed.). 1998. Technical product documentation 
+-- Organization and naming of layers for CAD 
+-- Part 1: Overview and principles.
+18.	 International Organization for Standardization 
+(Ed.). 1998. Technical product documentation 
+-- Organization and naming of layers for CAD 
+-- Part 2: Concepts, format and codes used in 
+construction documentation.
+19.	 International Organization for Standardization 
+(Ed.). 1998. Technical product documentation 
+— Organization and naming of layers for CAD 
+— Part 3: Application of ISO 13567-1 and ISO 
+13567-2.
+20.	 MAGNAGO LAMPUGNANI, Vittorio. 1983. 
+Dibujos y Textos en la Arquitectura del siglo 
+XX. Utopía y Realidad. Editorial Gustavo Gili, 
+S.A. Barcelona. 
+21.	 KEMP, Martin, 1990, The Science of Art, 
+Ediciones Akal S.A, Madrid, España. 
+22.	 MURRAY, Peter, 1979. Arquitectura del 
+Renacimiento. 
+Editorial 
+Aguilar, 
+Madrid, 
+España. 
+Croquis de su tumba, Le Corbusier, 1958
+
+===== PAGE 104 (595x842) =====
+Catedral de Chartres, Dibujo Germán Samper G. - Francia, 1975
+Guía y Estándares Gráficos del Proyecto Arquitectónico
+104
+
+===== PAGE 105 (595x842) =====
+105
+“Más ética, menos estética” 
+Massimiliano Fuksas
+23.	 NATIONAL 
+INSTITUTE 
+OF 
+BUILDING 
+SCIENCES, 
+The 
+American 
+Institute 
+of 
+Architects, AIA (Ed.). 2005. AIA CAD Layer 
+Guidelines: U.S. National CAD Standard 
+Version 3. Washington, DC.
+24.	 NEUFERT, Ernst. 2016. Arte de Proyectar en 
+Arquitectura – 16a Edición. Editorial Gustavo 
+Gili, S.A. Barcelona. 
+25.	 New York City Department of Transportation 
+(Ed.). 2009. Street Design Manual, first edition. 
+New York City, NY.
+26.	 New York City Department of Transportation 
+(Ed.). 2013. Street Design Manual, second 
+edition. New York City, NY.
+27.	 PÉRES GOMÉZ, Alberto. 1997. Architectural 
+Representation and the Perspective Hinge. 
+MIT Press, Cambridge.
+28.	 SAINZ, Jorge, 2005, El Dibujo de Arquitectura, 
+Teoría e historia de un lenguaje gráfico, edición 
+corregida y aumentada, Editorial Reverté, 
+2005, Madrid, España. 
+29.	 SAMPER G., German. 1986. La Arquitectura 
+y la Ciudad. Apuntes de Viaje, Fondo Editorial 
+Escala, Bogotá.
+30.	 SCHANK SMITH, Kendra. 2008. Architects 
+Sketches - Dialogue and Design, Architectural 
+Press, Estados Unidos.
+31.	 SCHANK SMITH, Kendra. 2005. Architects 
+Drawings, Architectural Press, Estados Unidos.
+32.	 UNITED 
+STATES 
+NATIONAL 
+CAD 
+STANDARD, V5 (Ed.). 2011. AIA CAD Layer 
+Guidelines. Estados Unidos.
+33.	 UNITED 
+STATES 
+NATIONAL 
+CAD 
+STANDARD, V5 (Ed.). 2011. Module 6 
+Symbols. Estados Unidos.
+34.	 UNIVERSIDAD DE SANTIAGO DE CHILE, 
+Escuela de Arquitectura (Ed.). Guía general 
+Ergonomía 
+en 
+la 
+vivienda, 
+Estándares 
+Antropométricos mínimos, Las dimensiones 
+humanas en los espacios interiores. Santiago 
+de Chile
+35.	 U.S. Army Engineer Research and Development 
+Center (Ed.). 2012. The CAD/BIM Technology 
+Center 
+for 
+facilities, 
+infrastructure, 
+and 
+environment A/E/C CAD Standard Release 
+5.0. Vicksburg, MS.
+36.	 VAN DYKE, Scott. 1984. De la Línea al Diseño, 
+Comunicación, Diseño, Grafismo. Editorial 
+Gustavo Gili, S.A. México. 
+37.	 VESELY, Dalibor. 2004. Architecture in the 
+age of divided representation: the question of 
+creativity in the shadow of production. THE 
+MIT PRESS. Cambridge, Massachusetts.
+38.	 VITRUVIO, 
+Marco, 
+Los 
+Diez 
+libros 
+de 
+Arquitectura, 2006, Linkgua S.L, Barcelona, 
+España. 
+Bibliografía
+Colegio La Pradera - El Volcán, 
+Sergio Trujillo, 2015
+
+===== PAGE 106 (595x842) =====
+Versión digital agosto de 2017, 
+en la ciudad de Bogotá, Colombia.
+Para su diagramación se utilizó tipografía
+de la familia Raleway y Lato.
+e-mail: comunicaciones@cpnaa.gov.co

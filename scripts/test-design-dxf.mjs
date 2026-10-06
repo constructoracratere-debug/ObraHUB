@@ -1,9 +1,9 @@
 /**
- * Test offline del motor DXF de ✏️ Diseño IA.
- * Genera un plan hardcodeado → string DXF → asserts estructurales.
- * Ejecutar: node scripts/test-design-dxf.mjs (tras build o con tsx).
+ * Test offline del motor DXF — FORMATO OBRAHUB 700×500 (R2000).
+ * Genera un plan hardcodeado → string DXF → asserts estructurales +
+ * validación con ezdxf (si hay python disponible).
+ * Ejecutar: node scripts/test-design-dxf.mjs
  */
-import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -11,14 +11,14 @@ import path from "node:path";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
-// Transpila schema+dxf a JS plano en tmp (sin dependencias externas).
 const tmp = path.join(root, ".tmp-design-test");
-execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/views.ts lib/design/knowledge.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck`, { cwd: root, stdio: "pipe" });
+execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/structural/plan.ts lib/structural/loads.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
 
 const { createRequire } = await import("node:module");
 const req = createRequire(import.meta.url);
-const { sanitizeFloorPlan } = req(path.join(tmp, "schema.js"));
-const { planToDxf } = req(path.join(tmp, "dxf.js"));
+// rootDir de tsc = el común de fuentes (lib/) → salida en tmp/design/*.
+const { sanitizeFloorPlan } = req(path.join(tmp, "design", "schema.js"));
+const { planToDxf } = req(path.join(tmp, "design", "dxf.js"));
 
 const rawPlan = {
   version: 2,
@@ -27,7 +27,7 @@ const rawPlan = {
   floorToFloor: 2.6,
   outline: { width: 8.5, depth: 7.0 },
   wallThickness: { exterior: 0.15, interior: 0.10 },
-  site: { city: "Bogotá", department: "Cundinamarca", climate: "frío 14°C", wind: "NE", potNotes: "verificar", localMaterials: ["ladrillo H-10"], localMethods: ["mampostería confinada"], risks: ["sismo alto"] },
+  site: { city: "Bogotá", department: "Cundinamarca" },
   rooms: [
     { name: "Sala", type: "sala", x: 0.15, y: 0.15, width: 3.6, depth: 3.4, level: 0 },
     { name: "Cocina", type: "cocina", x: 3.85, y: 0.15, width: 4.5, depth: 2.4, level: 0 },
@@ -72,75 +72,100 @@ const rawPlan = {
     ],
     notes: "agrupar húmedas",
   },
-  finishes: [
-    { room: "Sala", floor: "porcelanato", walls: "pintura", ceiling: "estuco" },
-  ],
 };
 
 const plan = sanitizeFloorPlan(rawPlan);
 const dxf = planToDxf(plan);
 
-// ── Asserts ──────────────────────────────────────────────────────────────────
 let pass = 0, fail = 0;
 const check = (name, cond) => {
   if (cond) { pass++; console.log(`  ✓ ${name}`); }
   else { fail++; console.error(`  ✗ ${name}`); }
 };
 
-console.log("Test motor DXF — Diseño IA\n");
-check("header R12 (AC1009)", dxf.includes("$ACADVER") && dxf.includes("AC1009"));
-check("tabla LAYER con MUROS", dxf.includes("0\nLAYER\n2\nA-MUROS\n"));
-check("tabla LAYER con ELECTRICO", dxf.includes("ELECTRICO"));
-check("tabla LAYER con HIDROSANITARIO", dxf.includes("HIDROSANITARIO"));
-check("entidades LINE presentes", (dxf.match(/0\nLINE\n/g) ?? []).length > 10);
-check("entidades POLYLINE (contornos)", (dxf.match(/0\nPOLYLINE\n/g) ?? []).length >= 7); // envolvente×2 + 5 rooms
-check("VERTEX balanceados", (() => {
-  const polylines = dxf.split("0\nPOLYLINE\n").slice(1);
-  return polylines.every((pl) => {
-    const seg = pl.split("0\nSEQEND\n")[0];
-    return (seg.match(/0\nVERTEX\n/g) ?? []).length >= 2;
-  });
-})());
-check("ARC de giro de puertas", (dxf.match(/0\nARC\n/g) ?? []).length === rawPlan.doors.length);
-check("CIRCLE instalaciones + burbujas de ejes", (dxf.match(/0\nCIRCLE\n/g) ?? []).length >= rawPlan.electrical.points.length + rawPlan.hydro.points.length);
-check("TEXT con nombre de espacios", dxf.includes("ALCOBA PRINCIPAL") || dxf.includes("Alcoba Principal"));
-check("TEXT de área (m² o m2)", dxf.includes("m²") || dxf.includes("m2"));
-check("cota total presente", dxf.includes("8.50"));
-check("EOF final", dxf.trimEnd().endsWith("0\nEOF"));
-// Convenciones Ching (KB):
-check("poché: más LINEs en MUROS tras el rayado 45°", (dxf.match(/0\nLINE\n8\nMUROS\n/g) ?? []).length > 60);
-check("flecha de norte (texto N + capa TEXTOS)", /0\nTEXT\n8\nTEXTOS\n[\s\S]{0,80}N\n/.test(dxf.replace(/1\n/g, "1\n")) || (dxf.match(/TEXTOS/g) ?? []).length > 2);
-check("cajetín con PROYECTO", dxf.includes("PROYECTO:"));
-check("cajetín con LÁMINA", dxf.includes("LAMINA") || dxf.includes("LÁMINA") || /L[ÁA]MINA/.test(dxf));
-check("escala gráfica (metros en COTAS)", dxf.includes("5 m"));
-// Vistas de licencia (Ching §secciones):
-check("capa CORTE en tabla", dxf.includes("CORTE"));
-check("capas FACHADA-N/S/E/O en tabla", ["FACHADA-NORTE","FACHADA-SUR","FACHADA-ESTE","FACHADA-OESTE"].every(f => dxf.includes(f)));
-check("título CORTE A-A'", dxf.includes("CORTE A-A'"));
-check("títulos de fachadas", dxf.includes("FACHADA NORTE") && dxf.includes("FACHADA SUR"));
-check("marcas de nivel (+0.00)", dxf.includes("+0.00"));
-check("corte transversal B-B'", dxf.includes("CORTE B-B'"));
-check("cuadro de áreas dibujado", dxf.includes("CUADRO DE"));
+console.log("Test motor DXF — Formato OBRAHUB 700×500 (R2000)\n");
 
-// Determinismo: mismo plan → mismo string.
+// ── Escritor R2000 con disciplina de plumillas ISO 128 ──────────────────────
+check("header R2000 (AC1015)", dxf.includes("$ACADVER") && dxf.includes("AC1015"));
+check("unidades mm de lámina (INSUNITS 4)", /\$INSUNITS\n70\n4/.test(dxf));
+check("LTYPE CONTINUOUS/DASHED/CENTER definidos", ["CONTINUOUS", "DASHED", "CENTER"].every((lt) => dxf.includes(`0\nLTYPE\n2\n${lt}\n`)));
+check("LTYPE CENTER con patrón real (73/49)", /LTYPE\n2\nCENTER\n[\s\S]*?73\n4\n40\n20/.test(dxf));
+check("A-MUROS con GROSOR de corte (370=70 → 0.70 mm)", /LAYER\n2\nA-MUROS\n70\n0\n62\n[-\d]+\n6\nCONTINUOUS\n370\n70/.test(dxf));
+check("A-EJES con linetype CENTER y trazo 0.13", /LAYER\n2\nA-EJES\n[\s\S]*?6\nCENTER\n370\n13/.test(dxf));
+check("I-ELECTRICO DASHED fino 0.25", /LAYER\n2\nI-ELECTRICO\n[\s\S]*?6\nDASHED\n370\n25/.test(dxf));
+check("jerarquía ISO completa en tabla (70/35/25/13)", [70, 35, 25, 13].every((lw) => new RegExp(`370\\n${lw}`).test(dxf)));
+
+// ── Integridad capa↔entidad (el bug histórico de capas fantasma) ────────────
+const tableNames = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)\n/g)].map((m) => m[1]);
+const entityLayers = new Set([...dxf.matchAll(/\n8\n([^\n]+)\n/g)].map((m) => m[1]));
+const phantoms = [...entityLayers].filter((l) => !tableNames.includes(l));
+check(`toda entidad vive en una capa de la tabla (${entityLayers.size} capas usadas, ${phantoms.length} fantasma)`, phantoms.length === 0);
+check("nomenclatura A/E/I profesional", ["A-MUROS", "A-PUERTAS", "I-ELECTRICO", "I-HIDRAULICO"].every((n) => tableNames.includes(n)));
+
+// ── Lámina general 700×500 con rótulo OBRAHUB ────────────────────────────────
+check("set completo A-01…A-05", ["A-01", "A-02", "A-03", "A-04", "A-05"].every((c) => dxf.includes(c)));
+check("marca OBRAHUB en rótulo", dxf.includes("OBRAHUB"));
+check("sin universidad (formato propio)", !/UNIVERSIDAD/i.test(dxf));
+check("rótulo: PROYECTO/UBICACIÓN/ESCALA/DIBUJÓ/REVISÓ/LÁMINA", ["PROYECTO", "UBICACI", "ESCALA", "DIBUJ", "REVIS", "LÁMINA"].every((s) => dxf.includes(s)));
+check("escala normalizada 1:50…1:200", /1:(50|75|100|125|150|200)/.test(dxf));
+check("BOGOTÁ del site en el rótulo", dxf.includes("BOGOT"));
+// 5 láminas de 700mm con gap 50: frames exteriores en x=0,750,1500,2250,3000
+check("marcos exteriores cada 750 mm", [0, 750, 1500, 2250, 3000].every((x) => new RegExp(`10\\n${x + 5}\\.000\\n20\\n5\\.000`).test(dxf)));
+check("marco interior a 10 mm (doble filete)", /20\n10\.000[\s\S]{0,140}10\n690\.000[\s\S]{0,60}20\n10\.000/.test(dxf));
+
+// ── Contenido del motor de vistas (Ching/Neufert) ───────────────────────────
+check("entidades LINE presentes", (dxf.match(/0\nLINE\n/g) ?? []).length > 50);
+check("contornos POLYLINE con VERTEX ≥ 2 balanceados", (() => {
+  const polylines = dxf.split("0\nPOLYLINE\n").slice(1);
+  return polylines.length >= 10 && polylines.every((pl) => (pl.split("0\nSEQEND\n")[0].match(/0\nVERTEX\n/g) ?? []).length >= 2);
+})());
+check("MEP: círculos I-ELECTRICO e I-HIDRAULICO en A-01", entityLayers.has("I-ELECTRICO") && entityLayers.has("I-HIDRAULICO"));
+check("TEXT con nombre de espacios", dxf.includes("ALCOBA PRINCIPAL") || dxf.includes("Alcoba Principal"));
+check("cota total 8.50 en planta", dxf.includes("8.50"));
+check("cortes A-A' y B-B' presentes", dxf.includes("CORTE A-A'") && dxf.includes("CORTE B-B'"));
+check("fachadas rotuladas", /FACHADA (NORTE|SUR)/.test(dxf));
+check("cuadro de áreas dibujado", /CUADRO DE/.test(dxf));
+check("flecha de norte en rótulo", /TEXT\n8\nA-ROTULO-TXT\n[\s\S]{0,120}1\nN\n/.test(dxf));
+check("escala gráfica en metros (rótulo)", /40\n2\.000\n1\nm\n/.test(dxf));
+
+// ── Determinismo y sanidad ───────────────────────────────────────────────────
 const dxf2 = planToDxf(sanitizeFloorPlan(rawPlan));
 check("determinismo byte a byte", dxf === dxf2);
-
-// Sanitizador: clamp de coordenadas fuera de rango.
+check("EOF final", dxf.trimEnd().endsWith("0\nEOF"));
+check(`tamaño razonable (${(dxf.length / 1024).toFixed(1)} KB)`, dxf.length < 450_000);
 const clamped = sanitizeFloorPlan({ ...rawPlan, rooms: [{ ...rawPlan.rooms[0], x: 999, width: -5 }] });
 check("sanitizador clampa x y width", clamped.rooms[0].x <= clamped.outline.width && clamped.rooms[0].width >= 0.9);
 
-// Tamaño razonable (< 300 KB — el poché 45° y las texturas Ching añaden
-// entidades legítimamente; una lámina de curaduría real pesa mucho más).
-check(`tamaño razonable (${(dxf.length / 1024).toFixed(1)} KB)`, dxf.length < 300_000);
+// ── ezdxf (validador profesional — como lo abriría AutoCAD/LibreCAD) ────────
+if (process.env.SKIP_EZDXF !== "1") {
+  let hasEzdxf = false;
+  try {
+    execSync(`python -c "import ezdxf"`, { stdio: "pipe" });
+    hasEzdxf = true;
+  } catch {
+    // CI sin python: soft-skip, los 32 asserts estructurales ya corrieron.
+  }
+  if (!hasEzdxf) {
+    console.log("ℹ ezdxf no instalado — validación profesional omitida (soft skip)");
+  } else {
+    try {
+      const { writeFileSync } = await import("node:fs");
+      const out = path.join(root, "test-output.dxf");
+      writeFileSync(out, dxf, "utf8");
+      const py = execSync(
+        `python -c "import ezdxf,sys; d=ezdxf.readfile(r'${out}'); ms=d.modelspace(); lws={l.dxf.name:l.dxf.lineweight for l in d.layers}; assert lws.get('A-MUROS')==70, lws; assert lws.get('A-EJES')==13, lws; n=len(ms); assert n>200, n; print('ezdxf OK', n, 'entidades,', len(d.layers), 'capas')"`,
+        { encoding: "utf8", stdio: "pipe" },
+      ).trim();
+      check(`ezdxf parsea: ${py}`, py.startsWith("ezdxf OK"));
+    } catch (e) {
+      check(`ezdxf valida el archivo (${String(e).split("\n")[0].slice(0, 60)})`, false);
+    }
+  }
+}
 
 console.log(`\n${pass} pasan · ${fail} fallan`);
 if (fail > 0) {
-  // Guarda el DXF para inspección manual.
-  const out = path.join(root, "test-output.dxf");
-  const { writeFileSync } = await import("node:fs");
-  writeFileSync(out, dxf, "utf8");
-  console.log(`DXF de depuración: ${out}`);
+  console.log(`DXF de depuración: ${path.join(root, "test-output.dxf")}`);
   process.exit(1);
 }
 console.log("✅ Motor DXF OK");

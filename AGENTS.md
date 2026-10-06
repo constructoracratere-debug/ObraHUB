@@ -32,6 +32,13 @@ producción inmediato** (CI corre smoke post-deploy y falla visible).
    estructural, kit, pasaporte…) necesita la rama `activeTool === ...` con
    `h-full max-w-none px-0 py-0` en `app-shell.tsx`. Sin ella la columna del
    chat la colapsa a altura 0 = "no sale nada" (bug histórico Nº1).
+7. **📕 EL LIBRO OBLIGATORIO: `docs/GUIA-ESTANDARES-DIBUJO.md`.** Todo dibujo
+   (DXF/SVG/IFC) se rige por la Guía CPNAA (ISO 13567 capas, ISO 128
+   plumillas 0.70/0.35/0.25/0.13, formatos y rótulo). Léelo ANTES de tocar
+   `lib/design/`. Lámina OBRAHUB = 700×500 mm horizontal, margen doble 5/10,
+   rótulo vertical 185 mm con ID en ambos extremos. El plano SIEMPRE limpio.
+   El test `scripts/test-design-dxf.mjs` exige su checklist — nómbrales como
+   fuente de verdad en cualquier cambio de dibujo.
 
 ## Mapa rápido
 
