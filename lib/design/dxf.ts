@@ -126,33 +126,25 @@ class DxfBuilder {
     this.entities.push(`0\nARC\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(cx)}\n20\n${f(cy)}\n40\n${f(r)}\n50\n${f(startDeg)}\n51\n${f(endDeg)}\n`);
   }
 
+  /** Símbolo RELLENO (manija de puerta, marca de corte, zapata): SOLID —
+   *  relleno verdadero, sin achurado. El poché de muros es aparte (hatch). */
+  solid(rawLayer: string, x0: number, y0: number, x1: number, y1: number) {
+    const l = this.layerOf(rawLayer);
+    // Orden de vértices SOLID: 1→2→4→3 (patrón Z) para orientar el relleno.
+    this.entities.push(
+      `0\nSOLID\n8\n${l}\n10\n${f(x0)}\n20\n${f(y0)}\n30\n0.0\n` +
+      `11\n${f(x1)}\n21\n${f(y0)}\n31\n0.0\n` +
+      `12\n${f(x0)}\n22\n${f(y1)}\n32\n0.0\n` +
+      `13\n${f(x1)}\n23\n${f(y1)}\n33\n0.0\n`,
+    );
+  }
+
   text(rawLayer: string, x: number, y: number, height: number, value: string, rotationDeg = 0) {
     const l = this.layerOf(rawLayer);
     const lw = this.lw370(l);
     const safe = value.replace(/[\n\r]/g, " ").replace(/[^\x20-\x7EáéíóúñÁÉÍÓÚÑüÜ°²×–—]/g, "");
     if (!safe.trim()) return; // lámina LIMPIA: nada de TEXT vacío (sin geometría)
     this.entities.push(`0\nTEXT\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(x)}\n20\n${f(y)}\n40\n${f(height)}\n1\n${safe}\n50\n${f(rotationDeg)}\n`);
-  }
-
-  /** Primitivas de vistas.ts trasladadas (dx, dy) — 1:1 en metros. */
-  prims(list: Prim[], dx: number, dy: number) {
-    for (const p of list) {
-      if (p.t === "L") this.line(p.l, p.x1 + dx, p.y1 + dy, p.x2 + dx, p.y2 + dy);
-      else if (p.t === "T") this.text(p.l, p.x + dx, p.y + dy, p.h, p.s, p.r ?? 0);
-      else if (p.t === "C") this.circle(p.l, p.x + dx, p.y + dy, p.r);
-      else if (p.t === "F") {
-        const x0 = p.x + dx, y0 = p.y + dy, x1 = x0 + p.w, y1 = y0 + p.h;
-        this.polyline(p.l, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
-        const step = 0.07;
-        for (let s = -p.h; s < p.w; s += step) {
-          const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h);
-          const bx = Math.min(x1, x0 + s + p.h), by = Math.max(y0, y0 + s);
-          if (ax < bx && by < ay) this.line(p.l, ax, by, bx, ay);
-        }
-      } else {
-        this.polyline(p.l, [[p.x + dx, p.y + dy], [p.x + p.w + dx, p.y + dy], [p.x + p.w + dx, p.y + p.h + dy], [p.x + dx, p.y + p.h + dy]], true);
-      }
-    }
   }
 
   // ── LÁMINA OBRAHUB 700×500 (mm, espacio modelo a 1:1) ─────────────────────
@@ -336,15 +328,21 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
       else if (p.t === "C") d.circle(pl, X(p.x), Y(p.y), Math.max(p.r * k, 0.8));
       else if (p.t === "F") {
         const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);
-        d.polyline(pl, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
-        // Achurado del poché en su PROPIA capa-ROW de la tabla CPNAA
-        // (A-MURO-ACHU: 0.30 mm @1:50 — más fino que el corte 0.60).
-        const hatchL = lay(p.l === "MUROS" ? "MUROS-ACHU" : p.l);
-        const step = 0.07 * k;
-        for (let s = -(p.h * k); s < p.w * k; s += step) {
-          const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h * k);
-          const bx = Math.min(x1, x0 + s + p.h * k), by = Math.max(y0, y0 + s);
-          if (ax < bx && by < ay) d.line(hatchL, ax, by, bx, ay);
+        if (p.l === "MUROS") {
+          // POCHÉ de muro: contorno + rayado 45° en su propia fila CPNAA
+          // (A-MURO-ACHU: 0.30 mm @1:50 — más fino que el corte 0.60).
+          d.polyline(pl, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
+          const hatchL = lay("MUROS-ACHU");
+          const step = 0.07 * k;
+          for (let s = -(p.h * k); s < p.w * k; s += step) {
+            const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h * k);
+            const bx = Math.min(x1, x0 + s + p.h * k), by = Math.max(y0, y0 + s);
+            if (ax < bx && by < ay) d.line(hatchL, ax, by, bx, ay);
+          }
+        } else {
+          // SÍMBOLO pequeño (manija, marca de corte, zapata): SOLID —
+          // relleno macizo, jamás achurado (F ≠ poché desde 4º review).
+          d.solid(pl, x0, y0, x1, y1);
         }
       } else {
         const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);

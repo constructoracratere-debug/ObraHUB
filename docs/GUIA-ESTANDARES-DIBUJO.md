@@ -102,9 +102,17 @@ devuelve a una jerarquía sana. Los flags de primitiva (`thin`, `dash`)
 pasan a los tres salidores por igual: `thin` = un paso abajo (×0.72),
 `dash` = DASHED (los ejes conservan CENTER, punto-raya de la guía).
 
-**Poché consistente**: PDF y DXF dibujan el poché RAYADO 45° (paso 0.07 m,
-grosor de la fila achu) — el mismo plano en papel y en CAD. La pantalla
-puede usar tono (medio interactivo), la impresión no miente.
+**Poché vs símbolo — dos semánticas de F**: el rect relleno `F` sobre
+**MUROS** es POCHÉ: contorno + rayado 45° (paso 0.07 m, grosor de la fila
+achu) idéntico en PDF y DXF. Un `F` pequeño en OTRA capa (manija de
+puerta, marca de corte, zapata) es un SÍMBOLO: relleno MACIZO — `SOLID`
+en DXF, fill en PDF — jamás achurado. La pantalla puede usar tono (medio
+interactivo); la impresión no miente.
+
+**`thin` unificado**: ×0.72 en los TRES salidores (PDF, DXF, pantalla) —
+un paso abajo de la serie. El DXF redondea a centésimas de mm (código 370
+entero): 0.20 × 0.72 = 0.144 → 0.14; diferencia ≤0.01 mm con el PDF,
+aceptada y documentada en el protocolo de calibración.
 
 **Calibración permanente** (cautela de la guía §2.6): la tabla es el punto
 de partida, no el veredicto — con cada formato nuevo se compara UNA lámina

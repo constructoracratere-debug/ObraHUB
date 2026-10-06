@@ -1688,7 +1688,9 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
         const syv = (y: number) => sy - (y - b.minY);
         const vb = `${b.minX} 0 ${sx} ${sy}`;
         // Grosor de MODELO = mm de papel (tabla CPNAA a 1:den) × den/1000.
-        const sw = (layer: string, thin = false) => plotMm(PEN_BY_LAYER[layer] ?? "profile", den) * (den / 1000) * (thin ? 0.75 : 1);
+        // thin = ×0.72 EXACTO en los tres salidores (PDF/DXF/pantalla);
+        // el DXF redondea a centésimas de mm (370) — diferencia ≤0.01 mm.
+        const sw = (layer: string, thin = false) => plotMm(PEN_BY_LAYER[layer] ?? "profile", den) * (den / 1000) * (thin ? 0.72 : 1);
         const swAchu = plotMm("achu", den) * (den / 1000);
         // Barra de escala gráfica que SIEMPRE cabe en el cajetín (presets
         // de metros redondos; nunca desborda — bug de la 100mm/34mm).
@@ -1708,13 +1710,20 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
                   p.t === "L" ? <line key={i} x1={p.x1} y1={syv(p.y1)} x2={p.x2} y2={syv(p.y2)} stroke="#000" strokeWidth={sw(p.l, p.thin)} strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
                   : p.t === "H" ? <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
                   : p.t === "F" ? (
-                    <g key={i}>
-                      {/* Poché rayado 45° — la MISMA representación del DXF */}
-                      <rect x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
-                      {hatch45(p).map((h, j) => (
-                        <line key={j} x1={h.ax} y1={syv(h.ay)} x2={h.bx} y2={syv(h.by)} stroke="#000" strokeWidth={swAchu} />
-                      ))}
-                    </g>
+                    p.l === "MUROS" ? (
+                      <g key={i}>
+                        {/* POCHÉ de muro: rayado 45° — la MISMA representación
+                            del DXF (fila A-MURO-ACHU de la tabla CPNAA) */}
+                        <rect x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
+                        {hatch45(p).map((h, j) => (
+                          <line key={j} x1={h.ax} y1={syv(h.ay)} x2={h.bx} y2={syv(h.by)} stroke="#000" strokeWidth={swAchu} />
+                        ))}
+                      </g>
+                    ) : (
+                      // SÍMBOLO pequeño (manija, marca de corte, zapata):
+                      // relleno macizo — igual que el SOLID del DXF.
+                      <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="#000" stroke="#000" strokeWidth={sw(p.l)} />
+                    )
                   )
                   : p.t === "C" ? <circle key={i} cx={p.x} cy={syv(p.y)} r={p.r} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
                   : <text key={i} x={p.x} y={syv(p.y)} fontSize={p.h} fill="#000" fontFamily="monospace">{p.s}</text>
