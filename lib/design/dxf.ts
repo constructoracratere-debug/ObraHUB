@@ -20,7 +20,7 @@
  */
 
 import type { FloorPlan } from "./schema";
-import { PENS } from "./knowledge";
+import { PENS, plotMm } from "./knowledge";
 import { sheetContents, type Sheet } from "./sheets";
 import { primsBounds, ELEC_SYMBOLS, HYDRO_SYMBOLS, type Prim } from "./views";
 
@@ -35,8 +35,25 @@ type Linetype = "CONTINUOUS" | "DASHED" | "CENTER";
 
 class DxfBuilder {
   private entities: Entity[] = [];
-  /** Tabla de capas: nombre → color (plumilla ISO), linetype, grosor mm. */
-  private layers = new Map<string, { color: number; lt: Linetype; lw: number }>();
+  /** Tabla de capas: nombre → color (plumilla ISO), linetype, grosor mm,
+   *  clase de plot (tabla CPNAA §4.3). */
+  private layers = new Map<string, { color: number; lt: Linetype; lw: number; cls: string }>();
+  /** Escala de la lámina en curso (denominador): activa el 370 por entidad
+   *  con los mm REALES de la tabla de impresión CPNAA. 0 = solo plantilla. */
+  private plotDen = 0;
+
+  /** Fija la escala de plot para las entidades que siguen (por lámina). */
+  setPlot(den: number) {
+    this.plotDen = den;
+  }
+
+  /** 370 (centésimas de mm) de una capa a la escala de la lámina en curso —
+   *  tabla CPNAA §4.3, la misma de SVG/PDF. Sin escala: default plantilla. */
+  private lw370(layer: string): number {
+    const spec = this.layers.get(layer);
+    if (!spec || this.plotDen === 0) return -1; // BYLAYER
+    return Math.round(plotMm(spec.cls, this.plotDen) * 100);
+  }
 
   /** Nomenclatura A/E/I por disciplina — ÚNICO punto de mapeo: entidades y
    *  tabla usan siempre el MISMO nombre (antes la tabla decía A-MUROS y las
@@ -48,7 +65,7 @@ class DxfBuilder {
     const m = l.match(/^(.*?)(-N\d+)$/);
     const base = m?.[1] ?? l;
     const sfx = m?.[2] ?? "";
-    if (/^(MUROS|CORTE|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|FACHADA|TEXTOS|COTAS|EJES|ROTULO|ROTULO-TXT)$/.test(base)) return "A-" + base + sfx;
+    if (/^(MUROS|MUROS-ACHU|CORTE|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|FACHADA|TEXTOS|COTAS|EJES|ROTULO|ROTULO-TXT)$/.test(base)) return "A-" + base + sfx;
     if (/^FACHADA-/.test(base)) return "A-" + base + sfx;
     if (/^ESTRUCTURA/.test(base)) return "S-ELEMENTOS" + sfx;
     if (/^ELECTRICO/.test(base)) return "I-ELECTRICO" + sfx;
@@ -58,30 +75,35 @@ class DxfBuilder {
 
   private layerOf(raw: string): string {
     const name = DxfBuilder.cad(raw);
-    // Especificación de plumilla por capa (manual de dibujo / ISO 128):
-    //  corte 0.70 blanco · perfil 0.35 verde · fino 0.25 rojo · 0.13 amarillo.
-    //  El sufijo de nivel no cambia la plumilla: se compara la base.
+    // Especificación por capa: color (plantilla ISO 128) + linetype + grosor
+    // default + CLASE de plot (tabla CPNAA §4.3 → 370 real por entidad).
+    // El sufijo de nivel no cambia la clase: se compara la base.
     const base = name.replace(/-N\d+$/, "");
-    const spec: { color: number; lt: Linetype; lw: number } =
-      /^(A-MUROS|A-CORTE|S-ELEMENTOS)$/.test(base) ? { color: PENS.cut.dxfColor, lt: "CONTINUOUS", lw: LW.cut }
-      : /^(I-ELECTRICO|I-HIDRAULICO)$/.test(base) ? { color: PENS.thin.dxfColor, lt: "DASHED", lw: LW.thin }
-      : /^A-EJES$/.test(base) ? { color: PENS.extra.dxfColor, lt: "CENTER", lw: LW.extra }
-      : /^(A-TEXTOS|A-COTAS)$/.test(base) ? { color: PENS.extra.dxfColor, lt: "CONTINUOUS", lw: LW.extra }
-      : /^(A-ROTULO|A-ROTULO-TXT)$/.test(base) ? { color: 7, lt: "CONTINUOUS", lw: name.startsWith("A-ROTULO-TXT") ? LW.thin : LW.profile }
-      : { color: PENS.profile.dxfColor, lt: "CONTINUOUS", lw: LW.profile };
+    const spec: { color: number; lt: Linetype; lw: number; cls: string } =
+      /^(A-MUROS|A-CORTE|S-ELEMENTOS)$/.test(base) ? { color: PENS.cut.dxfColor, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
+      : /^A-MUROS-ACHU$/.test(base) ? { color: 8, lt: "CONTINUOUS", lw: LW.thin, cls: "achu" }
+      : /^I-ELECTRICO$/.test(base) ? { color: PENS.thin.dxfColor, lt: "DASHED", lw: LW.thin, cls: "elec" }
+      : /^I-HIDRAULICO$/.test(base) ? { color: PENS.extra.dxfColor, lt: "DASHED", lw: LW.thin, cls: "hid" }
+      : /^A-EJES$/.test(base) ? { color: PENS.extra.dxfColor, lt: "CENTER", lw: LW.extra, cls: "ejes" }
+      : /^(A-TEXTOS|A-COTAS)$/.test(base) ? { color: PENS.extra.dxfColor, lt: "CONTINUOUS", lw: LW.extra, cls: "text" }
+      : /^(A-ROTULO|A-ROTULO-TXT)$/.test(base) ? { color: 7, lt: "CONTINUOUS", lw: name.startsWith("A-ROTULO-TXT") ? LW.thin : LW.profile, cls: "text" }
+      : /^A-FACHADA/.test(base) ? { color: PENS.profile.dxfColor, lt: "CONTINUOUS", lw: LW.profile, cls: "cubt" }
+      : { color: PENS.profile.dxfColor, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" };
     if (!this.layers.has(name)) this.layers.set(name, spec);
     return name;
   }
 
   line(rawLayer: string, x1: number, y1: number, x2: number, y2: number) {
     const l = this.layerOf(rawLayer);
-    this.entities.push(`0\nLINE\n8\n${l}\n10\n${f(x1)}\n20\n${f(y1)}\n11\n${f(x2)}\n21\n${f(y2)}\n`);
+    const lw = this.lw370(l);
+    this.entities.push(`0\nLINE\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(x1)}\n20\n${f(y1)}\n11\n${f(x2)}\n21\n${f(y2)}\n`);
   }
 
   polyline(rawLayer: string, pts: Array<[number, number]>, closed = false) {
     if (pts.length < 2) return;
     const l = this.layerOf(rawLayer);
-    let s = `0\nPOLYLINE\n8\n${l}\n66\n1\n70\n${closed ? 1 : 0}\n10\n0.0\n20\n0.0\n30\n0.0\n`;
+    const lw = this.lw370(l);
+    let s = `0\nPOLYLINE\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n66\n1\n70\n${closed ? 1 : 0}\n10\n0.0\n20\n0.0\n30\n0.0\n`;
     for (const [x, y] of pts) s += `0\nVERTEX\n8\n${l}\n10\n${f(x)}\n20\n${f(y)}\n30\n0.0\n`;
     s += `0\nSEQEND\n8\n${l}\n`;
     this.entities.push(s);
@@ -89,19 +111,22 @@ class DxfBuilder {
 
   circle(rawLayer: string, cx: number, cy: number, r: number) {
     const l = this.layerOf(rawLayer);
-    this.entities.push(`0\nCIRCLE\n8\n${l}\n10\n${f(cx)}\n20\n${f(cy)}\n40\n${f(r)}\n`);
+    const lw = this.lw370(l);
+    this.entities.push(`0\nCIRCLE\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(cx)}\n20\n${f(cy)}\n40\n${f(r)}\n`);
   }
 
   arc(rawLayer: string, cx: number, cy: number, r: number, startDeg: number, endDeg: number) {
     const l = this.layerOf(rawLayer);
-    this.entities.push(`0\nARC\n8\n${l}\n10\n${f(cx)}\n20\n${f(cy)}\n40\n${f(r)}\n50\n${f(startDeg)}\n51\n${f(endDeg)}\n`);
+    const lw = this.lw370(l);
+    this.entities.push(`0\nARC\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(cx)}\n20\n${f(cy)}\n40\n${f(r)}\n50\n${f(startDeg)}\n51\n${f(endDeg)}\n`);
   }
 
   text(rawLayer: string, x: number, y: number, height: number, value: string, rotationDeg = 0) {
     const l = this.layerOf(rawLayer);
+    const lw = this.lw370(l);
     const safe = value.replace(/[\n\r]/g, " ").replace(/[^\x20-\x7EáéíóúñÁÉÍÓÚÑüÜ°²×–—]/g, "");
     if (!safe.trim()) return; // lámina LIMPIA: nada de TEXT vacío (sin geometría)
-    this.entities.push(`0\nTEXT\n8\n${l}\n10\n${f(x)}\n20\n${f(y)}\n40\n${f(height)}\n1\n${safe}\n50\n${f(rotationDeg)}\n`);
+    this.entities.push(`0\nTEXT\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(x)}\n20\n${f(y)}\n40\n${f(height)}\n1\n${safe}\n50\n${f(rotationDeg)}\n`);
   }
 
   /** Primitivas de vistas.ts trasladadas (dx, dy) — 1:1 en metros. */
@@ -280,7 +305,9 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
     // anotación y el resto de láminas quedan compartidas.
     const lvl = sheet.level ?? 0;
     const sfxL = plan.levels > 1 && sheet.level != null ? `-N${lvl + 1}` : "";
-    const lay = (l: string) => (/^(MUROS|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|ELECTRICO|HIDROSANITARIO)$/.test(l) ? l + sfxL : l);
+    const lay = (l: string) => (/^(MUROS|MUROS-ACHU|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|ELECTRICO|HIDROSANITARIO)$/.test(l) ? l + sfxL : l);
+    // Escala REAL de esta lámina → 370 por entidad con la tabla CPNAA §4.3.
+    d.setPlot(den);
 
     d.rotulo(ox, oy, {
       proyecto: plan.name,
@@ -303,11 +330,14 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
       else if (p.t === "F") {
         const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);
         d.polyline(pl, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
+        // Achurado del poché en su PROPIA capa-ROW de la tabla CPNAA
+        // (A-MURO-ACHU: 0.30 mm @1:50 — más fino que el corte 0.60).
+        const hatchL = lay(p.l === "MUROS" ? "MUROS-ACHU" : p.l);
         const step = 0.07 * k;
         for (let s = -(p.h * k); s < p.w * k; s += step) {
           const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h * k);
           const bx = Math.min(x1, x0 + s + p.h * k), by = Math.max(y0, y0 + s);
-          if (ax < bx && by < ay) d.line(pl, ax, by, bx, ay);
+          if (ax < bx && by < ay) d.line(hatchL, ax, by, bx, ay);
         }
       } else {
         const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);

@@ -116,12 +116,48 @@ export const LINE_HIERARCHY: Record<string, { weight: "thick" | "medium" | "thin
   COTAS: { weight: "thin", colorNote: "línea de cota fina + ticks oblicuos 45°" },
 };
 
-/** ── PLUMAS ISO 128 / Ching §2 — jerarquía de grosor normativa ────────────
- *  Serie ISO 128 (0.13/0.25/0.35/0.70 mm) con relación 2:1 entre niveles
- *  (el ojo separa niveles solo si el salto es ≥2x). Valores en METROS DE
- *  MODELO para ESC 1:75 (mm × 75/1000). En DXF R12 (sin lineweight por
- *  entidad) el grosor se codifica por COLOR DE CAPA → plumilla al trazar
- *  (plot style dependiente de color, flujo profesional clásico). */
+/** ── PLUMAS — TABLA DE IMPRESIÓN CPNAA (§4.3, págs. 100-101) ────────────────
+ *  EL LIBRO OBLIGATORIO publica una tabla de mm de papel POR CAPA Y POR
+ *  ESCALA DE IMPRESIÓN (blanco y negro, solo líneas). Filas canónicas:
+ *    A-MURO/COLS (cortado) · A-MURO-ACHU (achurado) · A-CUBT (cubierta) ·
+ *    A-CARP/A-MUEB (perfiles/mobiliario) · A-ELEC · A-HID · A-EJES ·
+ *    A-TEXT* (0.20 constante a toda escala).
+ *  Esta es la FUENTE ÚNICA de grosor para SVG, PDF de impresión y DXF:
+ *  misma clase → mismo mm, interpolando la escala normalizada más cercana.
+ *  (La serie ISO 128 fija 0.70/0.35/0.25/0.13 queda como default de la
+ *  plantilla de capas DXF cuando no hay escala de lámina.) */
+export const GUIDE_PRINT_TABLE: Record<string, Record<number, number>> = {
+  cut:    { 20: 0.70, 50: 0.60, 100: 0.50, 200: 0.25, 500: 0.15 }, // A-MURO/-EXT/-DINT, A-COLS
+  achu:   { 20: 0.40, 50: 0.30, 100: 0.20, 200: 0.25, 500: 0.15 }, // A-MURO-ACHU (literal guía)
+  cubt:   { 20: 0.50, 50: 0.40, 100: 0.40, 200: 0.30, 500: 0.20 }, // A-CUBT (fachadas/cubiertas)
+  profile:{ 20: 0.25, 50: 0.18, 100: 0.18, 200: 0.15, 500: 0.13 }, // A-CARP, A-MUEB, A-PUER, A-VENT
+  elec:   { 20: 0.18, 50: 0.18, 100: 0.10, 200: 0.10, 500: 0.10 }, // A-ELEC
+  hid:    { 20: 0.15, 50: 0.13, 100: 0.10, 200: 0.10, 500: 0.10 }, // A-HID
+  ejes:   { 20: 0.18, 50: 0.18, 100: 0.18, 200: 0.13, 500: 0.13 }, // A-EJES
+  text:   { 20: 0.20, 50: 0.20, 100: 0.20, 200: 0.20, 500: 0.20 }, // A-TEXT* (constante)
+};
+export type PlotClass = keyof typeof GUIDE_PRINT_TABLE;
+
+const PLOT_SCALES = [20, 50, 100, 200, 500];
+
+/** mm de papel de una clase a la escala de lámina `den` (interpolación
+ *  lineal entre las escalas de la tabla; clamp en los extremos). 1:75 →
+ *  cut 0.55; 1:20 → 0.70; 1:500 → 0.15. Determinista. */
+export function plotMm(cls: string, den: number): number {
+  const row = GUIDE_PRINT_TABLE[cls] ?? GUIDE_PRINT_TABLE.profile;
+  if (den <= PLOT_SCALES[0]) return row[PLOT_SCALES[0]];
+  if (den >= PLOT_SCALES[PLOT_SCALES.length - 1]) return row[PLOT_SCALES[PLOT_SCALES.length - 1]];
+  for (let i = 0; i < PLOT_SCALES.length - 1; i++) {
+    const a = PLOT_SCALES[i], b = PLOT_SCALES[i + 1];
+    if (den >= a && den <= b) {
+      const t = (den - a) / (b - a);
+      return Math.round((row[a] + (row[b] - row[a]) * t) * 1000) / 1000;
+    }
+  }
+  return row[50];
+}
+
+/** ── Serie ISO 128 (default de plantilla DXF sin escala de lámina) ───────── */
 export const PENS = {
   /** Corte: muros/placas/columnas cortados — lo más pesado del plano. */
   cut: { mm: 0.7, m: 0.0525, dxfColor: 7 },
@@ -134,20 +170,21 @@ export const PENS = {
 } as const;
 export type PenClass = keyof typeof PENS;
 
-/** Capa → clase de pluma (única fuente de verdad para SVG y DXF). */
-export const PEN_BY_LAYER: Record<string, PenClass> = {
+/** Capa → clase de PLOT (tabla CPNAA; única fuente de SVG, PDF y DXF). */
+export const PEN_BY_LAYER: Record<string, string> = {
   MUROS: "cut", CORTE: "cut",
+  "FACHADA-NORTE": "cubt", "FACHADA-SUR": "cubt",
+  "FACHADA-ESTE": "cubt", "FACHADA-OESTE": "cubt",
   PUERTAS: "profile", VENTANAS: "profile",
-  "FACHADA-NORTE": "profile", "FACHADA-SUR": "profile",
-  "FACHADA-ESTE": "profile", "FACHADA-OESTE": "profile",
   MOBILIARIO: "profile", SANITARIOS: "profile",
-  ELECTRICO: "thin", HIDROSANITARIO: "thin",
-  EJES: "extra", TEXTOS: "extra", COTAS: "extra",
+  ELECTRICO: "elec", HIDROSANITARIO: "hid",
+  EJES: "ejes", TEXTOS: "text", COTAS: "text",
 };
 
-/** Grosor de modelo para una capa (con degradación opcional `thin`). */
+/** Grosor de modelo para una capa (con degradación opcional `thin`).
+ *  Base: tabla CPNAA a ESC 1:75 (mm × 75/1000) — coherente con la lámina. */
 export function penWidth(layer: string, thin = false): number {
-  const base = PENS[PEN_BY_LAYER[layer] ?? "profile"].m;
+  const base = plotMm(PEN_BY_LAYER[layer] ?? "profile", 75) * 0.075;
   return thin ? base * 0.72 : base; // un paso abajo en la serie ≈ ×0.7
 }
 

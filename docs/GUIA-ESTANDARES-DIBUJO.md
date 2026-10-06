@@ -52,25 +52,47 @@ Definiciones normativas (texto CPNAA):
 - **Línea de límite de construcción / línea de empate**: delimitan
   intervención y fragmentos entre planchas (con plano clave).
 
-**Jerarquía ISO 128 que implementamos** (manual de dibujo arquitectónico
-profesional + ejemplos de la guía): lo cortado/cercano = grueso.
-
-| Nivel | Plumilla | Uso |
-|---|---|---|
-| 1 | 0.70 mm | Cortes en planta (muros, estructura) |
-| 2 | 0.35 mm | Perfiles y contornos visos, rótulo |
-| 3 | 0.25 mm | MEP, mobiliario, sanitarios |
-| 4 | 0.13 mm | Ejes, cotas, textos, achurados |
+**Jerarquía implementada** (manual de dibujo arquitectónico profesional +
+ejemplos de la guía): lo cortado/cercano = grueso.
 
 > Nota de la guía (§2.6): hoy se recomienda **no abusar** del cambio de
 > espesor y diferenciar con **gamas de grises/opacidad** cuando el medio lo
-> permita (SVG/render). En DXF mantenemos las 4 plumillas físicas porque la
+> permita (SVG/render). En DXF mantenemos plumillas físicas porque la
 > impresión láser/ploter las exige.
 >
 > **Plumilla por CAPA (código 370), no por CTB**: el DXF declara el grosor
-> en cada LAYER (centésimas de mm), independiente de la tabla de estilos de
-> trazado del usuario. Con "print lineweights by layer" activado (default en
+> en cada LAYER (centésimas de mm) y, desde la tabla de impresión, en cada
+> ENTIDAD — independiente de la tabla de estilos de trazado del usuario.
+> Con "print lineweights by layer" activado (default en
 > AutoCAD/BricsCAD/LibreCAD) la salida es consistente sin archivo CTB.
+
+### Tabla de impresión CPNAA §4.3 (págs. 100-101) — OBLIGATORIA
+
+El libro publica una tabla de **mm de papel por capa y por escala de
+impresión** (estándar para **blanco y negro, solo líneas**). Es la fuente
+única de grosor en ObraHub (`GUIDE_PRINT_TABLE` + `plotMm()` en
+`lib/design/knowledge.ts`), interpolando la escala normalizada más cercana:
+
+| Clase (filas guía) | 1:20 | 1:50 | 1:100 | 1:200 | 1:500 | Nuestras capas |
+|---|---|---|---|---|---|---|
+| cut (A-MURO/-EXT/-DINT, A-COLS) | 0.70 | 0.60 | 0.50 | 0.25 | 0.15 | A-MUROS, A-CORTE, S-ELEMENTOS |
+| achu (A-MURO-ACHU) | 0.40 | 0.30 | 0.20 | 0.25 | 0.15 | A-MUROS-ACHU (rayado poché) |
+| cubt (A-CUBT) | 0.50 | 0.40 | 0.40 | 0.30 | 0.20 | A-FACHADA-* |
+| profile (A-CARP, A-MUEB, A-PUER, A-VENT) | 0.25 | 0.18 | 0.18 | 0.15 | 0.13 | A-PUERTAS/VENTANAS/MOBILIARIO/SANITARIOS |
+| elec (A-ELEC) | 0.18 | 0.18 | 0.10 | 0.10 | 0.10 | I-ELECTRICO |
+| hid (A-HID) | 0.15 | 0.13 | 0.10 | 0.10 | 0.10 | I-HIDRAULICO |
+| ejes (A-EJES) | 0.18 | 0.18 | 0.18 | 0.13 | 0.13 | A-EJES |
+| text (A-TEXT* — constante) | 0.20 | 0.20 | 0.20 | 0.20 | 0.20 | A-TEXTOS, A-COTAS, A-ROTULO* |
+
+Reglas de la guía sobre la tabla:
+- El grosor **depende de la escala**: el mismo dibujo impreso a dos escalas
+  pide espesores distintos o pierde resolución.
+- Recomendado verificar capas con **plantillas prediseñadas** (nuestro
+  equivalente: la tabla en código + tests que la testifican).
+- Aplica a **CAD**; en BIM las variables vienen preconfiguradas.
+- La tabla gobierna los TRES salidores: SVG de pantalla (px constantes con
+  la misma jerarquía), PDF de impresión (mm reales a 1:den) y DXF (código
+  370 por entidad a la escala de su lámina).
 
 ## 3. Escalas (guía §2.5)
 
@@ -189,6 +211,11 @@ Implementación OBRAHUB (`rotulo()` en `lib/design/dxf.ts`, franja 185 mm):
       en capa `0` o fantasma (lo exige `scripts/test-design-dxf.mjs`).
 - [ ] Ejes CENTER, proyecciones/MEP DASHED, cortes 0.70 (§2).
 - [ ] Escala numérica + gráfica en cada lámina; serie normativa (§3).
+- [ ] **Escala VERDADERA en impresión**: la lámina PDF se compone a mm de
+      papel (700×500, marco 5/10) y el contenido mide exactamente sx·k mm —
+      el `1:den` del cajetín se puede comprobar con regla (§3, §4.3).
+- [ ] Grosor de línea por tabla CPNAA §4.3 a la escala de la lámina
+      (SVG, PDF y DXF resuelven de la MISMA `plotMm`).
 - [ ] **Vanos reales**: puertas y ventanas son HUECOS en el muro con
       jambas — jamás símbolos sobre banda continua (§2.3).
 - [ ] Cotas jerárquicas afuera, numerales al punto medio, sin traslape (§4).

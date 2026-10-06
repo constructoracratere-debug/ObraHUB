@@ -22,12 +22,12 @@ import {
 } from "@/lib/design/schema";
 import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
-import { penWidth, PEN_BY_LAYER } from "@/lib/design/knowledge";
+import { penWidth, plotMm, PEN_BY_LAYER } from "@/lib/design/knowledge";
 import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
-import { buildSheets } from "@/lib/design/sheets";
+import { buildSheets, sheetContents } from "@/lib/design/sheets";
 import { furnishRoom, labelSpot } from "@/lib/design/symbols";
 import { IfcLive } from "./ifc-live";
 import { takeoff } from "@/lib/passport/takeoff";
@@ -924,9 +924,9 @@ const PRIM_COLORS: Record<string, string> = {
 /** Grosor en PÍXELES constante (non-scaling-stroke) para cortes/fachadas:
  *  en pantalla el viewBox se ajusta a ~14 m y las plumas a escala de modelo
  *  quedaban 2-3× más gruesas que en papel. Con grosor fijo en px la
- *  jerarquía ISO se conserva y el zoom no engorda las líneas (como el
- *  "lineweight display" de CAD). */
-const PEN_PX: Record<string, number> = { cut: 2.1, profile: 1.25, thin: 0.9, extra: 0.7 };
+ *  jerarquía se conserva y el zoom no engorda las líneas (como el
+ *  "lineweight display" de CAD). Clases = filas de la tabla CPNAA §4.3. */
+const PEN_PX: Record<string, number> = { cut: 2.1, achu: 0.9, cubt: 1.25, profile: 1.25, elec: 0.9, hid: 0.9, ejes: 0.7, text: 0.7 };
 function penPx(layer: string, thin = false): number {
   const base = PEN_PX[PEN_BY_LAYER[layer] ?? "profile"];
   return thin ? base * 0.75 : base;
@@ -1658,47 +1658,82 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "plano";
 }
 
-// ── LÁMINAS DE IMPRESIÓN (A-01/A-02/A-03 · A2 apaisado · monocromo) ─────────
+// ── LÁMINAS DE IMPRESIÓN (formato OBRAHUB 700×500 · monocromo) ──────────────
 // Salida VECTORIAL vía impresión del navegador: Ctrl+P → "Guardar como PDF",
-// tamaño A2 landscape. Cada lámina lleva marco, cajetín y escala gráfica —
-// el set numerado que se entrega en ventanilla de curaduría.
+// tamaño 700mm×500mm (la @page lo pide). MISMA definición de láminas que el
+// DXF (sheetContents) y MISMA tabla de impresión CPNAA §4.3 (plotMm): el
+// grosor impreso es el del libro y la ESCALA DEL RÓTULO ES REAL — se elige
+// de la serie normalizada (1:50…1:200) contra el área imprimible en mm de
+// papel, y la barra gráfica sigue siendo cierta sobre el papel impreso.
 function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }) {
-  const shift = (prims: Prim[], dx: number, dy: number): Prim[] =>
-    prims.map((p) => p.t === "L" ? { ...p, x1: p.x1 + dx, y1: p.y1 + dy, x2: p.x2 + dx, y2: p.y2 + dy }
-      : p.t === "T" ? { ...p, x: p.x + dx, y: p.y + dy }
-      : p.t === "C" ? { ...p, x: p.x + dx, y: p.y + dy }
-      : { ...p, x: p.x + dx, y: p.y + dy });
-  const W = plan.outline.width, D = plan.outline.depth;
-  const totalH = plan.floorToFloor * Math.max(1, plan.levels);
-  const sheets: Array<{ code: string; title: string; prims: Prim[] }> = buildSheets(plan);
+  const sheets = sheetContents(plan);
+  const fecha = new Date().toISOString().slice(0, 10);
+  const total = sheets.length;
+  const city = plan.site?.city ? plan.site.city.toUpperCase() : "COLOMBIA";
+  const PAGE_W = 700, PAGE_H = 500, M = 10, CAJ_W = 68;
+  const availW = PAGE_W - 2 * M - CAJ_W - 8;
+  const availH = PAGE_H - 2 * M;
   return (
     <div className="fixed inset-0 z-[80] overflow-auto bg-black/70 p-4 print:block print:bg-white print:p-0">
-      <style>{`@page { size: A2 landscape; margin: 0 } .sheet { page-break-after: always } @media print { .no-print { display: none !important } }`}</style>
+      <style>{`@page { size: 700mm 500mm; margin: 0 } .sheet { page-break-after: always } @media print { .no-print { display: none !important } }`}</style>
       <div className="no-print mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-white">📄 Láminas A2 apaisadas — usa <b>Imprimir → Guardar como PDF</b> (tamaño A2)</p>
+        <p className="text-sm font-semibold text-white">📄 Láminas OBRAHUB 700×500 mm — usa <b>Imprimir → Guardar como PDF</b> (tamaño 700×500 mm). La escala del cajetín es la real.</p>
         <button type="button" onClick={onClose} className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20">Cerrar ✕</button>
       </div>
-      {sheets.map((s) => {
+      {sheets.map((s, idx) => {
         const b = primsBounds(s.prims);
-        const sy = (y: number) => b.maxY + 0.6 - (y - (b.minY - 0.6));
-        const vb = `${b.minX - 0.6} ${b.minY - 0.6} ${b.maxX - b.minX + 1.2} ${b.maxY - b.minY + 1.2}`;
+        const sx = b.maxX - b.minX, sy = b.maxY - b.minY;
+        const den = [50, 75, 100, 125, 150, 200].find((k) => sx * (1000 / k) <= availW && sy * (1000 / k) <= availH) ?? 250;
+        const k = 1000 / den; // mm de papel por metro de modelo
+        const syv = (y: number) => sy - (y - b.minY);
+        const vb = `${b.minX} 0 ${sx} ${sy}`;
+        // Grosor de MODELO = mm de papel (tabla CPNAA a 1:den) × den/1000.
+        const sw = (layer: string, thin = false) => plotMm(PEN_BY_LAYER[layer] ?? "profile", den) * (den / 1000) * (thin ? 0.75 : 1);
+        // Barra de escala gráfica 0–1–2–5 m (verificable con regla).
+        let bx = 13;
+        const bars = [1, 1, 3].map((m) => { const w = m * k; const seg = { x: bx, w }; bx += w; return seg; });
         return (
-          <div key={s.code} className="sheet mx-auto mb-4 bg-white" style={{ width: "594mm", height: "420mm", position: "relative" }}>
-            <svg width="100%" height="100%" viewBox={vb} preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0 }}>
-              {s.prims.map((p, i) =>
-                p.t === "L" ? <line key={i} x1={p.x1} y1={sy(p.y1)} x2={p.x2} y2={sy(p.y2)} stroke="#000" strokeWidth={p.thin ? 0.02 : 0.045} strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
-                : p.t === "H" ? <rect key={i} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={0.045} />
-                : p.t === "F" ? <rect key={i} x={p.x} y={sy(p.y + p.h)} width={p.w} height={p.h} fill="#000" fillOpacity={0.85} />
-                : p.t === "C" ? <circle key={i} cx={p.x} cy={sy(p.y)} r={p.r} fill="none" stroke="#000" strokeWidth={0.03} />
-                : <text key={i} x={p.x} y={sy(p.y)} fontSize={p.h} fill="#000" fontFamily="monospace">{p.s}</text>
-              )}
-              {/* Cajetín por lámina (esquina inferior derecha) */}
-              <g>
-                <rect x={b.maxX - 6.5} y={b.minY - 0.5} width={6} height={1.8} fill="none" stroke="#000" strokeWidth={0.045} />
-                <text x={b.maxX - 6.3} y={b.minY + 0.15} fontSize={0.22} fill="#000" fontFamily="monospace">{plan.name.toUpperCase().slice(0, 30)}</text>
-                <text x={b.maxX - 6.3} y={b.minY + 0.55} fontSize={0.18} fill="#000" fontFamily="monospace">ESC 1:75 · METROS · 2026</text>
-                <text x={b.maxX - 6.3} y={b.minY + 0.95} fontSize={0.26} fontWeight="bold" fill="#000" fontFamily="monospace">{s.code} — {s.title}</text>
-              </g>
+          <div key={s.code} className="sheet mx-auto mb-4 bg-white" style={{ width: `${PAGE_W}mm`, height: `${PAGE_H}mm`, position: "relative" }}>
+            {/* Marco doble 5/10 mm (formato OBRAHUB) */}
+            <div style={{ position: "absolute", inset: "5mm", border: "0.2mm solid #000" }} />
+            <div style={{ position: "absolute", inset: "10mm", border: "0.45mm solid #000" }} />
+            {/* Contenido a 1:den REAL — el SVG mide exactamente sx·k × sy·k mm */}
+            <div style={{ position: "absolute", left: `${M + (availW + CAJ_W + 8 - sx * k) / 2}mm`, top: `${M + (availH - sy * k) / 2}mm`, width: `${sx * k}mm`, height: `${sy * k}mm` }}>
+              <svg width="100%" height="100%" viewBox={vb} preserveAspectRatio="none">
+                {s.prims.map((p, i) =>
+                  p.t === "L" ? <line key={i} x1={p.x1} y1={syv(p.y1)} x2={p.x2} y2={syv(p.y2)} stroke="#000" strokeWidth={sw(p.l, p.thin)} strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
+                  : p.t === "H" ? <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
+                  : p.t === "F" ? <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="#000" fillOpacity={0.82} stroke="#000" strokeWidth={sw(p.l)} />
+                  : p.t === "C" ? <circle key={i} cx={p.x} cy={syv(p.y)} r={p.r} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
+                  : <text key={i} x={p.x} y={syv(p.y)} fontSize={p.h} fill="#000" fontFamily="monospace">{p.s}</text>
+                )}
+              </svg>
+            </div>
+            {/* Cajetín OBRAHUB (papel mm) — escala y fecha REALES */}
+            <div style={{ position: "absolute", right: `${M}mm`, bottom: `${M}mm`, width: `${CAJ_W}mm`, border: "0.4mm solid #000", background: "#fff", fontFamily: "monospace", fontSize: "2.2mm", lineHeight: 1.5, color: "#000", padding: "1.6mm" }}>
+              <div style={{ fontSize: "3.8mm", fontWeight: 700, letterSpacing: "0.5mm" }}>OBRAHUB</div>
+              <div style={{ fontSize: "1.7mm" }}>CONSTRUCTION OS · CRATERE S.A.S.</div>
+              <div style={{ borderTop: "0.2mm solid #000", margin: "1mm 0" }} />
+              <div style={{ fontSize: "1.7mm" }}>PROYECTO</div>
+              <div>{plan.name.toUpperCase().slice(0, 26)}</div>
+              <div style={{ fontSize: "1.7mm" }}>UBICACIÓN: {city.slice(0, 26)}</div>
+              <div style={{ fontWeight: 700 }}>{s.code} — {s.title.slice(0, 21)}</div>
+              <div>ESCALA 1:{den} · MM · S.I.</div>
+              <div>FECHA {fecha}</div>
+              <div>DIBUJÓ OBRAHUB DISEÑO IA · REVISÓ ING. MATRICULADO</div>
+              <div style={{ fontWeight: 700 }}>LÁMINA {idx + 1}/{total}</div>
+            </div>
+            {/* Norte + escala gráfica: mide con regla sobre el papel */}
+            <svg style={{ position: "absolute", left: `${M + 3}mm`, bottom: `${M + 2}mm` }} width="34mm" height="11mm" viewBox="0 0 34 11">
+              <polygon points="3,9.6 4.6,2.4 6.2,9.6" fill="#000" />
+              <line x1="4.6" y1="2.4" x2="4.6" y2="9.6" stroke="#000" strokeWidth="0.2" />
+              <text x="3.5" y="1.6" fontSize="2.6" fontFamily="monospace" fill="#000">N</text>
+              {bars.map((seg, i) => (
+                <rect key={i} x={seg.x} y={8.2} width={seg.w} height={1.6} fill={i % 2 === 0 ? "#000" : "none"} stroke="#000" strokeWidth="0.18" />
+              ))}
+              <text x="12.6" y="7.4" fontSize="1.9" fontFamily="monospace" fill="#000">0</text>
+              <text x={13 + 2 * k} y="7.4" fontSize="1.9" fontFamily="monospace" fill="#000">2</text>
+              <text x={13 + 5 * k - 1.5} y="7.4" fontSize="1.9" fontFamily="monospace" fill="#000">5 m</text>
             </svg>
           </div>
         );

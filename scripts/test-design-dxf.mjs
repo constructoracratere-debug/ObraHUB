@@ -109,7 +109,8 @@ check("jerarquía ISO completa en tabla (70/35/25/13)", [70, 35, 25, 13].every((
 
 // ── Integridad capa↔entidad (el bug histórico de capas fantasma) ────────────
 const tableNames = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)\n/g)].map((m) => m[1]);
-const entityLayers = new Set([...dxf.matchAll(/\n8\n([^\n]+)\n/g)].map((m) => m[1]));
+// Anclado a tipo de entidad: un color 62→8 en la tabla NO es una capa "8".
+const entityLayers = new Set([...dxf.matchAll(/0\n(?:LINE|POLYLINE|VERTEX|SEQEND|CIRCLE|ARC|TEXT)\n8\n([^\n]+)\n/g)].map((m) => m[1]));
 const phantoms = [...entityLayers].filter((l) => !tableNames.includes(l));
 check(`toda entidad vive en una capa de la tabla (${entityLayers.size} capas usadas, ${phantoms.length} fantasma)`, phantoms.length === 0);
 check("nomenclatura A/E/I profesional", ["A-MUROS", "A-PUERTAS", "I-ELECTRICO", "I-HIDRAULICO"].every((n) => tableNames.includes(n)));
@@ -139,6 +140,20 @@ check("ventanas/aberturas recortan la banda del muro", (() => {
 // ── Leyenda MEP explicada (guía §Símbolos) ───────────────────────────────────
 check("leyenda SIMBOLOGÍA MEP en A-01", dxf.includes("SIMBOLOGÍA MEP"));
 check("leyenda describe símbolos presentes", dxf.includes("TOMACORRIENTE") && dxf.includes("SANITARIO"));
+
+// ── Tabla de impresión CPNAA §4.3 (págs. 100-101) — fuente única ────────────
+check("plotMm: filas literales de la tabla", (() => {
+  const { plotMm } = req(path.join(tmp, "design", "knowledge.js"));
+  return plotMm("cut", 20) === 0.7 && plotMm("cut", 50) === 0.6 && plotMm("cut", 500) === 0.15
+    && plotMm("text", 500) === 0.2 && plotMm("hid", 50) === 0.13 && plotMm("ejes", 200) === 0.13;
+})());
+check("plotMm: interpola escalas intermedias (1:75 → cut 0.55)", (() => {
+  const { plotMm } = req(path.join(tmp, "design", "knowledge.js"));
+  return plotMm("cut", 75) === 0.55 && plotMm("elec", 75) === 0.14;
+})());
+check("370 por ENTIDAD a la escala real de la lámina (A-01 @1:50 → cut 0.60)", /8\nA-MUROS\n370\n60\n/.test(dxf));
+check("achurado en su propia fila A-MURO-ACHU (0.30 @1:50)", /8\nA-MUROS-ACHU\n370\n30\n/.test(dxf));
+check("plantilla de capa conserva default ISO (370=70 en tabla A-MUROS)", /LAYER\n2\nA-MUROS\n70\n0\n62\n[-\d]+\n6\nCONTINUOUS\n370\n70/.test(dxf));
 
 // ── Lámina general 700×500 con rótulo OBRAHUB ────────────────────────────────
 check("set completo A-01…A-05", ["A-01", "A-02", "A-03", "A-04", "A-05"].every((c) => dxf.includes(c)));

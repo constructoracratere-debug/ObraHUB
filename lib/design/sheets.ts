@@ -110,7 +110,7 @@ function dress(code: string, title: string, content: Prim[], planName: string): 
   const rows: Array<[number, string]> = [
     [0.68, planName.toUpperCase().slice(0, 42)],
     [0.48, "UBICACION: " + ""],
-    [0.48, "ESC 1:75 \u00b7 METROS \u00b7 UNIDADES S.I."],
+    [0.48, "ESCALA GRÁFICA · METROS · UNIDADES S.I."],
     [0.48, `${code} \u2014 ${title}`],
     [0.48, "OBRAHUB \u00b7 CRATERE S.A.S."],
   ];
