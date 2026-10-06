@@ -90,9 +90,10 @@ Reglas de la guía sobre la tabla:
 - Recomendado verificar capas con **plantillas prediseñadas** (nuestro
   equivalente: la tabla en código + tests que la testifican).
 - Aplica a **CAD**; en BIM las variables vienen preconfiguradas.
-- La tabla gobierna los DOS salidores físicos con los mismos MILÍMETROS:
-  PDF de impresión (mm reales a 1:den) y DXF (código 370 por entidad a
-  la escala de su lámina) — idénticos numéricamente. La PANTALLA comparte
+- La tabla gobierna los DOS salidores físicos con el MISMO VALOR de
+  tabla: PDF de impresión (mm reales a 1:den) y DXF (código 370 por
+  entidad a la escala de su lámina). El DXF redondea a 0.01 mm —
+  diferencias ≤0.01 mm entre formatos, aceptadas. La PANTALLA comparte
   las CLASES y el factor thin (jerarquía de la misma tabla) pero dibuja
   en píxeles constantes (`PEN_PX`): es un medio zoomable, no papel — no
   persigas la igualdad numérica pantalla↔impresión.
