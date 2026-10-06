@@ -157,6 +157,27 @@ export function plotMm(cls: string, den: number): number {
   return row[50];
 }
 
+/** ── Barra de escala gráfica que SIEMPRE cabe en su sitio ───────────────────
+ *  Presets de metros "bonitos" (etiquetas legibles: 0-2-5, 0-1-3…); devuelve
+ *  el más largo cuyo ancho total en mm de papel (total_m × k) no excede
+ *  maxMm. Así la barra nunca desborda el cajetín/rótulo a ninguna escala. */
+const BAR_PRESETS: Array<{ total: number; segs: number[] }> = [
+  { total: 5, segs: [1, 1, 3] },
+  { total: 4, segs: [1, 1, 2] },
+  { total: 3, segs: [0.5, 0.5, 2] },
+  { total: 2, segs: [0.5, 0.5, 1] },
+  { total: 1, segs: [0.25, 0.25, 0.5] },
+  { total: 0.5, segs: [0.1, 0.1, 0.3] },
+];
+
+export function scaleBarMm(k: number, maxMm = 58): { total: number; segs: number[]; totalMm: number } {
+  for (const p of BAR_PRESETS) {
+    if (p.total * k <= maxMm) return { total: p.total, segs: p.segs, totalMm: p.total * k };
+  }
+  const last = BAR_PRESETS[BAR_PRESETS.length - 1];
+  return { total: last.total, segs: last.segs, totalMm: last.total * k };
+}
+
 /** ── Serie ISO 128 (default de plantilla DXF sin escala de lámina) ───────── */
 export const PENS = {
   /** Corte: muros/placas/columnas cortados — lo más pesado del plano. */

@@ -22,7 +22,7 @@ import {
 } from "@/lib/design/schema";
 import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
-import { penWidth, plotMm, PEN_BY_LAYER } from "@/lib/design/knowledge";
+import { penWidth, plotMm, scaleBarMm, PEN_BY_LAYER } from "@/lib/design/knowledge";
 import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
@@ -1662,16 +1662,16 @@ function slugify(s: string): string {
 // Salida VECTORIAL vía impresión del navegador: Ctrl+P → "Guardar como PDF",
 // tamaño 700mm×500mm (la @page lo pide). MISMA definición de láminas que el
 // DXF (sheetContents) y MISMA tabla de impresión CPNAA §4.3 (plotMm): el
-// grosor impreso es el del libro y la ESCALA DEL RÓTULO ES REAL — se elige
-// de la serie normalizada (1:50…1:200) contra el área imprimible en mm de
-// papel, y la barra gráfica sigue siendo cierta sobre el papel impreso.
+// grosor impreso es el del libro, la ESCALA DEL CAJETÍN ES REAL (serie
+// 1:50…1:200 contra el área imprimible) y el poché se dibuja RAYADO como en
+// el DXF (fila A-MURO-ACHU) — PDF y CAD muestran el mismo plano.
 function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }) {
   const sheets = sheetContents(plan);
   const fecha = new Date().toISOString().slice(0, 10);
   const total = sheets.length;
   const city = plan.site?.city ? plan.site.city.toUpperCase() : "COLOMBIA";
   const PAGE_W = 700, PAGE_H = 500, M = 10, CAJ_W = 68;
-  const availW = PAGE_W - 2 * M - CAJ_W - 8;
+  const availW = PAGE_W - 2 * M - CAJ_W - 8; // área de dibujo: IZQUIERDA del cajetín
   const availH = PAGE_H - 2 * M;
   return (
     <div className="fixed inset-0 z-[80] overflow-auto bg-black/70 p-4 print:block print:bg-white print:p-0">
@@ -1689,27 +1689,39 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
         const vb = `${b.minX} 0 ${sx} ${sy}`;
         // Grosor de MODELO = mm de papel (tabla CPNAA a 1:den) × den/1000.
         const sw = (layer: string, thin = false) => plotMm(PEN_BY_LAYER[layer] ?? "profile", den) * (den / 1000) * (thin ? 0.75 : 1);
-        // Barra de escala gráfica 0–1–2–5 m (verificable con regla).
-        let bx = 13;
-        const bars = [1, 1, 3].map((m) => { const w = m * k; const seg = { x: bx, w }; bx += w; return seg; });
+        const swAchu = plotMm("achu", den) * (den / 1000);
+        // Barra de escala gráfica que SIEMPRE cabe en el cajetín (presets
+        // de metros redondos; nunca desborda — bug de la 100mm/34mm).
+        const bar = scaleBarMm(k, 58);
+        const barMid = +(bar.segs[0] + bar.segs[1]).toFixed(2);
+        const fmtM = (v: number) => (Number.isInteger(v) ? String(v) : String(+v.toFixed(2)));
         return (
           <div key={s.code} className="sheet mx-auto mb-4 bg-white" style={{ width: `${PAGE_W}mm`, height: `${PAGE_H}mm`, position: "relative" }}>
             {/* Marco doble 5/10 mm (formato OBRAHUB) */}
             <div style={{ position: "absolute", inset: "5mm", border: "0.2mm solid #000" }} />
             <div style={{ position: "absolute", inset: "10mm", border: "0.45mm solid #000" }} />
-            {/* Contenido a 1:den REAL — el SVG mide exactamente sx·k × sy·k mm */}
-            <div style={{ position: "absolute", left: `${M + (availW + CAJ_W + 8 - sx * k) / 2}mm`, top: `${M + (availH - sy * k) / 2}mm`, width: `${sx * k}mm`, height: `${sy * k}mm` }}>
+            {/* Contenido a 1:den REAL, centrado SOLO en el área de dibujo
+                (a la izquierda del cajetín — jamás lo invade) */}
+            <div style={{ position: "absolute", left: `${M + (availW - sx * k) / 2}mm`, top: `${M + (availH - sy * k) / 2}mm`, width: `${sx * k}mm`, height: `${sy * k}mm` }}>
               <svg width="100%" height="100%" viewBox={vb} preserveAspectRatio="none">
                 {s.prims.map((p, i) =>
                   p.t === "L" ? <line key={i} x1={p.x1} y1={syv(p.y1)} x2={p.x2} y2={syv(p.y2)} stroke="#000" strokeWidth={sw(p.l, p.thin)} strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
                   : p.t === "H" ? <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
-                  : p.t === "F" ? <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="#000" fillOpacity={0.82} stroke="#000" strokeWidth={sw(p.l)} />
+                  : p.t === "F" ? (
+                    <g key={i}>
+                      {/* Poché rayado 45° — la MISMA representación del DXF */}
+                      <rect x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
+                      {hatch45(p).map((h, j) => (
+                        <line key={j} x1={h.ax} y1={syv(h.ay)} x2={h.bx} y2={syv(h.by)} stroke="#000" strokeWidth={swAchu} />
+                      ))}
+                    </g>
+                  )
                   : p.t === "C" ? <circle key={i} cx={p.x} cy={syv(p.y)} r={p.r} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
                   : <text key={i} x={p.x} y={syv(p.y)} fontSize={p.h} fill="#000" fontFamily="monospace">{p.s}</text>
                 )}
               </svg>
             </div>
-            {/* Cajetín OBRAHUB (papel mm) — escala y fecha REALES */}
+            {/* Cajetín OBRAHUB (papel mm) — escala y fecha REALES + barra que cabe */}
             <div style={{ position: "absolute", right: `${M}mm`, bottom: `${M}mm`, width: `${CAJ_W}mm`, border: "0.4mm solid #000", background: "#fff", fontFamily: "monospace", fontSize: "2.2mm", lineHeight: 1.5, color: "#000", padding: "1.6mm" }}>
               <div style={{ fontSize: "3.8mm", fontWeight: 700, letterSpacing: "0.5mm" }}>OBRAHUB</div>
               <div style={{ fontSize: "1.7mm" }}>CONSTRUCTION OS · CRATERE S.A.S.</div>
@@ -1722,24 +1734,45 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
               <div>FECHA {fecha}</div>
               <div>DIBUJÓ OBRAHUB DISEÑO IA · REVISÓ ING. MATRICULADO</div>
               <div style={{ fontWeight: 700 }}>LÁMINA {idx + 1}/{total}</div>
+              {/* Escala gráfica DENTRO del cajetín: mide con regla */}
+              <svg width={`${bar.totalMm}mm`} height="6mm" viewBox={`0 0 ${bar.totalMm} 6`} style={{ marginTop: "1mm", display: "block" }}>
+                {(() => {
+                  let bx = 0;
+                  return bar.segs.map((m, i) => {
+                    const w = m * k;
+                    const seg = <rect key={i} x={bx} y={1} width={w} height={2.4} fill={i % 2 === 0 ? "#000" : "none"} stroke="#000" strokeWidth="0.18" />;
+                    bx += w;
+                    return seg;
+                  });
+                })()}
+                <text x="0" y="0.9" dy="-0.1" fontSize="1.8" fontFamily="monospace" fill="#000">{fmtM(0)}</text>
+                <text x={bar.segs[0] * k + bar.segs[1] * k} y="0.9" fontSize="1.8" fontFamily="monospace" fill="#000">{fmtM(barMid)}</text>
+                <text x={bar.totalMm - 3} y="0.9" fontSize="1.8" fontFamily="monospace" fill="#000">{fmtM(bar.total)} m</text>
+              </svg>
             </div>
-            {/* Norte + escala gráfica: mide con regla sobre el papel */}
-            <svg style={{ position: "absolute", left: `${M + 3}mm`, bottom: `${M + 2}mm` }} width="34mm" height="11mm" viewBox="0 0 34 11">
-              <polygon points="3,9.6 4.6,2.4 6.2,9.6" fill="#000" />
-              <line x1="4.6" y1="2.4" x2="4.6" y2="9.6" stroke="#000" strokeWidth="0.2" />
-              <text x="3.5" y="1.6" fontSize="2.6" fontFamily="monospace" fill="#000">N</text>
-              {bars.map((seg, i) => (
-                <rect key={i} x={seg.x} y={8.2} width={seg.w} height={1.6} fill={i % 2 === 0 ? "#000" : "none"} stroke="#000" strokeWidth="0.18" />
-              ))}
-              <text x="12.6" y="7.4" fontSize="1.9" fontFamily="monospace" fill="#000">0</text>
-              <text x={13 + 2 * k} y="7.4" fontSize="1.9" fontFamily="monospace" fill="#000">2</text>
-              <text x={13 + 5 * k - 1.5} y="7.4" fontSize="1.9" fontFamily="monospace" fill="#000">5 m</text>
+            {/* Norte (esquina inferior izquierda) */}
+            <svg style={{ position: "absolute", left: `${M + 3}mm`, bottom: `${M + 2}mm` }} width="9mm" height="12mm" viewBox="0 0 9 12">
+              <polygon points="4.5,0.8 6.4,10.8 4.5,8.2 2.6,10.8" fill="#000" />
+              <text x="3.4" y="11.8" fontSize="2.6" fontFamily="monospace" fill="#000">N</text>
             </svg>
           </div>
         );
       })}
     </div>
   );
+}
+
+/** Rayado 45° de un rect F (poché) en unidades de MODELO — idéntico al
+ *  motor DXF (paso 0.07 m): PDF y CAD dibujan el mismo achurado. */
+function hatch45(p: { x: number; y: number; w: number; h: number }): Array<{ ax: number; ay: number; bx: number; by: number }> {
+  const x0 = p.x, y0 = p.y, x1 = p.x + p.w, y1 = p.y + p.h;
+  const out: Array<{ ax: number; ay: number; bx: number; by: number }> = [];
+  for (let s = -p.h; s < p.w; s += 0.07) {
+    const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h);
+    const bx = Math.min(x1, x0 + s + p.h), by = Math.max(y0, y0 + s);
+    if (ax < bx && by < ay) out.push({ ax, ay, bx, by });
+  }
+  return out;
 }
 
 // -- PASAPORTE DE MATERIALES (broche sostenible del ciclo) --------------------

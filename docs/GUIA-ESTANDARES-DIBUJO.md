@@ -94,6 +94,25 @@ Reglas de la guía sobre la tabla:
   la misma jerarquía), PDF de impresión (mm reales a 1:den) y DXF (código
   370 por entidad a la escala de su lámina).
 
+**Política 370 — decidida y testificada**: la ENTIDAD lleva el plot real
+(mm de la tabla a la escala de SU lámina); la TABLA de capa conserva el
+default de plantilla ISO (0.70/0.35/0.25/0.13). Así el archivo imprime
+correcto tal cual se genera y, si alguien edita en CAD, la plantilla lo
+devuelve a una jerarquía sana. Los flags de primitiva (`thin`, `dash`)
+pasan a los tres salidores por igual: `thin` = un paso abajo (×0.72),
+`dash` = DASHED (los ejes conservan CENTER, punto-raya de la guía).
+
+**Poché consistente**: PDF y DXF dibujan el poché RAYADO 45° (paso 0.07 m,
+grosor de la fila achu) — el mismo plano en papel y en CAD. La pantalla
+puede usar tono (medio interactivo), la impresión no miente.
+
+**Calibración permanente** (cautela de la guía §2.6): la tabla es el punto
+de partida, no el veredicto — con cada formato nuevo se compara UNA lámina
+impresa contra su DXF a la misma escala, midiendo con regla el `1:den` y
+la barra gráfica, y revisando legibilidad de cortes, ejes, cotas, textos y
+proyecciones en zonas densas. La guía recomienda moderación con los
+cambios de grosor; ajustar con evidencia de impresión, no de pantalla.
+
 ## 3. Escalas (guía §2.5)
 
 Serie métrica normativa y su uso (tabla literal de la guía):

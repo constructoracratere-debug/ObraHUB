@@ -154,6 +154,16 @@ check("plotMm: interpola escalas intermedias (1:75 → cut 0.55)", (() => {
 check("370 por ENTIDAD a la escala real de la lámina (A-01 @1:50 → cut 0.60)", /8\nA-MUROS\n370\n60\n/.test(dxf));
 check("achurado en su propia fila A-MURO-ACHU (0.30 @1:50)", /8\nA-MUROS-ACHU\n370\n30\n/.test(dxf));
 check("plantilla de capa conserva default ISO (370=70 en tabla A-MUROS)", /LAYER\n2\nA-MUROS\n70\n0\n62\n[-\d]+\n6\nCONTINUOUS\n370\n70/.test(dxf));
+check("flags de primitiva pasan al DXF: dash → 6 DASHED en entidad", /8\nA-PUERTAS\n6\nDASHED\n370\n13\n/.test(dxf));
+check("flags de primitiva: ejes discontinuos conservan CENTER", /8\nA-EJES\n6\nCENTER\n370\n13\n/.test(dxf));
+check("cotas finas (thin → 0.20×0.72 = 0.14 mm @1:50)", /8\nA-COTAS\n370\n14\n/.test(dxf));
+check("scaleBarMm: presets que nunca desbordan", (() => {
+  const { scaleBarMm } = req(path.join(tmp, "design", "knowledge.js"));
+  const b50 = scaleBarMm(20, 58);   // 1:50 → 5m=100mm no cabe → 2m=40mm
+  const b100 = scaleBarMm(10, 58);  // 1:100 → 5m=50mm sí
+  const b20 = scaleBarMm(50, 58);   // 1:20 → hasta 1m=50mm
+  return b50.total === 2 && b50.totalMm <= 58 && b100.total === 5 && b100.totalMm === 50 && b20.total === 1 && b20.totalMm <= 58;
+})());
 
 // ── Lámina general 700×500 con rótulo OBRAHUB ────────────────────────────────
 check("set completo A-01…A-05", ["A-01", "A-02", "A-03", "A-04", "A-05"].every((c) => dxf.includes(c)));

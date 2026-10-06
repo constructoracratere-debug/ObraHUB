@@ -93,10 +93,15 @@ class DxfBuilder {
     return name;
   }
 
-  line(rawLayer: string, x1: number, y1: number, x2: number, y2: number) {
+  line(rawLayer: string, x1: number, y1: number, x2: number, y2: number, opts: { thin?: boolean; dash?: boolean } = {}) {
     const l = this.layerOf(rawLayer);
-    const lw = this.lw370(l);
-    this.entities.push(`0\nLINE\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(x1)}\n20\n${f(y1)}\n11\n${f(x2)}\n21\n${f(y2)}\n`);
+    const spec = this.layers.get(l);
+    let lw = this.lw370(l);
+    if (lw > 0 && opts.thin) lw = Math.round(lw * 0.72); // un paso abajo (≈ serie)
+    // prims con dash = línea discontinua: ejes conservan CENTER (punto-raya
+    // de la guía), el resto (proyecciones, cuerdas de puertas) → DASHED.
+    const lt = opts.dash ? (spec?.cls === "ejes" ? "CENTER" : "DASHED") : null;
+    this.entities.push(`0\nLINE\n8\n${l}${lt ? `\n6\n${lt}` : ""}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(x1)}\n20\n${f(y1)}\n11\n${f(x2)}\n21\n${f(y2)}\n`);
   }
 
   polyline(rawLayer: string, pts: Array<[number, number]>, closed = false) {
@@ -321,10 +326,12 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
       total,
     });
 
-    // Contenido escalado 1:den (metros → mm de papel).
+    // Contenido escalado 1:den (metros → mm de papel). Los flags de
+    // primitiva (thin/dash) PASAN IGUAL que en el SVG/PDF — misma línea,
+    // mismo formato.
     for (const p of content) {
       const pl = lay(p.l);
-      if (p.t === "L") d.line(pl, X(p.x1), Y(p.y1), X(p.x2), Y(p.y2));
+      if (p.t === "L") d.line(pl, X(p.x1), Y(p.y1), X(p.x2), Y(p.y2), { thin: p.thin, dash: p.dash });
       else if (p.t === "T") d.text(pl, X(p.x), Y(p.y), Math.max(p.h * k, 1.8), p.s, p.r ?? 0);
       else if (p.t === "C") d.circle(pl, X(p.x), Y(p.y), Math.max(p.r * k, 0.8));
       else if (p.t === "F") {
