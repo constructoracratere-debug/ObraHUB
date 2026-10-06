@@ -76,6 +76,18 @@ const rawPlan = {
 
 const plan = sanitizeFloorPlan(rawPlan);
 const dxf = planToDxf(plan);
+// Multi-nivel (idea del review Codex): lámina por piso + capas -N.
+const multiLevelPlan = sanitizeFloorPlan({
+  ...rawPlan,
+  name: "Apto Test Doble",
+  levels: 2,
+  rooms: [...rawPlan.rooms, { name: "Sala N2", type: "sala", x: 0.15, y: 0.15, width: 3.6, depth: 3.4, level: 1 }],
+  electrical: {
+    ...rawPlan.electrical,
+    points: [...rawPlan.electrical.points, { kind: "iluminacion", room: "Sala N2", x: 1.5, y: 1.5, level: 1 }],
+  },
+});
+const multiDxf = planToDxf(multiLevelPlan, { fecha: "2026-01-15" });
 
 let pass = 0, fail = 0;
 const check = (name, cond) => {
@@ -101,6 +113,32 @@ const entityLayers = new Set([...dxf.matchAll(/\n8\n([^\n]+)\n/g)].map((m) => m[
 const phantoms = [...entityLayers].filter((l) => !tableNames.includes(l));
 check(`toda entidad vive en una capa de la tabla (${entityLayers.size} capas usadas, ${phantoms.length} fantasma)`, phantoms.length === 0);
 check("nomenclatura A/E/I profesional", ["A-MUROS", "A-PUERTAS", "I-ELECTRICO", "I-HIDRAULICO"].every((n) => tableNames.includes(n)));
+
+// ── Multi-nivel: lámina por piso + capas por nivel (puerto del review Codex) ──
+check("2 niveles → lámina A-01.2", multiDxf.includes("A-01.2"));
+check("capas por nivel A-MUROS-N1/N2 declaradas", (() => {
+  const declared = new Set([...multiDxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]));
+  return declared.has("A-MUROS-N1") && declared.has("A-MUROS-N2") && declared.has("A-CORTE");
+})());
+check("multi-nivel: 0 entidades en capa no declarada", (() => {
+  const declared = new Set([...multiDxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]));
+  const used = [...multiDxf.matchAll(/0\n(?:LINE|POLYLINE|VERTEX|SEQEND|CIRCLE|ARC|TEXT)\n8\n([^\n]+)/g)].map((m) => m[1]);
+  return used.length > 0 && used.every((l) => declared.has(l));
+})());
+check("fecha del rótulo la pone quien llama (no el reloj)", multiDxf.includes("2026-01-15") && planToDxf(plan) === planToDxf(plan));
+
+// ── Vanos REALES: el muro se parte en jambas (guía §2.3/§2.6) ───────────────
+check("ventanas/aberturas recortan la banda del muro", (() => {
+  const { plantaPrimitives } = req(path.join(tmp, "design", "views.js"));
+  const fMuros = (p) => p.filter((q) => q.t === "F" && q.l === "MUROS").length;
+  const conVanos = fMuros(plantaPrimitives(plan));
+  const sinVanos = fMuros(plantaPrimitives({ ...plan, windows: [], doors: [] }));
+  return conVanos > sinVanos;
+})());
+
+// ── Leyenda MEP explicada (guía §Símbolos) ───────────────────────────────────
+check("leyenda SIMBOLOGÍA MEP en A-01", dxf.includes("SIMBOLOGÍA MEP"));
+check("leyenda describe símbolos presentes", dxf.includes("TOMACORRIENTE") && dxf.includes("SANITARIO"));
 
 // ── Lámina general 700×500 con rótulo OBRAHUB ────────────────────────────────
 check("set completo A-01…A-05", ["A-01", "A-02", "A-03", "A-04", "A-05"].every((c) => dxf.includes(c)));

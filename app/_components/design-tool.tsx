@@ -347,9 +347,11 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     ({ 0: runSite, 1: runDraft, 2: runExperts, 3: runAdapt, 4: runInstallations, 5: runFinishes })[s]();
 
   // ── DXF (client-side, instantáneo) ────────────────────────────────────────
+  // La fecha de producción la pasa la UI: planToDxf es 100% determinista.
+  const dxfGeneratedAt = useRef(new Date().toISOString().slice(0, 10));
   const dxfBlob = useMemo(() => {
     if (!plan) return null;
-    return new Blob([planToDxf(plan)], { type: "application/dxf" });
+    return new Blob([planToDxf(plan, { fecha: dxfGeneratedAt.current })], { type: "application/dxf" });
   }, [plan]);
 
   // Modelo BIM 3D: obra gris por capas + instalaciones (IFC4).

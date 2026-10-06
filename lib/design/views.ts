@@ -197,14 +197,25 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   const { width: W, depth: D } = plan.outline;
   const L = "MUROS";
   const rooms = plan.rooms.filter((r) => r.level === level);
+  const doorsLvl = plan.doors.filter((d) => d.level === level);
+  const winsLvl = plan.windows.filter((w) => w.level === level);
   out.push({ t: "H", l: L, x: 0, y: 0, w: W, h: D });
-  // Poché de muros exteriores: banda sólida perimetral con huecos de vanos.
+
+  // ── VANOS REALES (guía §2.3/§2.6): la planta es un CORTE — puertas y
+  // ventanas son HUECOS en el muro con sus jambas, jamás símbolos pintados
+  // sobre una banda continua. Cada banda de muro se construye RESTANDO el
+  // intervalo del vano sobre su eje; el extremo de cada segmento es la
+  // jamba. (Antes: banda sólida + puerta encima = vano "tapado".)
   const t = 0.12;
-  out.push({ t: "F", l: L, x: 0, y: 0, w: W, h: t });
-  out.push({ t: "F", l: L, x: 0, y: D - t, w: W, h: t });
-  out.push({ t: "F", l: L, x: 0, y: t, w: t, h: D - 2 * t });
-  out.push({ t: "F", l: L, x: W - t, y: t, w: t, h: D - 2 * t });
-  // Poché de particiones interiores: bordes compartidos entre espacios.
+  const TOL = 0.13; // tolerancia línea de vano ↔ eje de banda
+  type Band = { axis: "h" | "v"; c: number; a: number; b: number; th: number };
+  const bands: Band[] = [
+    { axis: "h", c: t / 2, a: 0, b: W, th: t },      // muro sur (cortado en A)
+    { axis: "h", c: D - t / 2, a: 0, b: W, th: t },  // muro norte
+    { axis: "v", c: t / 2, a: t, b: D - t, th: t },  // muro oeste
+    { axis: "v", c: W - t / 2, a: t, b: D - t, th: t }, // muro este
+  ];
+  // Particiones interiores: bordes compartidos entre espacios (dedup).
   const seen = new Set<string>();
   for (const r of rooms) {
     for (const [ex1, ey1, ex2, ey2] of [
@@ -220,11 +231,53 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
         : null;
       if (!interior || !key || seen.has(key)) continue;
       seen.add(key);
-      const isV = ex1 === ex2;
-      if (isV) out.push({ t: "F", l: L, x: ex1 - 0.05, y: Math.min(ey1, ey2), w: 0.1, h: Math.abs(ey2 - ey1) });
-      else out.push({ t: "F", l: L, x: Math.min(ex1, ex2), y: ey1 - 0.05, w: Math.abs(ex2 - ex1), h: 0.1 });
+      if (ex1 === ex2) bands.push({ axis: "v", c: ex1, a: Math.min(ey1, ey2), b: Math.max(ey1, ey2), th: 0.1 });
+      else bands.push({ axis: "h", c: ey1, a: Math.min(ex1, ex2), b: Math.max(ex1, ex2), th: 0.1 });
     }
   }
+  // Vano → intervalo a restar sobre la banda de su muro.
+  const cuts: Array<{ axis: "h" | "v"; line: number; i0: number; i1: number }> = [];
+  for (const d of doorsLvl) {
+    cuts.push(d.axis === "y"
+      ? { axis: "v", line: d.x, i0: d.y - d.width / 2, i1: d.y + d.width / 2 }
+      : { axis: "h", line: d.y, i0: d.x - d.width / 2, i1: d.x + d.width / 2 });
+  }
+  for (const w of winsLvl) {
+    const room = plan.rooms.find(roomAt(plan, w.room, level));
+    if (!room) continue;
+    if (w.wall === "norte" || w.wall === "sur") {
+      const yy = w.wall === "norte" ? room.y + room.depth : room.y;
+      cuts.push({ axis: "h", line: yy, i0: w.x - w.width / 2, i1: w.x + w.width / 2 });
+    } else {
+      const xx = w.wall === "este" ? room.x + room.width : room.x;
+      cuts.push({ axis: "v", line: xx, i0: w.x - w.width / 2, i1: w.x + w.width / 2 });
+    }
+  }
+  // Resta de intervalos → segmentos de muro (cada extremo = jamba del vano).
+  const emit = (bd: Band, s: number, e: number) => {
+    if (e - s <= 0.02) return;
+    if (bd.axis === "h") out.push({ t: "F", l: L, x: s, y: bd.c - bd.th / 2, w: e - s, h: bd.th });
+    else out.push({ t: "F", l: L, x: bd.c - bd.th / 2, y: s, w: bd.th, h: e - s });
+  };
+  for (const bd of bands) {
+    const hits = cuts
+      .filter((c) => c.axis === bd.axis && Math.abs(c.line - bd.c) <= TOL)
+      .map((c) => [Math.max(bd.a, c.i0), Math.min(bd.b, c.i1)] as [number, number])
+      .filter(([i0, i1]) => i1 - i0 > 0.02)
+      .sort((p, q) => p[0] - q[0]);
+    let cursor = bd.a;
+    for (const [i0, i1] of hits) {
+      emit(bd, cursor, i0);
+      cursor = Math.max(cursor, i1);
+    }
+    emit(bd, cursor, bd.b);
+  }
+  // Centro de la banda donde vive una línea de vano (para el marco de la
+  // ventana: el vidrio se dibuja DENTRO del hueco, al centro del muro).
+  const bandCenter = (axis: "h" | "v", line: number): number | null => {
+    const bd = bands.find((b) => b.axis === axis && Math.abs(line - b.c) <= TOL);
+    return bd ? bd.c : null;
+  };
   // ESCALERA (punto fijo de corte — curaduría exige cortes por escalera):
   // niveles >1 → escalera en el espacio más grande, pegada al muro este.
   if (plan.levels > 1 && level === 0) {
@@ -265,11 +318,9 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   }
   // ── COTAS PROFESIONALES (Ching §dimensioning / Plazola): DOS cadenas por
   // eje — la interior incluye JAMBS de vanos (la marca del plano pro: se
-  // dimensiona d\ónde está cada puerta/ventana), la exterior solo
+  // dimensiona dónde está cada puerta/ventana), la exterior solo
   // particiones, y la total cierra. Además: ancho de cada vano rotulado
   // y dim interior (ancho×fondo) en cada espacio.
-  const doorsLvl = plan.doors.filter((d) => d.level === level);
-  const winsLvl = plan.windows.filter((w) => w.level === level);
   const sortUniq = (arr: number[]) => [...new Set(arr.map((v) => Math.round(v * 100) / 100))].sort((a, b) => a - b);
 
   // EJE X: jambs de vanos en muros horizontales (sur/norte) + bordes de espacios.
@@ -330,16 +381,19 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   // (dims interiores fusionadas con la etiqueta de área arriba)
   // Marca de nivel +0.00 del piso terminado.
   levelMark("TEXTOS", W * 0.45, D * 0.12, out, "+0.00");
-  // Ventanas (triple línea) y puertas (hoja + arco — Ching).
+  // Ventanas (triple línea) y puertas (hoja + arco — Ching). El marco de
+  // la ventana se dibuja al CENTRO del muro (dentro del hueco recortado).
   for (const w of plan.windows.filter((x) => x.level === level)) {
     const room = plan.rooms.find(roomAt(plan, w.room, level));
     if (!room) continue;
     if (w.wall === "norte" || w.wall === "sur") {
       const yy = w.wall === "norte" ? room.y + room.depth : room.y;
-      for (const off of [-0.03, 0, 0.03]) out.push({ t: "L", l: "VENTANAS", x1: w.x - w.width / 2, y1: yy + off, x2: w.x + w.width / 2, y2: yy + off });
+      const yc = bandCenter("h", yy) ?? yy;
+      for (const off of [-0.03, 0, 0.03]) out.push({ t: "L", l: "VENTANAS", x1: w.x - w.width / 2, y1: yc + off, x2: w.x + w.width / 2, y2: yc + off });
     } else {
       const xx = w.wall === "este" ? room.x + room.width : room.x;
-      for (const off of [-0.03, 0, 0.03]) out.push({ t: "L", l: "VENTANAS", x1: xx + off, y1: w.x - w.width / 2, x2: xx + off, y2: w.x + w.width / 2 });
+      const xc = bandCenter("v", xx) ?? xx;
+      for (const off of [-0.03, 0, 0.03]) out.push({ t: "L", l: "VENTANAS", x1: xc + off, y1: w.x - w.width / 2, x2: xc + off, y2: w.x + w.width / 2 });
     }
   }
   for (const d of plan.doors.filter((x) => x.level === level)) {
@@ -529,6 +583,60 @@ export function primsBounds(prims: Prim[]): { minX: number; minY: number; maxX: 
   }
   if (!Number.isFinite(minX)) return { minX: 0, minY: 0, maxX: 10, maxY: 10 };
   return { minX, minY, maxX, maxY };
+}
+
+// ── SIMBOLOGÍA MEP (RETIE eléctrico / RAS hidrosanitario) ───────────────────
+// Tablas canónicas de símbolos: [inicial corta, descripción]. Viven AQUÍ
+// (no en dxf.ts) para que la leyenda y el plano compartan fuente única.
+
+export const ELEC_SYMBOLS: Record<string, [string, string]> = {
+  tomacorriente: ["T", "Tomacorriente"],
+  tomacorriente_especial: ["TE", "Tomacorriente especial"],
+  interruptor: ["I", "Interruptor"],
+  iluminacion: ["L", "Punto de iluminación"],
+  tablero: ["TB", "Tablero eléctrico"],
+};
+
+export const HYDRO_SYMBOLS: Record<string, [string, string]> = {
+  lavamanos: ["LM", "Lavamanos"],
+  sanitario: ["SA", "Sanitario"],
+  ducha: ["DU", "Ducha"],
+  lavaplatos: ["LP", "Lavaplatos"],
+  lavadero: ["LD", "Lavadero"],
+  calentador: ["CA", "Calentador"],
+  punto_hidraulico: ["PH", "Punto hidráulico"],
+};
+
+/** ── LEYENDA MEP: los círculos del plano, explicados (guía §Símbolos) ──────
+ *  Dos columnas (ELÉCTRICO / HIDRÁULICO) con símbolo + descripción de cada
+ *  tipo REALMENTE presente en el nivel. Sólo los que están en el plano. */
+export function mepLegendPrimitives(plan: FloorPlan, level = 0): Prim[] {
+  const out: Prim[] = [];
+  const elec = [...new Set((plan.electrical?.points ?? []).filter((p) => p.level === level).map((p) => p.kind))];
+  const hyd = [...new Set((plan.hydro?.points ?? []).filter((p) => p.level === level).map((p) => p.kind))];
+  if (elec.length === 0 && hyd.length === 0) return out;
+  const RH = 0.34;              // alto de fila
+  const CW = 3.5;               // ancho de columna
+  const rows = Math.max(elec.length, hyd.length);
+  const Ht = 0.62 + rows * RH;  // banda título + columnas
+  const Wt = 2 * CW + 0.3;
+  out.push({ t: "H", l: "TEXTOS", x: 0, y: 0, w: Wt, h: Ht });
+  out.push({ t: "T", l: "TEXTOS", x: 0.12, y: Ht - 0.3, h: 0.16, s: "SIMBOLOGÍA MEP · RETIE / RAS" });
+  out.push({ t: "L", l: "TEXTOS", x1: 0, y1: Ht - 0.42, x2: Wt, y2: Ht - 0.42, thin: true });
+  const col = (kinds: string[], cx: number, SYM: Record<string, [string, string]>, header: string, lay: string) => {
+    if (kinds.length === 0) return;
+    out.push({ t: "T", l: "TEXTOS", x: cx, y: Ht - 0.68, h: 0.13, s: header });
+    kinds.forEach((k, i) => {
+      const [sym, desc] = SYM[k] ?? ["?", k];
+      const y = Ht - 1.02 - i * RH;
+      out.push({ t: "C", l: lay, x: cx + 0.14, y: y + 0.07, r: 0.1 });
+      out.push({ t: "T", l: "TEXTOS", x: cx + 0.04, y: y - 0.005, h: 0.1, s: sym });
+      out.push({ t: "T", l: "TEXTOS", x: cx + 0.46, y: y + 0.005, h: 0.11, s: desc.toUpperCase().slice(0, 24) });
+    });
+  };
+  col(elec, 0.12, ELEC_SYMBOLS, "ELÉCTRICO", "ELECTRICO");
+  col(hyd, CW + 0.22, HYDRO_SYMBOLS, "HIDRÁULICO", "HIDROSANITARIO");
+  return out;
 }
 
 /** ── LÁMINA COMPLETA de curaduría — todo el paquete en una vista ──────────

@@ -7,10 +7,10 @@
  * pone cada motor: dress() para SVG/PDF, el propio DXF en láminas mm.
  */
 import type { FloorPlan } from "../design/schema";
-import { sectionPrimitives, facadePrimitives, plantaPrimitives, areaTablePrimitives, roofPlanPrimitives, primsBounds, type Prim } from "./views";
+import { sectionPrimitives, facadePrimitives, plantaPrimitives, areaTablePrimitives, roofPlanPrimitives, mepLegendPrimitives, primsBounds, type Prim } from "./views";
 import { structuralPlanPrimitives } from "../structural/plan";
 
-export type Sheet = { code: string; title: string; prims: Prim[] };
+export type Sheet = { code: string; title: string; prims: Prim[]; level?: number };
 
 const GAP = 2.4; // separación entre dibujos (m de papel @1:75)
 
@@ -23,17 +23,39 @@ function shift(prims: Prim[], dx: number, dy: number): Prim[] {
   );
 }
 
+/** Coloca prims con su esquina (minX, maxY) en (tx, ty) — bounds reales. */
+function placeAt(prims: Prim[], tx: number, ty: number): Prim[] {
+  const b = primsBounds(prims);
+  return shift(prims, tx - b.minX, ty - b.maxY);
+}
+
 /** Contenido SIN vestir por lámina (el motor DXF pone su propio formato
  *  OBRAHUB 700×500 en mm; el SVG viste con dress()). */
 export function sheetContents(plan: FloorPlan): Sheet[] {
   const sheets: Sheet[] = [];
 
-  // A-01 — PLANTA + CUADRO DE ÁREAS (colocación por bounds: nunca solapa)
-  {
-    const planta = plantaPrimitives(plan);
+  // A-01 — PLANTA por NIVEL + CUADRO DE ÁREAS + SIMBOLOGÍA MEP (colocación
+  // por bounds: nunca solapa). Guía §2.8: cada planta de piso es una lámina.
+  const levels = Math.max(1, plan.levels);
+  for (let lvl = 0; lvl < levels; lvl++) {
+    if (!plan.rooms.some((r) => r.level === lvl)) continue;
+    const planta = plantaPrimitives(plan, lvl);
     const pb = primsBounds(planta);
-    const tabla = shift(areaTablePrimitives(plan), pb.maxX + GAP, pb.minY);
-    sheets.push({ code: "A-01", title: "PLANTA ARQUITECTÓNICA + CUADRO DE ÁREAS", prims: [...planta, ...tabla] });
+    const tabla = lvl === 0 ? areaTablePrimitives(plan) : [];
+    let prims: Prim[] = [...planta];
+    if (tabla.length) prims = [...prims, ...placeAt(tabla, pb.maxX + GAP, pb.maxY)];
+    // Leyenda MEP bajo el cuadro (o bajo la planta si no hay cuadro).
+    const legend = mepLegendPrimitives(plan, lvl);
+    if (legend.length) {
+      const anchor = tabla.length ? primsBounds(tabla) : pb;
+      prims = [...prims, ...placeAt(legend, anchor.minX, anchor.minY - GAP)];
+    }
+    sheets.push({
+      code: lvl === 0 ? "A-01" : `A-01.${lvl + 1}`,
+      title: levels > 1 ? `PLANTA ARQUITECTÓNICA NIVEL ${lvl + 1} + CUADRO DE ÁREAS` : "PLANTA ARQUITECTÓNICA + CUADRO DE ÁREAS",
+      prims,
+      level: lvl,
+    });
   }
   // A-02 — CORTES A-A' y B-B' lado a lado por bounds
   {

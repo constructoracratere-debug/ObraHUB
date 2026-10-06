@@ -66,6 +66,11 @@ profesional + ejemplos de la guía): lo cortado/cercano = grueso.
 > espesor y diferenciar con **gamas de grises/opacidad** cuando el medio lo
 > permita (SVG/render). En DXF mantenemos las 4 plumillas físicas porque la
 > impresión láser/ploter las exige.
+>
+> **Plumilla por CAPA (código 370), no por CTB**: el DXF declara el grosor
+> en cada LAYER (centésimas de mm), independiente de la tabla de estilos de
+> trazado del usuario. Con "print lineweights by layer" activado (default en
+> AutoCAD/BricsCAD/LibreCAD) la salida es consistente sin archivo CTB.
 
 ## 3. Escalas (guía §2.5)
 
@@ -85,6 +90,11 @@ Serie métrica normativa y su uso (tabla literal de la guía):
 - Motor: escala de texto/cotas **no cambia** con la escala del dibujo (la
   anotación es a tamaño papel constante); solo cambia la geometría. Serie
   auto-fit de lámina: `50, 75, 100, 125, 150, 200`.
+- **Garantía de escala en impresión**: las láminas viven en espacio modelo
+  a **1:1 en mm** (INSUNITS 4, marco 700×500 real). Plotear "extents" al
+  100% (1:1) reproduce EXACTAMENTE la escala declarada — no hay que
+  configurar viewport de paper space. La escala del rótulo es la real del
+  contenido geométrico.
 
 ## 4. Acotación (guía §2.7)
 
@@ -169,6 +179,9 @@ Implementación OBRAHUB (`rotulo()` en `lib/design/dxf.ts`, franja 185 mm):
 - Textos del rótulo SIEMPRE legibles a escala papel (h≥2.5 mm), códigos h≥4.
 - Fecha ISO; DIBUJÓ = `OBRAHUB DISEÑO IA`; REVISÓ = `ING. MATRICULADO`
   (espacio para firma — la responsabilidad profesional no la tiene la IA).
+- **Fecha de producción la pasa quien llama** (`planToDxf(plan, { fecha })`):
+  el motor es determinista puro (misma entrada → mismo byte, cualquier día);
+  la UI registra la fecha al momento de generar el archivo.
 
 ## 9. Checklist de cumplimiento (todo PR que dibuje)
 
@@ -176,8 +189,12 @@ Implementación OBRAHUB (`rotulo()` en `lib/design/dxf.ts`, franja 185 mm):
       en capa `0` o fantasma (lo exige `scripts/test-design-dxf.mjs`).
 - [ ] Ejes CENTER, proyecciones/MEP DASHED, cortes 0.70 (§2).
 - [ ] Escala numérica + gráfica en cada lámina; serie normativa (§3).
+- [ ] **Vanos reales**: puertas y ventanas son HUECOS en el muro con
+      jambas — jamás símbolos sobre banda continua (§2.3).
 - [ ] Cotas jerárquicas afuera, numerales al punto medio, sin traslape (§4).
 - [ ] Flecha norte en toda planta (§5).
+- [ ] Símbolos MEP explicados: leyenda SIMBOLOGÍA MEP en la lámina de
+      planta, con los tipos realmente presentes (§Símbolos).
 - [ ] Lámina 700×500, margen doble 5/10, rótulo 185 mm con ID en ambos
       extremos (§7-8).
 - [ ] El plano está LIMPIO: la mínima cantidad de líneas suficiente — sin
