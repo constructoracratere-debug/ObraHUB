@@ -90,9 +90,12 @@ Reglas de la guía sobre la tabla:
 - Recomendado verificar capas con **plantillas prediseñadas** (nuestro
   equivalente: la tabla en código + tests que la testifican).
 - Aplica a **CAD**; en BIM las variables vienen preconfiguradas.
-- La tabla gobierna los TRES salidores: SVG de pantalla (px constantes con
-  la misma jerarquía), PDF de impresión (mm reales a 1:den) y DXF (código
-  370 por entidad a la escala de su lámina).
+- La tabla gobierna los DOS salidores físicos con los mismos MILÍMETROS:
+  PDF de impresión (mm reales a 1:den) y DXF (código 370 por entidad a
+  la escala de su lámina) — idénticos numéricamente. La PANTALLA comparte
+  las CLASES y el factor thin (jerarquía de la misma tabla) pero dibuja
+  en píxeles constantes (`PEN_PX`): es un medio zoomable, no papel — no
+  persigas la igualdad numérica pantalla↔impresión.
 
 **Política 370 — decidida y testificada**: la ENTIDAD lleva el plot real
 (mm de la tabla a la escala de SU lámina); la TABLA de capa conserva el
@@ -110,9 +113,10 @@ en DXF, fill en PDF — jamás achurado. La pantalla puede usar tono (medio
 interactivo); la impresión no miente.
 
 **`thin` unificado**: ×0.72 en los TRES salidores (PDF, DXF, pantalla) —
-un paso abajo de la serie. El DXF redondea a centésimas de mm (código 370
-entero): 0.20 × 0.72 = 0.144 → 0.14; diferencia ≤0.01 mm con el PDF,
-aceptada y documentada en el protocolo de calibración.
+un paso abajo de la serie, la MISMA proporción en px y en mm. El DXF
+redondea a centésimas de mm (código 370 entero): 0.20 × 0.72 = 0.144 →
+0.14; diferencia ≤0.01 mm con el PDF, aceptada y documentada en el
+protocolo de calibración.
 
 **Calibración permanente** (cautela de la guía §2.6): la tabla es el punto
 de partida, no el veredicto — con cada formato nuevo se compara UNA lámina
