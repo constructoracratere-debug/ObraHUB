@@ -178,6 +178,17 @@ export function scaleBarMm(k: number, maxMm = 58): { total: number; segs: number
   return { total: last.total, segs: last.segs, totalMm: last.total * k };
 }
 
+/** ── ANOTACIÓN Y RAYADO A TAMAÑO DE PAPEL (guía §2.5: la anotación responde
+ *  a la escala del dibujo — texto y achurado son constantes en PAPEEL, no en
+ *  modelo; así 1:50, 1:100 y 1:200 imprimen igual de legibles).
+ *  Piso de altura de texto: el mínimo del libro (rótulo h≥2.5 mm). Exentos:
+ *  numerales de la barra de escala y letras dentro de símbolos MEP (2.2). */
+export const ANNOT = { minTextMm: 2.5, symbolTextMm: 2.2 } as const;
+
+/** Rayado del poché: espaciado CONSTANTE en papel (no en modelo — a 1:200 un
+ *  paso de modelo vuelve el rayado un manchón) y banda delgada → SÓLIDO. */
+export const HATCH = { spacingMm: 1.4, solidBelowMm: 1.6 } as const;
+
 /** ── Serie ISO 128 (default de plantilla DXF sin escala de lámina) ───────── */
 export const PENS = {
   /** Corte: muros/placas/columnas cortados — lo más pesado del plano. */

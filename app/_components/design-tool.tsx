@@ -22,11 +22,11 @@ import {
 } from "@/lib/design/schema";
 import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
-import { penWidth, plotMm, scaleBarMm, PEN_BY_LAYER } from "@/lib/design/knowledge";
+import { penWidth, plotMm, scaleBarMm, ANNOT, HATCH, PEN_BY_LAYER } from "@/lib/design/knowledge";
 import { planToDxf } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
-import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
+import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, fitSheetScale, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
 import { buildSheets, sheetContents } from "@/lib/design/sheets";
 import { furnishRoom, labelSpot } from "@/lib/design/symbols";
 import { IfcLive } from "./ifc-live";
@@ -932,6 +932,14 @@ function penPx(layer: string, thin = false): number {
   return thin ? base * 0.72 : base; // ×0.72 unificado en pantalla/PDF/DXF
 }
 
+/** Patrón de discontinuidad por capa (guía §2.6 — EJES es punto-raya):
+ *  el MISMO mapa semántico que el DXF (CENTER para ejes, DASHED para
+ *  proyecciones/cuerdas), expresado en unidades del viewBox. */
+function dashOf(layer: string, small = false): string {
+  if (small) return "0.18 0.1"; // mobiliario/sanitarios en planta (UI)
+  return layer === "EJES" ? "0.85 0.22 0.08 0.22" : "0.4 0.25";
+}
+
 export function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: string; fitSmall?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -1009,7 +1017,7 @@ export function PrimsSvg({ prims, title, fitSmall }: { prims: Prim[]; title: str
               <line key={`l${i}`} x1={p.x1} y1={sy(p.y1)} x2={p.x2} y2={sy(p.y2)}
                 stroke={PRIM_COLORS[p.l] ?? "#94a3b8"}
                 strokeWidth={penPx(p.l, p.thin)} vectorEffect="non-scaling-stroke"
-                strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
+                strokeDasharray={p.dash ? dashOf(p.l) : undefined} />
             );
           }
           if (p.t === "C") {
@@ -1365,7 +1373,7 @@ function PlanSvg({ plan, onEdit, onlyLevel }: { plan: FloorPlan; onEdit: (next: 
               {(layoutByLevel.fur.get(level) ?? []).map((p, i) =>
               p.t === "L" ? (
                 <line key={`fur-${i}`} x1={p.x1} y1={svgY(p.y1)} x2={p.x2} y2={svgY(p.y2)}
-                  stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={penWidth(p.l, p.thin)} strokeDasharray={p.dash ? "0.18 0.1" : undefined} />
+                  stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={penWidth(p.l, p.thin)} strokeDasharray={p.dash ? dashOf(p.l, true) : undefined} />
               ) : p.t === "H" ? (
                 <rect key={`fur-${i}`} x={p.x} y={svgY(p.y + p.h)} width={p.w} height={p.h}
                   fill="none" stroke={p.l === "SANITARIOS" ? "#7dd3fc" : "#d4b483"} strokeWidth={penWidth(p.l)} />
@@ -1658,32 +1666,54 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "plano";
 }
 
-// ── LÁMINAS DE IMPRESIÓN (formato OBRAHUB 700×500 · monocromo) ──────────────
-// Salida VECTORIAL vía impresión del navegador: Ctrl+P → "Guardar como PDF",
-// tamaño 700mm×500mm (la @page lo pide). MISMA definición de láminas que el
-// DXF (sheetContents) y MISMA tabla de impresión CPNAA §4.3 (plotMm): el
-// grosor impreso es el del libro, la ESCALA DEL CAJETÍN ES REAL (serie
-// 1:50…1:200 contra el área imprimible) y el poché se dibuja RAYADO como en
-// el DXF (fila A-MURO-ACHU) — PDF y CAD muestran el mismo plano.
+// ── LÁMINAS DE IMPRESIÓN (formato OBRAHUB 700×500 · o ISO A1/A2 · monocromo)
+// Salida VECTORIAL vía impresión del navegador: Ctrl+P → "Guardar como PDF"
+// al tamaño elegido (la @page lo pide). MISMA definición de láminas que el
+// DXF (sheetContents), MISMA tabla de impresión CPNAA §4.3 (plotMm), texto
+// y achurado a TAMAÑO DE PAPEL (guía §2.5: la anotación responde a la
+// escala) y ESCALA DEL CAJETÍN REAL (serie 1:50…1:200 auto-fit).
+const PAGE_FORMATS = {
+  OBRAHUB: { w: 700, h: 500, label: "OBRAHUB 700×500" },
+  A1: { w: 841, h: 594, label: "ISO A1 841×594" },
+  A2: { w: 594, h: 420, label: "ISO A2 594×420" },
+} as const;
+type PageFmt = keyof typeof PAGE_FORMATS;
+
 function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }) {
+  const [fmt, setFmt] = useState<PageFmt>("OBRAHUB");
   const sheets = sheetContents(plan);
   const fecha = new Date().toISOString().slice(0, 10);
   const total = sheets.length;
   const city = plan.site?.city ? plan.site.city.toUpperCase() : "COLOMBIA";
-  const PAGE_W = 700, PAGE_H = 500, M = 10, CAJ_W = 68;
+  const { w: PAGE_W, h: PAGE_H } = PAGE_FORMATS[fmt];
+  const M = 10, CAJ_W = 68;
   const availW = PAGE_W - 2 * M - CAJ_W - 8; // área de dibujo: IZQUIERDA del cajetín
   const availH = PAGE_H - 2 * M;
   return (
     <div className="fixed inset-0 z-[80] overflow-auto bg-black/70 p-4 print:block print:bg-white print:p-0">
-      <style>{`@page { size: 700mm 500mm; margin: 0 } .sheet { page-break-after: always } @media print { .no-print { display: none !important } }`}</style>
-      <div className="no-print mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-white">📄 Láminas OBRAHUB 700×500 mm — usa <b>Imprimir → Guardar como PDF</b> (tamaño 700×500 mm). La escala del cajetín es la real.</p>
-        <button type="button" onClick={onClose} className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20">Cerrar ✕</button>
+      <style>{`@page { size: ${PAGE_W}mm ${PAGE_H}mm; margin: 0 } .sheet { page-break-after: always } @media print { .no-print { display: none !important } }`}</style>
+      <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-white">📄 Láminas {PAGE_FORMATS[fmt].label} mm — usa <b>Imprimir → Guardar como PDF</b> a ese tamaño. La escala del cajetín es la real.</p>
+        <div className="flex items-center gap-1.5">
+          {(Object.keys(PAGE_FORMATS) as PageFmt[]).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFmt(f)}
+              title="La guía §4.1 recomienda los formatos ISO 216; OBRAHUB 700×500 es el formato de oficina"
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${fmt === f ? "bg-blue-500/25 text-blue-100 ring-1 ring-blue-400/40" : "text-slate-400 hover:bg-white/[0.06]"}`}>
+              {PAGE_FORMATS[f].label}
+            </button>
+          ))}
+          <button type="button" onClick={onClose} className="ml-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20">Cerrar ✕</button>
+        </div>
       </div>
       {sheets.map((s, idx) => {
         const b = primsBounds(s.prims);
         const sx = b.maxX - b.minX, sy = b.maxY - b.minY;
-        const den = [50, 75, 100, 125, 150, 200].find((k) => sx * (1000 / k) <= availW && sy * (1000 / k) <= availH) ?? 250;
+        // Escala con TAMAÑOS DE PAPEL FINALES (texto ya clamped ≥2.5 mm):
+        // misma decisión que el DXF (fitSheetScale en views.ts).
+        const den = fitSheetScale(s.prims, availW, availH);
         const k = 1000 / den; // mm de papel por metro de modelo
         const syv = (y: number) => sy - (y - b.minY);
         const vb = `${b.minX} 0 ${sx} ${sy}`;
@@ -1692,11 +1722,13 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
         // el DXF redondea a centésimas de mm (370) — diferencia ≤0.01 mm.
         const sw = (layer: string, thin = false) => plotMm(PEN_BY_LAYER[layer] ?? "profile", den) * (den / 1000) * (thin ? 0.72 : 1);
         const swAchu = plotMm("achu", den) * (den / 1000);
-        // Barra de escala gráfica que SIEMPRE cabe en el cajetín (presets
-        // de metros redondos; nunca desborda — bug de la 100mm/34mm).
+        // TEXTO a tamaño de papel: nunca por debajo del piso del libro.
+        const th = (h: number) => Math.max(h, ANNOT.minTextMm / k);
+        // Barra de escala gráfica que SIEMPRE cabe en el cajetín.
         const bar = scaleBarMm(k, 58);
         const barMid = +(bar.segs[0] + bar.segs[1]).toFixed(2);
         const fmtM = (v: number) => (Number.isInteger(v) ? String(v) : String(+v.toFixed(2)));
+        const pochéSólido = (p: { l: string; w: number; h: number }) => p.l !== "MUROS" || Math.min(p.w, p.h) * k < HATCH.solidBelowMm;
         return (
           <div key={s.code} className="sheet mx-auto mb-4 bg-white" style={{ width: `${PAGE_W}mm`, height: `${PAGE_H}mm`, position: "relative" }}>
             {/* Marco doble 5/10 mm (formato OBRAHUB) */}
@@ -1707,41 +1739,42 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
             <div style={{ position: "absolute", left: `${M + (availW - sx * k) / 2}mm`, top: `${M + (availH - sy * k) / 2}mm`, width: `${sx * k}mm`, height: `${sy * k}mm` }}>
               <svg width="100%" height="100%" viewBox={vb} preserveAspectRatio="none">
                 {s.prims.map((p, i) =>
-                  p.t === "L" ? <line key={i} x1={p.x1} y1={syv(p.y1)} x2={p.x2} y2={syv(p.y2)} stroke="#000" strokeWidth={sw(p.l, p.thin)} strokeDasharray={p.dash ? "0.4 0.25" : undefined} />
+                  p.t === "L" ? <line key={i} x1={p.x1} y1={syv(p.y1)} x2={p.x2} y2={syv(p.y2)} stroke="#000" strokeWidth={sw(p.l, p.thin)} strokeDasharray={p.dash ? dashOf(p.l) : undefined} />
                   : p.t === "H" ? <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
                   : p.t === "F" ? (
-                    p.l === "MUROS" ? (
+                    pochéSólido(p) ? (
+                      // SÍMBOLO o banda que imprime <1.6 mm → relleno macizo
+                      <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="#000" stroke="#000" strokeWidth={sw(p.l)} />
+                    ) : (
                       <g key={i}>
-                        {/* POCHÉ de muro: rayado 45° — la MISMA representación
-                            del DXF (fila A-MURO-ACHU de la tabla CPNAA) */}
+                        {/* POCHÉ de muro: rayado a ESPACIADO DE PAPEL constante
+                            (guía §2.5) — la MISMA representación del DXF */}
                         <rect x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
-                        {hatch45(p).map((h, j) => (
+                        {hatch45(p, k).map((h, j) => (
                           <line key={j} x1={h.ax} y1={syv(h.ay)} x2={h.bx} y2={syv(h.by)} stroke="#000" strokeWidth={swAchu} />
                         ))}
                       </g>
-                    ) : (
-                      // SÍMBOLO pequeño (manija, marca de corte, zapata):
-                      // relleno macizo — igual que el SOLID del DXF.
-                      <rect key={i} x={p.x} y={syv(p.y + p.h)} width={p.w} height={p.h} fill="#000" stroke="#000" strokeWidth={sw(p.l)} />
                     )
                   )
                   : p.t === "C" ? <circle key={i} cx={p.x} cy={syv(p.y)} r={p.r} fill="none" stroke="#000" strokeWidth={sw(p.l)} />
-                  : <text key={i} x={p.x} y={syv(p.y)} fontSize={p.h} fill="#000" fontFamily="monospace">{p.s}</text>
+                  : <text key={i} x={p.x} y={syv(p.y)} fontSize={th(p.h)} fill="#000" fontFamily="monospace">{p.s}</text>
                 )}
               </svg>
             </div>
             {/* Cajetín OBRAHUB (papel mm) — escala y fecha REALES + barra que cabe */}
-            <div style={{ position: "absolute", right: `${M}mm`, bottom: `${M}mm`, width: `${CAJ_W}mm`, border: "0.4mm solid #000", background: "#fff", fontFamily: "monospace", fontSize: "2.2mm", lineHeight: 1.5, color: "#000", padding: "1.6mm" }}>
+            <div style={{ position: "absolute", right: `${M}mm`, bottom: `${M}mm`, width: `${CAJ_W}mm`, border: "0.4mm solid #000", background: "#fff", fontFamily: "monospace", fontSize: "2.5mm", lineHeight: 1.45, color: "#000", padding: "1.6mm" }}>
               <div style={{ fontSize: "3.8mm", fontWeight: 700, letterSpacing: "0.5mm" }}>OBRAHUB</div>
-              <div style={{ fontSize: "1.7mm" }}>CONSTRUCTION OS · CRATERE S.A.S.</div>
+              <div style={{ fontSize: "2.2mm" }}>CONSTRUCTION OS · CRATERE S.A.S.</div>
               <div style={{ borderTop: "0.2mm solid #000", margin: "1mm 0" }} />
-              <div style={{ fontSize: "1.7mm" }}>PROYECTO</div>
+              <div>PROYECTO</div>
               <div>{plan.name.toUpperCase().slice(0, 26)}</div>
-              <div style={{ fontSize: "1.7mm" }}>UBICACIÓN: {city.slice(0, 26)}</div>
+              <div>UBICACIÓN: {city.slice(0, 24)}</div>
               <div style={{ fontWeight: 700 }}>{s.code} — {s.title.slice(0, 21)}</div>
               <div>ESCALA 1:{den} · MM · S.I.</div>
               <div>FECHA {fecha}</div>
-              <div>DIBUJÓ OBRAHUB DISEÑO IA · REVISÓ ING. MATRICULADO</div>
+              <div>DIBUJÓ: OBRAHUB DISEÑO IA</div>
+              <div>REVISÓ: PENDIENTE</div>
+              <div>REQUIERE FIRMA ING. MATRICULADO</div>
               <div style={{ fontWeight: 700 }}>LÁMINA {idx + 1}/{total}</div>
               {/* Escala gráfica DENTRO del cajetín: mide con regla */}
               <svg width={`${bar.totalMm}mm`} height="6mm" viewBox={`0 0 ${bar.totalMm} 6`} style={{ marginTop: "1mm", display: "block" }}>
@@ -1754,9 +1787,9 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
                     return seg;
                   });
                 })()}
-                <text x="0" y="0.9" dy="-0.1" fontSize="1.8" fontFamily="monospace" fill="#000">{fmtM(0)}</text>
-                <text x={bar.segs[0] * k + bar.segs[1] * k} y="0.9" fontSize="1.8" fontFamily="monospace" fill="#000">{fmtM(barMid)}</text>
-                <text x={bar.totalMm - 3} y="0.9" fontSize="1.8" fontFamily="monospace" fill="#000">{fmtM(bar.total)} m</text>
+                <text x="0" y="0.9" dy="-0.1" fontSize="2.2" fontFamily="monospace" fill="#000">{fmtM(0)}</text>
+                <text x={bar.segs[0] * k + bar.segs[1] * k} y="0.9" fontSize="2.2" fontFamily="monospace" fill="#000">{fmtM(barMid)}</text>
+                <text x={bar.totalMm - 4} y="0.9" fontSize="2.2" fontFamily="monospace" fill="#000">{fmtM(bar.total)} m</text>
               </svg>
             </div>
             {/* Norte (esquina inferior izquierda) */}
@@ -1771,12 +1804,13 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
   );
 }
 
-/** Rayado 45° de un rect F (poché) en unidades de MODELO — idéntico al
- *  motor DXF (paso 0.07 m): PDF y CAD dibujan el mismo achurado. */
-function hatch45(p: { x: number; y: number; w: number; h: number }): Array<{ ax: number; ay: number; bx: number; by: number }> {
+/** Rayado 45° de un rect F (poché) en unidades de MODELO con ESPACIADO DE
+ *  PAPEL constante (paso mm/k — idéntico al motor DXF, guía §2.5). */
+function hatch45(p: { x: number; y: number; w: number; h: number }, k: number): Array<{ ax: number; ay: number; bx: number; by: number }> {
   const x0 = p.x, y0 = p.y, x1 = p.x + p.w, y1 = p.y + p.h;
+  const step = HATCH.spacingMm / k;
   const out: Array<{ ax: number; ay: number; bx: number; by: number }> = [];
-  for (let s = -p.h; s < p.w; s += 0.07) {
+  for (let s = -p.h; s < p.w; s += step) {
     const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h);
     const bx = Math.min(x1, x0 + s + p.h), by = Math.max(y0, y0 + s);
     if (ax < bx && by < ay) out.push({ ax, ay, bx, by });

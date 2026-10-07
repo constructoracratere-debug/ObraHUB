@@ -1,5 +1,5 @@
 /**
- * Test offline del motor DXF — FORMATO OBRAHUB 700×500 (R2000).
+ * Test offline del motor DXF — FORMATO OBRAHUB 700×500 (R2007).
  * Genera un plan hardcodeado → string DXF → asserts estructurales +
  * validación con ezdxf (si hay python disponible).
  * Ejecutar: node scripts/test-design-dxf.mjs
@@ -97,8 +97,8 @@ const check = (name, cond) => {
 
 console.log("Test motor DXF — Formato OBRAHUB 700×500 (R2000)\n");
 
-// ── Escritor R2000 con disciplina de plumillas ISO 128 ──────────────────────
-check("header R2000 (AC1015)", dxf.includes("$ACADVER") && dxf.includes("AC1015"));
+// ── Escritor R2007 con disciplina de plumillas ISO 128 ──────────────────────
+check("header R2007 (AC1021, UTF-8 nativo)", dxf.includes("$ACADVER") && dxf.includes("AC1021"));
 check("unidades mm de lámina (INSUNITS 4)", /\$INSUNITS\n70\n4/.test(dxf));
 check("LTYPE CONTINUOUS/DASHED/CENTER definidos", ["CONTINUOUS", "DASHED", "CENTER"].every((lt) => dxf.includes(`0\nLTYPE\n2\n${lt}\n`)));
 check("LTYPE CENTER con patrón real (73/49)", /LTYPE\n2\nCENTER\n[\s\S]*?73\n4\n40\n20/.test(dxf));
@@ -167,6 +167,39 @@ check("scaleBarMm: presets que nunca desbordan", (() => {
   return b50.total === 2 && b50.totalMm <= 58 && b100.total === 5 && b100.totalMm === 50 && b20.total === 1 && b20.totalMm <= 58;
 })());
 
+// ── Anotación a TAMAÑO DE PAPEL (guía §2.5 + libro h≥2.5) ────────────────────
+check("todo TEXT imprime ≥2.2 mm (piso 2.5; exentos numerales/símbolos 2.2)", (() => {
+  const chunks = dxf.split("0\nTEXT\n").slice(1);
+  const heights = chunks.map((c) => Number((c.match(/40\n(\d+\.\d{3})\n/) ?? [0, "99"])[1]));
+  return heights.length > 100 && heights.every((h) => h >= 2.19) && heights.some((h) => h >= 2.5);
+})());
+check("lámina A-00 índice + simbología abre el set", dxf.includes("A-00") && dxf.includes("ÍNDICE DEL SET"));
+check("REVISÓ veraz: pendiente hasta firma profesional", dxf.includes("PENDIENTE DE REVISIÓN") && !dxf.includes("ING. MATRICULADO"));
+check("cotas sin traslape al TAMAÑO FINAL (1:50/1:100/1:200, rotadas incluidas)", (() => {
+  const { plantaPrimitives } = req(path.join(tmp, "design", "views.js"));
+  const labels = plantaPrimitives(plan).filter((p) => p.t === "T" && p.l === "COTAS");
+  const clashes = (den) => {
+    const floor = 2.5 * den / 1000; // piso 2.5 mm en unidades de modelo
+    const L = labels.map((t) => ({ ...t, hE: Math.max(t.h, floor) }));
+    let bad = 0;
+    const H = L.filter((t) => (t.r ?? 0) !== 90);
+    for (let i = 0; i < H.length; i++) for (let j = i + 1; j < H.length; j++) {
+      const a = H[i], b = H[j];
+      if (Math.abs(a.y - b.y) > Math.max(a.hE, b.hE) * 0.9) continue; // distinto renglón
+      if (Math.min(a.x + a.s.length * a.hE * 0.62, b.x + b.s.length * b.hE * 0.62) - Math.max(a.x, b.x) > 0.03) bad++;
+    }
+    const V = L.filter((t) => (t.r ?? 0) === 90);
+    for (let i = 0; i < V.length; i++) for (let j = i + 1; j < V.length; j++) {
+      const a = V[i], b = V[j];
+      if (Math.abs(a.x - b.x) > Math.max(a.hE, b.hE) * 0.9) continue; // distinta columna
+      if (Math.min(a.y + a.s.length * a.hE * 0.62, b.y + b.s.length * b.hE * 0.62) - Math.max(a.y, b.y) > 0.03) bad++;
+    }
+    return bad;
+  };
+  const res = [50, 100, 200].map(clashes);
+  return res.every((n) => n === 0);
+})());
+
 // ── Lámina general 700×500 con rótulo OBRAHUB ────────────────────────────────
 check("set completo A-01…A-05", ["A-01", "A-02", "A-03", "A-04", "A-05"].every((c) => dxf.includes(c)));
 check("marca OBRAHUB en rótulo", dxf.includes("OBRAHUB"));
@@ -191,7 +224,7 @@ check("cortes A-A' y B-B' presentes", dxf.includes("CORTE A-A'") && dxf.includes
 check("fachadas rotuladas", /FACHADA (NORTE|SUR)/.test(dxf));
 check("cuadro de áreas dibujado", /CUADRO DE/.test(dxf));
 check("flecha de norte en rótulo", /TEXT\n8\nA-ROTULO-TXT\n[\s\S]{0,120}1\nN\n/.test(dxf));
-check("escala gráfica en metros (rótulo)", /40\n2\.000\n1\nm\n/.test(dxf));
+check("escala gráfica en metros (rótulo)", /40\n2\.200\n1\nm\n/.test(dxf));
 
 // ── Determinismo y sanidad ───────────────────────────────────────────────────
 const dxf2 = planToDxf(sanitizeFloorPlan(rawPlan));

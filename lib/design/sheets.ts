@@ -29,6 +29,53 @@ function placeAt(prims: Prim[], tx: number, ty: number): Prim[] {
   return shift(prims, tx - b.minX, ty - b.maxY);
 }
 
+/** ── A-00: ÍNDICE DEL SET + SIMBOLOGÍA (guía §2.8: lámina introductoria
+ *  con el índice, códigos y símbolos — el mapa del paquete para el
+ *  revisor de curaduría y el constructor). ──────────────────────────────── */
+function indexSheetPrimitives(plan: FloorPlan, list: Array<{ code: string; title: string }>): Prim[] {
+  const out: Prim[] = [];
+  const TW = 7.6; // ancho de la tabla índice
+  out.push({ t: "T", l: "TEXTOS", x: 0, y: 1.55, h: 0.34, s: "OBRAHUB — ÍNDICE DEL SET DE LÁMINAS" });
+  out.push({ t: "T", l: "TEXTOS", x: 0, y: 1.2, h: 0.17, s: plan.name.toUpperCase().slice(0, 46) });
+  let y = 1.0;
+  out.push({ t: "L", l: "TEXTOS", x1: 0, y1: y, x2: TW, y2: y });
+  for (const s of list) {
+    y -= 0.42;
+    out.push({ t: "T", l: "TEXTOS", x: 0.12, y: y + 0.1, h: 0.2, s: s.code });
+    out.push({ t: "T", l: "TEXTOS", x: 1.15, y: y + 0.09, h: 0.17, s: s.title.slice(0, 36) });
+    out.push({ t: "L", l: "TEXTOS", x1: 0, y1: y, x2: TW, y2: y, thin: true });
+  }
+  // Simbología de líneas (§2.6) — muestra real de cada linetype del set.
+  y -= 0.55;
+  out.push({ t: "T", l: "TEXTOS", x: 0, y, h: 0.24, s: "SIMBOLOGÍA DE LÍNEAS" });
+  const samples: Array<{ layer: string; label: string; dash?: boolean; thin?: boolean }> = [
+    { layer: "MUROS", label: "CORTE EN PLANTA — MURO/ESTRUCTURA (GROSOR SEGÚN ESCALA)" },
+    { layer: "PUERTAS", label: "PROYECCIÓN · GIRO DE PUERTA (DISCONTINUA)", dash: true },
+    { layer: "EJES", label: "EJE PUNTO-RAYA — RETÍCULA ESTRUCTURAL", dash: true, thin: true },
+    { layer: "COTAS", label: "COTAS · LÍNEA FINA CON TICKS 45°", thin: true },
+  ];
+  samples.forEach((sm, i) => {
+    const yy = y - 0.45 * (i + 1);
+    out.push({ t: "L", l: sm.layer, x1: 0, y1: yy, x2: 2.3, y2: yy, dash: sm.dash, thin: sm.thin ?? sm.layer !== "MUROS" });
+    out.push({ t: "T", l: "TEXTOS", x: 2.55, y: yy - 0.05, h: 0.16, s: sm.label });
+  });
+  // Convenciones: marca de corte + flecha norte (§2.4/§2.10).
+  y -= 0.45 * samples.length - 0.75;
+  out.push({ t: "T", l: "TEXTOS", x: 0, y, h: 0.24, s: "CONVENCIONES" });
+  const cy = y - 0.55;
+  out.push({ t: "L", l: "CORTE", x1: 0, y1: cy, x2: 1.5, y2: cy, dash: true, thin: true });
+  out.push({ t: "F", l: "CORTE", x: 1.5, y: cy - 0.05, w: 0.32, h: 0.1 });
+  out.push({ t: "T", l: "CORTE", x: 1.85, y: cy - 0.28, h: 0.2, s: "A" });
+  out.push({ t: "T", l: "TEXTOS", x: 2.3, y: cy - 0.05, h: 0.16, s: "MARCA DE CORTE → LÁMINA A-02" });
+  out.push({ t: "L", l: "TEXTOS", x1: 0, y1: cy - 0.85, x2: 0.55, y2: cy - 0.05, thin: true });
+  out.push({ t: "T", l: "TEXTOS", x: 0.1, y: cy - 1.0, h: 0.2, s: "N" });
+  out.push({ t: "T", l: "TEXTOS", x: 2.3, y: cy - 0.85, h: 0.16, s: "FLECHA NORTE — EN TODAS LAS PLANTAS" });
+  // Simbología MEP al costado derecho (misma tabla de la lámina de planta).
+  const legend = mepLegendPrimitives(plan, 0);
+  if (legend.length) out.push(...placeAt(legend, TW + 1.2, 1.0));
+  return out;
+}
+
 /** Contenido SIN vestir por lámina (el motor DXF pone su propio formato
  *  OBRAHUB 700×500 en mm; el SVG viste con dress()). */
 export function sheetContents(plan: FloorPlan): Sheet[] {
@@ -92,6 +139,14 @@ export function sheetContents(plan: FloorPlan): Sheet[] {
   sheets.push({ code: "A-04", title: "PLANO ESTRUCTURAL — RETÍCULA, COLUMNAS Y CIMENTACIÓN", prims: structuralPlanPrimitives(plan) });
   // A-05 — CUBIERTAS (placa maciza — MPr / Decreto 1077).
   sheets.push({ code: "A-05", title: "PLANTA DE CUBIERTAS — PLACA MACIZA", prims: roofPlanPrimitives(plan) });
+  // A-00 — ÍNDICE DEL SET + SIMBOLOGÍA: la lámina introductoria de la guía
+  // (§2.8) — se genera AL FINAL (necesita la lista) pero viaja PRIMERO;
+  // el índice se incluye a sí mismo (set completo).
+  const SELF = { code: "A-00", title: "ÍNDICE DEL SET Y SIMBOLOGÍA" };
+  sheets.unshift({
+    ...SELF,
+    prims: indexSheetPrimitives(plan, [SELF, ...sheets]),
+  });
   return sheets;
 }
 

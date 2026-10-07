@@ -363,17 +363,30 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
     if (seg > 0.55) out.push({ t: "T", l: "COTAS", x: -1.14, y: (ysPart[i] + ysPart[i + 1]) / 2, h: 0.12, s: fmt(seg), r: 90 });
   }
 
-  // Ancho de cada VANO rotulado junto a su símbolo (convención: cota del vano).
+  // Ancho de cada VANO rotulado junto a su símbolo (convención: cota del
+  // vano). El LADO se deriva del LOCAL al que sirve el vano (no de la
+  // mitad del dibujo): la etiqueta cae DENTRO del cuarto destino; si una
+  // ventana choca ahí con la etiqueta de una puerta, la ventana salta al
+  // lado exterior del muro (guía §2.7: sin cruces ni traslapes).
+  const sideTo = (wallY: number, room?: Room) => (room ? (room.y + room.depth / 2 >= wallY ? 1 : -1) : 1);
+  const doorLabels: Array<{ x: number; y: number }> = [];
   for (const d of doorsLvl) {
     if (d.axis === "y") continue;
-    out.push({ t: "T", l: "COTAS", x: d.x - 0.18, y: d.y + (d.y < D / 2 ? 0.32 : -0.4), h: 0.13, s: fmt(d.width) });
+    const to = plan.rooms.find(roomAt(plan, d.to, level));
+    const y = d.y + sideTo(d.y, to) * 0.32;
+    doorLabels.push({ x: d.x, y });
+    out.push({ t: "T", l: "COTAS", x: d.x - 0.18, y, h: 0.13, s: fmt(d.width) });
   }
   for (const w of winsLvl) {
     if (w.wall !== "sur" && w.wall !== "norte") continue;
     const room = plan.rooms.find(roomAt(plan, w.room, level));
     if (!room) continue;
     const yy = w.wall === "norte" ? room.y + room.depth : room.y;
-    out.push({ t: "T", l: "COTAS", x: w.x - 0.18, y: yy + (yy < D / 2 ? 0.32 : -0.4), h: 0.13, s: fmt(w.width) });
+    let y = yy + sideTo(yy, room) * 0.32;
+    if (doorLabels.some((dl) => Math.abs(dl.y - y) < 0.16 && Math.abs(dl.x - w.x) < 0.6)) {
+      y = yy - sideTo(yy, room) * 0.4; // lado exterior del muro
+    }
+    out.push({ t: "T", l: "COTAS", x: w.x - 0.18, y, h: 0.13, s: fmt(w.width) });
   }
 
   // Dim INTERIOR de cada espacio (ancho×fondo) bajo el área — lo primero
@@ -583,6 +596,36 @@ export function primsBounds(prims: Prim[]): { minX: number; minY: number; maxX: 
   }
   if (!Number.isFinite(minX)) return { minX: 0, minY: 0, maxX: 10, maxY: 10 };
   return { minX, minY, maxX, maxY };
+}
+
+/** ── Escala de lámina con TAMAÑOS DE PAPEL FINALES ──────────────────────────
+ *  Elige el denominador de la serie normalizada (50…200) contra el área
+ *  imprimible, pero midiéndolo con los bounds DEL TEXTO YA AGRANDADO al
+ *  piso de 2.5 mm impresos (rotación-aware: r=90 intercambia ejes). Así el
+ *  clamp de anotación nunca desborda la lámina ni elige una escala que no
+ *  cabe después de agrandar. Único punto de decisión para PDF y DXF. */
+export function fitSheetScale(prims: Prim[], availW: number, availH: number): number {
+  for (const den of [50, 75, 100, 125, 150, 200]) {
+    const floor = 2.5 * den / 1000; // piso de texto en unidades de modelo
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const see = (x: number, y: number) => {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    };
+    for (const p of prims) {
+      if (p.t === "L") { see(p.x1, p.y1); see(p.x2, p.y2); }
+      else if (p.t === "T") {
+        const h = Math.max(p.h, floor);
+        if ((p.r ?? 0) === 90) { see(p.x - h, p.y - 0.05); see(p.x, p.y + p.s.length * h * 0.7); }
+        else { see(p.x, p.y); see(p.x + p.s.length * h * 0.7, p.y + h); }
+      }
+      else if (p.t === "C") { see(p.x - p.r, p.y - p.r); see(p.x + p.r, p.y + p.r); }
+      else { see(p.x, p.y); see(p.x + p.w, p.y + p.h); }
+    }
+    const sx = maxX - minX, sy = maxY - minY;
+    if (Number.isFinite(sx) && sx * (1000 / den) <= availW && sy * (1000 / den) <= availH) return den;
+  }
+  return 250;
 }
 
 // ── SIMBOLOGÍA MEP (RETIE eléctrico / RAS hidrosanitario) ───────────────────

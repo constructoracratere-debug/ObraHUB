@@ -52,6 +52,13 @@ Definiciones normativas (texto CPNAA):
 - **Línea de límite de construcción / línea de empate**: delimitan
   intervención y fragmentos entre planchas (con plano clave).
 
+**Mapa de estilos explícito (los TRES salidores)**: `CONTINUA` ·
+`DISCONTINUA` (proyecciones, cuerdas de puertas) · `PUNTO-RAYA` (ejes —
+siempre con el punto, jamás guion simple). DXF: linetype de entidad
+DASHED/CENTER; pantalla y PDF: `dashOf()` con el mismo mapa semántico por
+capa. La lámina A-00 muestra muestras REALES de cada estilo (con sus
+flags) — sin pesos hardcodeados que varían por escala.
+
 **Jerarquía implementada** (manual de dibujo arquitectónico profesional +
 ejemplos de la guía): lo cortado/cercano = grueso.
 
@@ -107,11 +114,13 @@ pasan a los tres salidores por igual: `thin` = un paso abajo (×0.72),
 `dash` = DASHED (los ejes conservan CENTER, punto-raya de la guía).
 
 **Poché vs símbolo — dos semánticas de F**: el rect relleno `F` sobre
-**MUROS** es POCHÉ: contorno + rayado 45° (paso 0.07 m, grosor de la fila
-achu) idéntico en PDF y DXF. Un `F` pequeño en OTRA capa (manija de
-puerta, marca de corte, zapata) es un SÍMBOLO: relleno MACIZO — `SOLID`
-en DXF, fill en PDF — jamás achurado. La pantalla puede usar tono (medio
-interactivo); la impresión no miente.
+**MUROS** es POCHÉ: contorno + rayado 45° a espaciado de PAPEL constante
+(1.4 mm, fila achu) idéntico en PDF y DXF; la decisión hatch/sólido usa
+el GROSOR REAL de la banda (el menor de w/h — una banda vertical mide su
+espesor en w) — bajo 1.6 mm impresos va SÓLIDA. Un `F` pequeño en OTRA
+capa (manija de puerta, marca de corte, zapata) es un SÍMBOLO: relleno
+MACIZO — `SOLID` en DXF, fill en PDF — jamás achurado. La pantalla puede
+usar tono (medio interactivo); la impresión no miente.
 
 **`thin` unificado**: ×0.72 en los TRES salidores (PDF, DXF, pantalla) —
 un paso abajo de la serie, la MISMA proporción en px y en mm. El DXF
@@ -141,6 +150,15 @@ Serie métrica normativa y su uso (tabla literal de la guía):
 
 - La escala se expresa **numérica** (p.ej. `1:50`) y se **complementa con
   escala gráfica** (nuestro `scaleBar` 1+1+3 m).
+- **La anotación responde a la escala** (§2.5): textos, cotas y achurados
+  viven a TAMAÑO DE PAPEL constante — piso de texto 2.5 mm impresos
+  (`ANNOT.minTextMm`; exentos documentados: numerales de barra de escala,
+  letras en símbolos MEP y tagline del cajetín, a 2.2), y el rayado del
+  poché usa espaciado de PAPEL constante 1.4 mm (`HATCH.spacingMm`) —
+  banda cuyo grosor real imprime <1.6 mm va SÓLIDA. El ajuste de escala
+  de lámina se mide con los TAMAÑOS FINALES del texto (`fitSheetScale`,
+  rotación-aware) — 1:50, 1:100 y 1:200 salen igual de legibles y SIN
+  desbordes: el texto agrandado ya estaba dentro del fit.
 - Motor: escala de texto/cotas **no cambia** con la escala del dibujo (la
   anotación es a tamaño papel constante); solo cambia la geometría. Serie
   auto-fit de lámina: `50, 75, 100, 125, 150, 200`.
@@ -182,7 +200,8 @@ Serie métrica normativa y su uso (tabla literal de la guía):
 
 | Tipo | Contenido | Código ObraHub |
 |---|---|---|
-| 1 | Plantas | A-01 planta arquitectónica + cuadro de áreas |
+| 0 | **Índice del set + simbología** (§2.8) | A-00 — abre el paquete: índice, líneas, convenciones, MEP |
+| 1 | Plantas | A-01 planta arquitectónica + cuadro de áreas (A-01.2… por nivel) |
 | 2 | Alzados/fachadas | A-03 (4 fachadas) |
 | 3 | Cortes | A-02 (cortes A-A′/B-B′ con niveles) |
 | 4 | Vistas escala ampliada | — (futuro) |
@@ -197,6 +216,8 @@ Serie métrica normativa y su uso (tabla literal de la guía):
 - Formatos ISO 216 (A0…A7) para uso general. **Formato adoptado por ObraHub:
   700×500 mm horizontal** (rótulo estándar del usuario, rebranded OBRAHUB en
   vez de universidad). Láminas espaciadas 50 mm en el modelo (750 de pitch).
+  El PDF de impresión ofrece **ISO A1/A2 como opción de export** (§4.1);
+  OBRAHUB 700×500 es el default de oficina.
 - La plancha se divide en **tres áreas**: bloques de dibujo, **rótulo** y
   bloque de notas (opcional, junto al rótulo).
 - Retícula de diagramación: **15 cm entre ejes virtuales**, etiquetada con
@@ -231,8 +252,10 @@ Implementación OBRAHUB (`rotulo()` en `lib/design/dxf.ts`, franja 185 mm):
 ```
 
 - Textos del rótulo SIEMPRE legibles a escala papel (h≥2.5 mm), códigos h≥4.
-- Fecha ISO; DIBUJÓ = `OBRAHUB DISEÑO IA`; REVISÓ = `ING. MATRICULADO`
-  (espacio para firma — la responsabilidad profesional no la tiene la IA).
+- Fecha ISO; DIBUJÓ = `OBRAHUB DISEÑO IA`; **REVISÓ = "PENDIENTE DE
+  REVISIÓN" hasta que un profesional matriculado revise y firme de verdad**
+  (§4.2: la autoría/revisión del documento es información, no decoración —
+  la responsabilidad profesional no la tiene la IA).
 - **Fecha de producción la pasa quien llama** (`planToDxf(plan, { fecha })`):
   el motor es determinista puro (misma entrada → mismo byte, cualquier día);
   la UI registra la fecha al momento de generar el archivo.
@@ -248,6 +271,11 @@ Implementación OBRAHUB (`rotulo()` en `lib/design/dxf.ts`, franja 185 mm):
       el `1:den` del cajetín se puede comprobar con regla (§3, §4.3).
 - [ ] Grosor de línea por tabla CPNAA §4.3 a la escala de la lámina
       (SVG, PDF y DXF resuelven de la MISMA `plotMm`).
+- [ ] **Anotación a tamaño papel**: texto ≥2.5 mm impresos, achurado a
+      espaciado papel constante, banda <1.6 mm → poché sólido (§2.5).
+- [ ] **A-00 abre el set**: índice + simbología de líneas + convenciones
+      (§2.8); numerales de cota sin traslape en su renglón (§2.7).
+- [ ] **REVISÓ veraz**: "PENDIENTE DE REVISIÓN" hasta firma profesional.
 - [ ] **Vanos reales**: puertas y ventanas son HUECOS en el muro con
       jambas — jamás símbolos sobre banda continua (§2.3).
 - [ ] Cotas jerárquicas afuera, numerales al punto medio, sin traslape (§4).

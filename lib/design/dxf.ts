@@ -6,7 +6,7 @@
  * acotación, formato o rótulo: léelo. Su checklist está testificado en
  * scripts/test-design-dxf.mjs.
  *
- * ASCII DXF R2000 (AC1015): mantiene la compatibilidad universal y añade
+ * ASCII DXF R2007 (AC1021, UTF-8 nativo): compatibilidad universal y añade
  * lo que exige el manual de dibujo arquitectónico profesional (Colombia):
  *   · LAYER con LINETYPE + LINEWEIGHT (370, centésimas de mm) reales —
  *     jerarquía ISO 128: corte 0.70 · perfil 0.35 · fino 0.25 · trazo 0.13.
@@ -20,9 +20,9 @@
  */
 
 import type { FloorPlan } from "./schema";
-import { PENS, plotMm } from "./knowledge";
+import { PENS, plotMm, ANNOT, HATCH } from "./knowledge";
 import { sheetContents, type Sheet } from "./sheets";
-import { primsBounds, ELEC_SYMBOLS, HYDRO_SYMBOLS, type Prim } from "./views";
+import { primsBounds, fitSheetScale, ELEC_SYMBOLS, HYDRO_SYMBOLS, type Prim } from "./views";
 
 // Símbolos MEP: fuente única en views.ts (plano y leyenda comparten tabla).
 export { ELEC_SYMBOLS, HYDRO_SYMBOLS };
@@ -177,35 +177,35 @@ class DxfBuilder {
 
     // ── PROYECTO (2 líneas máx) + UBICACIÓN.
     row(26);
-    this.text(RT, rx0 + 6, y + 18.5, 2.4, "PROYECTO");
+    this.text(RT, rx0 + 6, y + 18.5, 2.5, "PROYECTO");
     this.text(RT, rx0 + 6, y + 9.5, 3.6, fields.proyecto.toUpperCase().slice(0, 26));
     this.text(RT, rx0 + 6, y + 3, 3.0, fields.proyecto.toUpperCase().slice(26, 50));
     row(16);
-    this.text(RT, rx0 + 6, y + 9.5, 2.4, "UBICACIÓN");
+    this.text(RT, rx0 + 6, y + 9.5, 2.5, "UBICACIÓN");
     this.text(RT, rx0 + 6, y + 3, 3.2, fields.ubicacion.toUpperCase().slice(0, 30));
 
     // ── Título de lámina (el plano que soy).
     row(34);
-    this.text(RT, rx0 + 6, y + 21, 2.4, "CONTENIDO");
+    this.text(RT, rx0 + 6, y + 21, 2.5, "CONTENIDO");
     this.text(RT, rx0 + 6, y + 9, 4.2, fields.codigo);
     this.text(RT, rx0 + 6, y + 2.5, 2.8, fields.titulo.slice(0, 34));
 
     // ── Grilla de datos: ESCALA | FECHA ya arriba; DIBUJÓ/REVISÓ/UNIDADES.
     const gy = y;
     row(14);
-    this.text(RT, rx0 + 6, gy - 4.5, 2.2, "ESCALA");
-    this.text(RT, rx0 + 60, gy - 4.5, 2.2, "UNIDADES");
+    this.text(RT, rx0 + 6, gy - 4.5, 2.5, "ESCALA");
+    this.text(RT, rx0 + 60, gy - 4.5, 2.5, "UNIDADES");
     this.text(RT, rx0 + 6, gy - 11, 3.2, fields.escala);
     this.text(RT, rx0 + 60, gy - 11, 3.2, "MM · METROS S.I.");
     row(14);
-    this.text(RT, rx0 + 6, y + 9.5, 2.2, "DIBUJÓ");
-    this.text(RT, rx0 + 60, y + 9.5, 2.2, "REVISÓ");
+    this.text(RT, rx0 + 6, y + 9.5, 2.5, "DIBUJÓ");
+    this.text(RT, rx0 + 60, y + 9.5, 2.5, "REVISÓ");
     this.text(RT, rx0 + 6, y + 2.5, 3.0, fields.dibujo.slice(0, 22));
-    this.text(RT, rx0 + 60, y + 2.5, 3.0, "ING. MATRICULADO");
+    this.text(RT, rx0 + 60, y + 2.5, 2.6, "PENDIENTE DE REVISIÓN");
 
     // ── Lámina N de M + código grande abajo.
     row(20);
-    this.text(RT, rx0 + 6, y + 12, 2.2, "LÁMINA");
+    this.text(RT, rx0 + 6, y + 12, 2.5, "LÁMINA");
     this.text(RT, rx0 + 6, y + 3, 5.5, `${fields.lamina} / ${fields.total}`);
     // Banda inferior: norte + escala gráfica.
     row(28);
@@ -227,17 +227,18 @@ class DxfBuilder {
     for (const segM of [1, 1, 3]) {
       const w = segM * mmPerM;
       this.polyline("ROTULO-TXT", [[cx, y], [cx + w, y], [cx + w, y - 2.5], [cx, y - 2.5]], true);
-      if (cx === x) this.text("ROTULO-TXT", cx - 1, y + 1, 2, "0");
+      if (cx === x) this.text("ROTULO-TXT", cx - 1, y + 1, 2.2, "0");
       cx += w;
-      this.text("ROTULO-TXT", cx - 2, y + 1, 2, String(Math.round((cx - x) / mmPerM)));
+      this.text("ROTULO-TXT", cx - 2, y + 1, 2.2, String(Math.round((cx - x) / mmPerM)));
     }
-    this.text("ROTULO-TXT", cx + 2, y - 1, 2, "m");
+    this.text("ROTULO-TXT", cx + 2, y - 1, 2.2, "m");
   }
 
   build(): string {
-    // HEADER R2000: mm de lámina a 1:1 (INSUNITS 4) — el plano dibujado vive
-    // escalado dentro del formato, como una lámina plotteada.
-    let out = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n9\n$INSUNITS\n70\n4\n9\n$LTSCALE\n40\n1.0\n9\n$MEASUREMENT\n70\n1\n0\nENDSEC\n";
+    // HEADER R2007 (AC1021): mm de lámina a 1:1 (INSUNITS 4). Desde R2007
+    // el DXF es UTF-8 NATIVO — los acentos (Á, É, Ñ) viajan bien; en R2000
+    // (cp1252) salían como "BOGOTÃ…" en AutoCAD.
+    let out = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1021\n9\n$INSUNITS\n70\n4\n9\n$LTSCALE\n40\n1.0\n9\n$MEASUREMENT\n70\n1\n0\nENDSEC\n";
     // TABLES: LTYPE con patrón real + LAYER con color/linetype/grosor (370).
     out += "0\nSECTION\n2\nTABLES\n";
     out += "0\nTABLE\n2\nLTYPE\n70\n3\n";
@@ -292,7 +293,9 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
     // Área útil: marco 10mm, rótulo 185mm, aire 12mm.
     const availW = 700 - 2 * 10 - 185 - 2 * DRAW_PAD;
     const availH = 500 - 2 * 10 - 2 * DRAW_PAD;
-    const den = [50, 75, 100, 125, 150, 200].find((k) => sx * (1000 / k) <= availW && sy * (1000 / k) <= availH) ?? 250;
+    // Escala con TAMAÑOS DE PAPEL FINALES (texto ya clamped al piso
+    // 2.5 mm): el fit no puede mentir tras agrandar la anotación.
+    const den = fitSheetScale(content, availW, availH);
     const k = 1000 / den; // mm de papel por metro de modelo
     // Centrado en el área de dibujo (Y de lámina hacia arriba).
     const dx0 = 10 + DRAW_PAD + (availW - sx * k) / 2;
@@ -326,24 +329,28 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
     for (const p of content) {
       const pl = lay(p.l);
       if (p.t === "L") d.line(pl, X(p.x1), Y(p.y1), X(p.x2), Y(p.y2), { thin: p.thin, dash: p.dash });
-      else if (p.t === "T") d.text(pl, X(p.x), Y(p.y), Math.max(p.h * k, 1.8), p.s, p.r ?? 0);
+      // Texto a TAMAÑO DE PAPEL (guía §2.5: la anotación responde a la
+      // escala): nunca por debajo del piso del libro (2.5 mm impresos).
+      else if (p.t === "T") d.text(pl, X(p.x), Y(p.y), Math.max(p.h * k, ANNOT.minTextMm), p.s, p.r ?? 0);
       else if (p.t === "C") d.circle(pl, X(p.x), Y(p.y), Math.max(p.r * k, 0.8));
       else if (p.t === "F") {
         const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);
-        if (p.l === "MUROS") {
-          // POCHÉ de muro: contorno + rayado 45° en su propia fila CPNAA
-          // (A-MURO-ACHU: 0.30 mm @1:50 — más fino que el corte 0.60).
+        if (p.l === "MUROS" && Math.min(p.w, p.h) * k >= HATCH.solidBelowMm) {
+          // POCHÉ de muro: contorno + rayado 45° a ESPACIADO DE PAPEL
+          // constante (guía §2.5: la densidad del achurado cambia con la
+          // escala — un paso de modelo a 1:200 se vuelve un manchón).
           d.polyline(pl, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
           const hatchL = lay("MUROS-ACHU");
-          const step = 0.07 * k;
+          const step = HATCH.spacingMm;
           for (let s = -(p.h * k); s < p.w * k; s += step) {
             const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h * k);
             const bx = Math.min(x1, x0 + s + p.h * k), by = Math.max(y0, y0 + s);
             if (ax < bx && by < ay) d.line(hatchL, ax, by, bx, ay);
           }
         } else {
-          // SÍMBOLO pequeño (manija, marca de corte, zapata): SOLID —
-          // relleno macizo, jamás achurado (F ≠ poché desde 4º review).
+          // SÍMBOLO pequeño (manija, marca de corte, zapata) o banda de
+          // muro que a esta escala imprime <1.6 mm → SÓLIDO (poché macizo,
+          // convención a escalas pequeñas).
           d.solid(pl, x0, y0, x1, y1);
         }
       } else {
@@ -359,14 +366,14 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
       for (const p of plan.electrical?.points ?? []) {
         if (p.level !== lvl) continue;
         const [sym] = ELEC_SYMBOLS[p.kind] ?? ["?"];
-        d.circle(EL, X(p.x), Y(p.y), Math.max(0.09 * k, 1.0));
-        d.text(EL, X(p.x) - 0.9, Y(p.y) - 0.6, 1.6, sym);
+        d.circle(EL, X(p.x), Y(p.y), Math.max(0.09 * k, 1.3));
+        d.text(EL, X(p.x) - 0.9, Y(p.y) - 0.75, ANNOT.symbolTextMm, sym);
       }
       for (const p of plan.hydro?.points ?? []) {
         if (p.level !== lvl) continue;
         const [sym] = HYDRO_SYMBOLS[p.kind] ?? ["H"];
-        d.circle(HY, X(p.x), Y(p.y), Math.max(0.1 * k, 1.1));
-        d.text(HY, X(p.x) - 0.9, Y(p.y) - 0.6, 1.6, sym);
+        d.circle(HY, X(p.x), Y(p.y), Math.max(0.1 * k, 1.4));
+        d.text(HY, X(p.x) - 0.9, Y(p.y) - 0.75, ANNOT.symbolTextMm, sym);
       }
     }
   });
