@@ -77,8 +77,11 @@ check(`edificio SOBRE el suelo: min.y ≥ -0.01 (flag off, sin recenter)`, all.m
 check(`coordenadas positivas en X: 0..${W}`, all.min.x > -0.01 && all.max.x <= W + 0.01);
 const WALL = 3512223829;
 const walls = boxes.filter((b) => b.type === WALL);
-const upright = walls.filter((b) => (b.max.y - b.min.y) > fft - 0.3 && (b.max.y - b.min.y) < fft + 0.3);
-check(`muros verticales (altura≈${fft} en Y): ${upright.length}/${walls.length}`, walls.length > 0 && upright.length === walls.length);
+// Un muro es un TABLÓN VERTICAL: su eje largo es X o Z, y su altura en Y es
+// la de SU segmento (tramo full fft, antepecho = sill, dintel = fft-head).
+// Un muro "acostado" tendría altura en Y ≈ espesor (<0.3) — eso sí es bug.
+const upright = walls.filter((b) => (b.max.y - b.min.y) >= 0.3 && b.min.y >= -0.01 && b.max.y <= fft + 0.01);
+check(`muros verticales por segmento (altura Y≥0.3, dentro de nivel): ${upright.length}/${walls.length}`, walls.length > 0 && upright.length === walls.length);
 // Muros largos por eje: los de longitud≈segmento>2 corren sobre SU eje.
 const alongX = walls.filter((b) => b.max.x - b.min.x > 2);
 const alongZ = walls.filter((b) => b.max.z - b.min.z > 2);
