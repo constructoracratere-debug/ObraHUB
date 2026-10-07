@@ -14,7 +14,9 @@ import { deadLoads, liveLoads, columnCheck } from "./loads";
 
 export function structuralPlanPrimitives(plan: FloorPlan): Prim[] {
   const out: Prim[] = [];
-  const S = "ESTRUCTURA";
+  // Capas estructurales POR TIPO (review #11): S-COLUMNAS / S-VIGAS / S-LOSAS
+  // — control fino en CAD; S-ELEMENTOS era demasiado agrupado.
+  const S = "ESTRUCTURA-LOSAS";
   const { width: W, depth: D } = plan.outline;
   const axes = plan.structure?.axes ?? [];
   const vs = axes.filter((a) => a.orientation === "vertical").map((a) => a.at).sort((a, b) => a - b);
@@ -23,7 +25,7 @@ export function structuralPlanPrimitives(plan: FloorPlan): Prim[] {
   const hY = hs.length ? hs : [D * 0.5];
 
   // Silueta del edificio (referencia) en linea fina.
-  out.push({ t: "H", l: S, x: 0, y: 0, w: W, h: D });
+  out.push({ t: "H", l: S, x: 0, y: 0, w: W, h: D });  // contorno de losa/placa
 
   // Ret\u00edcula dash-dot con burbujas.
   const bubble = (x: number, y: number, id: string) => {
@@ -42,7 +44,7 @@ export function structuralPlanPrimitives(plan: FloorPlan): Prim[] {
   // Columnas macizas 30x30 en intersecciones.
   const col = 0.3;
   for (const x of vX) for (const y of hY) {
-    out.push({ t: "F", l: S, x: x - col / 2, y: y - col / 2, w: col, h: col });
+    out.push({ t: "F", l: "ESTRUCTURA-COLUMNAS", x: x - col / 2, y: y - col / 2, w: col, h: col });
     // Zapata discontinua 1.10x1.10 debajo.
     out.push({ t: "H", l: "COTAS", x: x - 0.55, y: y - 0.55, w: 1.1, h: 1.1 });
     out.push({ t: "L", l: "COTAS", x1: x - 0.55, y1: y - 0.55, x2: x + 0.55, y2: y + 0.55, dash: true, thin: true });
@@ -53,13 +55,13 @@ export function structuralPlanPrimitives(plan: FloorPlan): Prim[] {
   const vb = 0.25;
   for (const y of hY) for (let i = 0; i < vX.length - 1; i++) {
     const x0 = vX[i], x1 = vX[i + 1];
-    out.push({ t: "L", l: S, x1: x0, y1: y - vb / 2, x2: x1, y2: y - vb / 2 });
-    out.push({ t: "L", l: S, x1: x0, y1: y + vb / 2, x2: x1, y2: y + vb / 2 });
+    out.push({ t: "L", l: "ESTRUCTURA-VIGAS", x1: x0, y1: y - vb / 2, x2: x1, y2: y - vb / 2 });
+    out.push({ t: "L", l: "ESTRUCTURA-VIGAS", x1: x0, y1: y + vb / 2, x2: x1, y2: y + vb / 2 });
   }
   for (const x of vX) for (let i = 0; i < hY.length - 1; i++) {
     const y0 = hY[i], y1 = hY[i + 1];
-    out.push({ t: "L", l: S, x1: x - vb / 2, y1: y0, x2: x - vb / 2, y2: y1 });
-    out.push({ t: "L", l: S, x1: x + vb / 2, y1: y0, x2: x + vb / 2, y2: y1 });
+    out.push({ t: "L", l: "ESTRUCTURA-VIGAS", x1: x - vb / 2, y1: y0, x2: x - vb / 2, y2: y1 });
+    out.push({ t: "L", l: "ESTRUCTURA-VIGAS", x1: x + vb / 2, y1: y0, x2: x + vb / 2, y2: y1 });
   }
 
   // Muros = lineas de carga hacia el eje mas cercano (flecha corta).

@@ -115,11 +115,11 @@ const phantoms = [...entityLayers].filter((l) => !tableNames.includes(l));
 check(`toda entidad vive en una capa de la tabla (${entityLayers.size} capas usadas, ${phantoms.length} fantasma)`, phantoms.length === 0);
 check("nomenclatura A/E/I profesional", ["A-MUROS", "A-PUERTAS", "I-ELECTRICO", "I-HIDRAULICO"].every((n) => tableNames.includes(n)));
 
-// ── Multi-nivel: lámina por piso + capas por nivel (puerto del review Codex) ──
+// ── Multi-nivel: lámina por piso, capas GLOBALES (review #11) ────────────────
 check("2 niveles → lámina A-01.2", multiDxf.includes("A-01.2"));
-check("capas por nivel A-MUROS-N1/N2 declaradas", (() => {
-  const declared = new Set([...multiDxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]));
-  return declared.has("A-MUROS-N1") && declared.has("A-MUROS-N2") && declared.has("A-CORTE");
+check("capas GLOBALES por categoría: 0 sufijos -N (apagar A-MUROS = todos los niveles)", (() => {
+  const declared = [...multiDxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]);
+  return declared.includes("A-MUROS") && declared.includes("A-CORTE") && declared.every((n) => !/-N\d+$/.test(n));
 })());
 check("multi-nivel: 0 entidades en capa no declarada", (() => {
   const declared = new Set([...multiDxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]));
@@ -152,7 +152,19 @@ check("plotMm: interpola escalas intermedias (1:75 → cut 0.55)", (() => {
   return plotMm("cut", 75) === 0.55 && plotMm("elec", 75) === 0.14;
 })());
 check("370 por ENTIDAD a la escala real de la lámina (A-01 @1:50 → cut 0.60)", /8\nA-MUROS\n370\n60\n/.test(dxf));
-check("achurado en su propia fila A-MURO-ACHU (0.30 @1:50)", /8\nA-MUROS-ACHU\n370\n30\n/.test(dxf));
+check("achurado EN A-MUROS con 370 de la fila achu (0.30 @1:50) — apagar muros apaga el hatch", /8\nA-MUROS\n370\n30\n/.test(dxf) && !dxf.includes("ACHU"));
+check("estructura por tipo: S-COLUMNAS/S-VIGAS/S-LOSAS en tabla", (() => {
+  const declared = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]);
+  return ["S-COLUMNAS", "S-VIGAS", "S-LOSAS"].every((n) => declared.includes(n)) && !declared.includes("S-ELEMENTOS");
+})());
+check("STYLE portable OBRAHUB (txt.shx) + código 7 en TEXT", dxf.includes("2\nSTYLE") && /0\nTEXT\n8\n[^\n]+\n(?:370\n\d+\n)?7\nOBRAHUB\n10\n/.test(dxf));
+check("DXF por lámina: N archivos, cada uno 700×500 en origen con su rótulo", (() => {
+  const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
+  const files = planToDxfSheets(plan, { fecha: "2026-01-15" });
+  return files.length >= 6
+    && files.every((f) => f.dxf.startsWith("0\nSECTION") && f.dxf.trimEnd().endsWith("0\nEOF") && f.dxf.includes(`${f.code} / 1`) && /10\n5\.000\n20\n5\.000/.test(f.dxf))
+    && new Set(files.map((f) => f.code)).size === files.length;
+})());
 check("símbolos F ≠ poché: SOLID macizo (marca de corte en A-CORTE)", /0\nSOLID\n8\nA-CORTE\n/.test(dxf));
 check("SOLID también lleva 370 de entidad (política única de grosor)", /0\nSOLID\n8\nA-CORTE\n370\n60\n/.test(dxf));
 check("plantilla de capa conserva default ISO (370=70 en tabla A-MUROS)", /LAYER\n2\nA-MUROS\n70\n0\n62\n[-\d]+\n6\nCONTINUOUS\n370\n70/.test(dxf));

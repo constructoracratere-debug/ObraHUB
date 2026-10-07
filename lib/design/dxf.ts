@@ -48,28 +48,28 @@ class DxfBuilder {
   }
 
   /** 370 (centésimas de mm) de una capa a la escala de la lámina en curso —
-   *  tabla CPNAA §4.3, la misma de SVG/PDF. Sin escala: default plantilla. */
-  private lw370(layer: string): number {
+   *  tabla CPNAA §4.3, la misma de SVG/PDF. Sin escala: default plantilla.
+   *  `clsOverride` cambia la FILA sin cambiar de capa (el achurado del
+   *  poché vive en A-MUROS pero imprime con la fila achu). */
+  private lw370(layer: string, clsOverride?: string): number {
     const spec = this.layers.get(layer);
     if (!spec || this.plotDen === 0) return -1; // BYLAYER
-    return Math.round(plotMm(spec.cls, this.plotDen) * 100);
+    return Math.round(plotMm(clsOverride ?? spec.cls, this.plotDen) * 100);
   }
 
   /** Nomenclatura A/E/I por disciplina — ÚNICO punto de mapeo: entidades y
-   *  tabla usan siempre el MISMO nombre (antes la tabla decía A-MUROS y las
-   *  entidades quedaban en MUROS huérfano — capas fantasma en AutoCAD).
-   *  Conserva el sufijo de nivel (-N2, -N3…) tras normalizar la disciplina:
-   *  así cada piso puede apagarse por capa en CAD (iso 13567 grupo
-   *  secundario). */
+   *  tabla usan siempre el MISMO nombre. Capas GLOBALES por categoría, SIN
+   *  sufijo de nivel (review #11): apagar A-MUROS apaga TODO muro de TODOS
+   *  los niveles — así se controla el dibujo en CAD. Estructura separada
+   *  por tipo (S-COLUMNAS/VIGAS/LOSAS/CIMENTACION). */
   private static cad(l: string): string {
-    const m = l.match(/^(.*?)(-N\d+)$/);
-    const base = m?.[1] ?? l;
-    const sfx = m?.[2] ?? "";
-    if (/^(MUROS|MUROS-ACHU|CORTE|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|FACHADA|TEXTOS|COTAS|EJES|ROTULO|ROTULO-TXT)$/.test(base)) return "A-" + base + sfx;
-    if (/^FACHADA-/.test(base)) return "A-" + base + sfx;
-    if (/^ESTRUCTURA/.test(base)) return "S-ELEMENTOS" + sfx;
-    if (/^ELECTRICO/.test(base)) return "I-ELECTRICO" + sfx;
-    if (/^HIDRO/.test(base)) return "I-HIDRAULICO" + sfx;
+    const m = l.match(/^ESTRUCTURA-(COLUMNAS|VIGAS|LOSAS|CIMENTACION)$/);
+    if (m) return "S-" + m[1];
+    if (/^FACHADA/.test(l)) return "A-FACHADA";
+    if (/^(MUROS|CORTE|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|TEXTOS|COTAS|EJES|ROTULO|ROTULO-TXT)$/.test(l)) return "A-" + l;
+    if (/^ESTRUCTURA/.test(l)) return "S-ELEMENTOS";
+    if (/^ELECTRICO/.test(l)) return "I-ELECTRICO";
+    if (/^HIDRO/.test(l)) return "I-HIDRAULICO";
     return l;
   }
 
@@ -77,26 +77,24 @@ class DxfBuilder {
     const name = DxfBuilder.cad(raw);
     // Especificación por capa: color (plantilla ISO 128) + linetype + grosor
     // default + CLASE de plot (tabla CPNAA §4.3 → 370 real por entidad).
-    // El sufijo de nivel no cambia la clase: se compara la base.
-    const base = name.replace(/-N\d+$/, "");
     const spec: { color: number; lt: Linetype; lw: number; cls: string } =
-      /^(A-MUROS|A-CORTE|S-ELEMENTOS)$/.test(base) ? { color: PENS.cut.dxfColor, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
-      : /^A-MUROS-ACHU$/.test(base) ? { color: 8, lt: "CONTINUOUS", lw: LW.thin, cls: "achu" }
-      : /^I-ELECTRICO$/.test(base) ? { color: PENS.thin.dxfColor, lt: "DASHED", lw: LW.thin, cls: "elec" }
-      : /^I-HIDRAULICO$/.test(base) ? { color: PENS.extra.dxfColor, lt: "DASHED", lw: LW.thin, cls: "hid" }
-      : /^A-EJES$/.test(base) ? { color: PENS.extra.dxfColor, lt: "CENTER", lw: LW.extra, cls: "ejes" }
-      : /^(A-TEXTOS|A-COTAS)$/.test(base) ? { color: PENS.extra.dxfColor, lt: "CONTINUOUS", lw: LW.extra, cls: "text" }
-      : /^(A-ROTULO|A-ROTULO-TXT)$/.test(base) ? { color: 7, lt: "CONTINUOUS", lw: name.startsWith("A-ROTULO-TXT") ? LW.thin : LW.profile, cls: "text" }
-      : /^A-FACHADA/.test(base) ? { color: PENS.profile.dxfColor, lt: "CONTINUOUS", lw: LW.profile, cls: "cubt" }
+      /^(A-MUROS|A-CORTE)$/.test(name) ? { color: PENS.cut.dxfColor, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
+      : /^(S-COLUMNAS|S-VIGAS|S-LOSAS|S-CIMENTACION|S-ELEMENTOS)$/.test(name) ? { color: PENS.cut.dxfColor, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
+      : /^I-ELECTRICO$/.test(name) ? { color: PENS.thin.dxfColor, lt: "DASHED", lw: LW.thin, cls: "elec" }
+      : /^I-HIDRAULICO$/.test(name) ? { color: PENS.extra.dxfColor, lt: "DASHED", lw: LW.thin, cls: "hid" }
+      : /^A-EJES$/.test(name) ? { color: PENS.extra.dxfColor, lt: "CENTER", lw: LW.extra, cls: "ejes" }
+      : /^(A-TEXTOS|A-COTAS)$/.test(name) ? { color: PENS.extra.dxfColor, lt: "CONTINUOUS", lw: LW.extra, cls: "text" }
+      : /^(A-ROTULO|A-ROTULO-TXT)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: name.startsWith("A-ROTULO-TXT") ? LW.thin : LW.profile, cls: "text" }
+      : /^A-FACHADA$/.test(name) ? { color: PENS.profile.dxfColor, lt: "CONTINUOUS", lw: LW.profile, cls: "cubt" }
       : { color: PENS.profile.dxfColor, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" };
     if (!this.layers.has(name)) this.layers.set(name, spec);
     return name;
   }
 
-  line(rawLayer: string, x1: number, y1: number, x2: number, y2: number, opts: { thin?: boolean; dash?: boolean } = {}) {
+  line(rawLayer: string, x1: number, y1: number, x2: number, y2: number, opts: { thin?: boolean; dash?: boolean; cls?: string } = {}) {
     const l = this.layerOf(rawLayer);
     const spec = this.layers.get(l);
-    let lw = this.lw370(l);
+    let lw = this.lw370(l, opts.cls);
     if (lw > 0 && opts.thin) lw = Math.round(lw * 0.72); // un paso abajo (≈ serie)
     // prims con dash = línea discontinua: ejes conservan CENTER (punto-raya
     // de la guía), el resto (proyecciones, cuerdas de puertas) → DASHED.
@@ -146,7 +144,7 @@ class DxfBuilder {
     const lw = this.lw370(l);
     const safe = value.replace(/[\n\r]/g, " ").replace(/[^\x20-\x7EáéíóúñÁÉÍÓÚÑüÜ°²×–—]/g, "");
     if (!safe.trim()) return; // lámina LIMPIA: nada de TEXT vacío (sin geometría)
-    this.entities.push(`0\nTEXT\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(x)}\n20\n${f(y)}\n40\n${f(height)}\n1\n${safe}\n50\n${f(rotationDeg)}\n`);
+    this.entities.push(`0\nTEXT\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n7\nOBRAHUB\n10\n${f(x)}\n20\n${f(y)}\n40\n${f(height)}\n1\n${safe}\n50\n${f(rotationDeg)}\n`);
   }
 
   // ── LÁMINA OBRAHUB 700×500 (mm, espacio modelo a 1:1) ─────────────────────
@@ -251,11 +249,18 @@ class DxfBuilder {
     for (const [name, s] of ls) {
       out += `0\nLAYER\n2\n${name}\n70\n0\n62\n${s.color}\n6\n${s.lt}\n370\n${s.lw}\n`;
     }
+    out += "0\nENDTAB\n";
+    // STYLE explícito y portable (review #11): fuente txt.shx (mapeada por
+    // AutoCAD/BricsCAD/LibreCAD incluso si falta el archivo), altura fija 0
+    // (cada TEXT lleva su 40 real) — los textos sobreviven a cualquier CAD.
+    out += "0\nTABLE\n2\nSTYLE\n70\n1\n0\nSTYLE\n2\nOBRAHUB\n70\n0\n40\n0.0\n41\n1.0\n50\n0.0\n71\n0\n42\n2.5\n3\ntxt.shx\n";
     out += "0\nENDTAB\n0\nENDSEC\n";
     // ENTITIES
     out += "0\nSECTION\n2\nENTITIES\n";
     for (const e of this.entities) out += e;
     out += "0\nENDSEC\n0\nEOF\n";
+    // SIN envoltura ISO-10303-21: esa es sintaxis STEP/IFC — el DXF ASCII son
+    // solo pares etiqueta-valor (ezdxf la rechaza como group code inválido).
     return out;
   }
 }
@@ -279,8 +284,18 @@ const DRAW_PAD = 12; // mm de aire dentro del área de dibujo
  * producción del archivo) vía opts.fecha; sin ella, la celda queda vacía.
  */
 export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): string {
+  return emitSheets(plan, sheetContents(plan), opts);
+}
+
+/** Un archivo DXF POR LÁMINA (review #11): abrir o imprimir una lámina sola
+ *  no reduce el set completo a una hoja — cada archivo es el formato
+ *  OBRAHUB 700×500 en origen, listo para plot 1:1. */
+export function planToDxfSheets(plan: FloorPlan, opts: { fecha?: string } = {}): Array<{ code: string; dxf: string }> {
+  return sheetContents(plan).map((sheet) => ({ code: sheet.code, dxf: emitSheets(plan, [sheet], opts) }));
+}
+
+function emitSheets(plan: FloorPlan, sheets: Sheet[], opts: { fecha?: string }): string {
   const d = new DxfBuilder();
-  const sheets = sheetContents(plan);
   const total = String(sheets.length);
   const city = plan.site?.city ? `${plan.site.city.toUpperCase()}${plan.site.department ? " · " + plan.site.department.toUpperCase() : ""}` : "COLOMBIA";
   const fecha = opts.fecha ?? "";
@@ -302,12 +317,10 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
     const dy0 = 10 + DRAW_PAD + (availH - sy * k) / 2;
     const X = (v: number) => ox + dx0 + (v - b.minX) * k;
     const Y = (v: number) => oy + dy0 + (v - b.minY) * k;
-    // Capas por nivel en las láminas de planta (A-01*): MUROS-N2 →
-    // A-MUROS-N2 — cada piso es apagable en CAD (iso 13567). Las capas de
-    // anotación y el resto de láminas quedan compartidas.
+    // Capas GLOBALES por categoría en TODAS las láminas (review #11): el
+    // nivel NO crea capas — apagar A-MUROS apaga los muros de todos los
+    // pisos. El MEP de cada lámina de planta es el de SU nivel.
     const lvl = sheet.level ?? 0;
-    const sfxL = plan.levels > 1 && sheet.level != null ? `-N${lvl + 1}` : "";
-    const lay = (l: string) => (/^(MUROS|MUROS-ACHU|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|ELECTRICO|HIDROSANITARIO)$/.test(l) ? l + sfxL : l);
     // Escala REAL de esta lámina → 370 por entidad con la tabla CPNAA §4.3.
     d.setPlot(den);
 
@@ -327,42 +340,41 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
     // primitiva (thin/dash) PASAN IGUAL que en el SVG/PDF — misma línea,
     // mismo formato.
     for (const p of content) {
-      const pl = lay(p.l);
-      if (p.t === "L") d.line(pl, X(p.x1), Y(p.y1), X(p.x2), Y(p.y2), { thin: p.thin, dash: p.dash });
+      if (p.t === "L") d.line(p.l, X(p.x1), Y(p.y1), X(p.x2), Y(p.y2), { thin: p.thin, dash: p.dash });
       // Texto a TAMAÑO DE PAPEL (guía §2.5: la anotación responde a la
       // escala): nunca por debajo del piso del libro (2.5 mm impresos).
-      else if (p.t === "T") d.text(pl, X(p.x), Y(p.y), Math.max(p.h * k, ANNOT.minTextMm), p.s, p.r ?? 0);
-      else if (p.t === "C") d.circle(pl, X(p.x), Y(p.y), Math.max(p.r * k, 0.8));
+      else if (p.t === "T") d.text(p.l, X(p.x), Y(p.y), Math.max(p.h * k, ANNOT.minTextMm), p.s, p.r ?? 0);
+      else if (p.t === "C") d.circle(p.l, X(p.x), Y(p.y), Math.max(p.r * k, 0.8));
       else if (p.t === "F") {
         const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);
         if (p.l === "MUROS" && Math.min(p.w, p.h) * k >= HATCH.solidBelowMm) {
           // POCHÉ de muro: contorno + rayado 45° a ESPACIADO DE PAPEL
-          // constante (guía §2.5: la densidad del achurado cambia con la
-          // escala — un paso de modelo a 1:200 se vuelve un manchón).
-          d.polyline(pl, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
-          const hatchL = lay("MUROS-ACHU");
+          // constante, TODO EN LA MISMA CAPA A-MUROS (review #11: apagar
+          // muros oculta también su achurado — el rayado imprime con la
+          // fila achu por ENTIDAD, 370 propio).
+          d.polyline(p.l, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
           const step = HATCH.spacingMm;
           for (let s = -(p.h * k); s < p.w * k; s += step) {
             const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h * k);
             const bx = Math.min(x1, x0 + s + p.h * k), by = Math.max(y0, y0 + s);
-            if (ax < bx && by < ay) d.line(hatchL, ax, by, bx, ay);
+            if (ax < bx && by < ay) d.line(p.l, ax, by, bx, ay, { cls: "achu" });
           }
         } else {
           // SÍMBOLO pequeño (manija, marca de corte, zapata) o banda de
           // muro que a esta escala imprime <1.6 mm → SÓLIDO (poché macizo,
           // convención a escalas pequeñas).
-          d.solid(pl, x0, y0, x1, y1);
+          d.solid(p.l, x0, y0, x1, y1);
         }
       } else {
         const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);
-        d.polyline(pl, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
+        d.polyline(p.l, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
       }
     }
 
     // ── Las láminas de planta (A-01*) llevan el MEP de SU nivel
     //    (RETIE/RAS): círculos + inicial.
     if (sheet.code.startsWith("A-01")) {
-      const EL = lay("ELECTRICO"), HY = lay("HIDROSANITARIO");
+      const EL = "ELECTRICO", HY = "HIDROSANITARIO";
       for (const p of plan.electrical?.points ?? []) {
         if (p.level !== lvl) continue;
         const [sym] = ELEC_SYMBOLS[p.kind] ?? ["?"];

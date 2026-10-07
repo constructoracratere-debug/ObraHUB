@@ -21,14 +21,23 @@ Disciplina es un código de un carácter. Tabla canónica de ObraHub
 
 | Capa | Disciplina | Grosor (mm) | Linetype | Color ACAD | Uso |
 |---|---|---|---|---|---|
-| `A-MUROS`, `A-CORTE` | A | **0.70** | CONTINUOUS | 7 | Elementos cortados a 1.20 m — línea más gruesa del plano |
+| `A-MUROS`, `A-CORTE` | A | **0.70** | CONTINUOUS | 7 | Elementos cortados a 1.20 m — línea más gruesa del plano. El ACHURADO del poché vive EN A-MUROS (370 propio de la fila achu): apagar muros apaga su hatch |
 | `A-PUERTAS`, `A-VENTANAS`, `A-MOBILIARIO`, `A-SANITARIOS`, `A-FACHADA`, `A-ROTULO` | A | 0.35 | CONTINUOUS | variable | Perfiles visos no cortados |
 | `I-ELECTRICO` | I | 0.25 | DASHED | 2 | MEP eléctrico (RETIE) |
 | `I-HIDRAULICO` | I | 0.25 | DASHED | 4 | MEP hidrosanitario (RAS) |
-| `S-ELEMENTOS` | S | 0.70 | CONTINUOUS | 8 | Estructura cortada (concreto/acero) |
+| `S-COLUMNAS`, `S-VIGAS`, `S-LOSAS`, `S-CIMENTACION` | S | 0.70 | CONTINUOUS | 8 | Estructura POR TIPO (control fino en CAD) |
 | `A-EJES` | A | 0.13 | **CENTER** (punto-raya) | 1 | Retícula de ejes: centros de columnas, vigas, muros |
 | `A-COTAS` | A | 0.13 | CONTINUOUS | 3 | Cotas y líneas de extensión |
 | `A-TEXTOS` | A | 0.13 | CONTINUOUS | 7 | Nombres de espacio, notas, áreas |
+
+**Capas GLOBALES por categoría — regla de uso real (review #11)**: el nivel
+NO crea capas (`A-MUROS-N2` PROHIBIDO). Apagar `A-MUROS` debe apagar TODOS
+los muros de TODOS los niveles y SU achurado; cada primitiva vive en la capa
+de su categoría, sin huérfanas ni genéricas. La separación por nivel es por
+LÁMINA (A-01, A-01.2…), no por capa. Texto con STYLE explícito portable
+(`OBRAHUB` · txt.shx) y el DXF se exporta también **por lámina**
+(`planToDxfSheets`: un archivo 700×500 en origen cada uno — imprimir una
+lámina nunca reduce el set completo).
 
 Reglas de la guía:
 - Cualquier combinación razonable de grupos es posible **siempre que la
@@ -83,7 +92,7 @@ impresión** (estándar para **blanco y negro, solo líneas**). Es la fuente
 | Clase (filas guía) | 1:20 | 1:50 | 1:100 | 1:200 | 1:500 | Nuestras capas |
 |---|---|---|---|---|---|---|
 | cut (A-MURO/-EXT/-DINT, A-COLS) | 0.70 | 0.60 | 0.50 | 0.25 | 0.15 | A-MUROS, A-CORTE, S-ELEMENTOS |
-| achu (A-MURO-ACHU) | 0.40 | 0.30 | 0.20 | 0.25 | 0.15 | A-MUROS-ACHU (rayado poché) |
+| achu (A-MURO-ACHU) | 0.40 | 0.30 | 0.20 | 0.25 | 0.15 | rayado del poché — SOBRE A-MUROS, con 370 propio por entidad |
 | cubt (A-CUBT) | 0.50 | 0.40 | 0.40 | 0.30 | 0.20 | A-FACHADA-* |
 | profile (A-CARP, A-MUEB, A-PUER, A-VENT) | 0.25 | 0.18 | 0.18 | 0.15 | 0.13 | A-PUERTAS/VENTANAS/MOBILIARIO/SANITARIOS |
 | elec (A-ELEC) | 0.18 | 0.18 | 0.10 | 0.10 | 0.10 | I-ELECTRICO |

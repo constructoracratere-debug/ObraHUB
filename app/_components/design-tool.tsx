@@ -23,7 +23,7 @@ import {
 import type { Gate } from "@/lib/design/validate";
 import { gateFails } from "@/lib/design/validate";
 import { penWidth, plotMm, scaleBarMm, ANNOT, HATCH, PEN_BY_LAYER } from "@/lib/design/knowledge";
-import { planToDxf } from "@/lib/design/dxf";
+import { planToDxf, planToDxfSheets } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, fitSheetScale, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
@@ -423,6 +423,20 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     URL.revokeObjectURL(a.href);
   };
 
+  // Un DXF POR LÁMINA (700×500 en origen): abrir/imprimir una lámina sola
+  // sin que el CAD reduzca el set completo a una hoja.
+  const downloadDxfSheets = () => {
+    if (!plan) return;
+    for (const s of planToDxfSheets(plan, { fecha: dxfGeneratedAt.current })) {
+      const blob = new Blob([s.dxf], { type: "application/dxf" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${slugify(plan.name)}-${slugify(s.code)}.dxf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+  };
+
   const saveToDocs = async () => {
     if (!dxfBlob || !plan || !projectSlug) return;
     setSaving("saving");
@@ -545,6 +559,13 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                 className="w-full rounded-lg bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-100 ring-1 ring-emerald-400/30 transition hover:bg-emerald-500/30"
               >
                 ⬇️ Descargar DXF por capas
+              </button>
+              <button
+                type="button" onClick={downloadDxfSheets}
+                title="Un archivo por lámina (A-00…A-05), 700×500 mm en origen — imprime cada una a su escala real sin reducir el set"
+                className="w-full rounded-lg bg-white/[0.06] px-3 py-2 text-xs font-medium text-slate-200 ring-1 ring-white/10 transition hover:bg-white/[0.1]"
+              >
+                🗂️ Descargar DXF por lámina (N archivos)
               </button>
               <button
                 type="button" onClick={downloadIfc}
