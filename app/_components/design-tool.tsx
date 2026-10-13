@@ -1789,8 +1789,11 @@ function PrintSheets({ plan, onClose }: { plan: FloorPlan; onClose: () => void }
               <div style={{ borderTop: "0.2mm solid #000", margin: "1mm 0" }} />
               <div>PROYECTO</div>
               <div>{plan.name.toUpperCase().slice(0, 26)}</div>
-              <div>UBICACIÓN: {city.slice(0, 24)}</div>
-              <div style={{ fontWeight: 700 }}>{s.code} — {s.title.slice(0, 21)}</div>
+              <div>UBICACIÓN: {city.slice(0, 30)}</div>
+              {/* Título con wrap por palabras — jamás truncado (review #13) */}
+              {(s.title.match(/(\S+\s?){1,26}/g) ?? [s.title]).slice(0, 2).map((ln, i) => (
+                <div key={i} style={{ fontWeight: 700 }}>{i === 0 ? `${s.code} — ${ln.trim()}` : ln.trim()}</div>
+              ))}
               <div>ESCALA 1:{den} · MM · S.I.</div>
               <div>FECHA {fecha}</div>
               <div>DIBUJÓ: OBRAHUB DISEÑO IA</div>

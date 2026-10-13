@@ -158,6 +158,19 @@ check("estructura por tipo: S-COLUMNAS/S-VIGAS/S-LOSAS en tabla", (() => {
   return ["S-COLUMNAS", "S-VIGAS", "S-LOSAS"].every((n) => declared.includes(n)) && !declared.includes("S-ELEMENTOS");
 })());
 check("STYLE portable OBRAHUB (txt.shx) + código 7 en TEXT", dxf.includes("2\nSTYLE") && /0\nTEXT\n8\n[^\n]+\n(?:370\n\d+\n)?7\nOBRAHUB\n10\n/.test(dxf));
+// ── Review #13: legibilidad de impresión y composición real ──────────────────
+check("colores plot-safe: TODAS las capas 62=7 (B/N, jerarquía por 370)", (() => {
+  const rows = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)\n70\n0\n62\n(\d+)\n/g)];
+  return rows.length >= 15 && rows.every((m) => m[2] === "7");
+})());
+check("cero textos de escala estáticos (el rótulo es la única autoridad)", !dxf.includes("ESC 1:75"));
+check("plano general SIN grilla de acabados (fuera de A-TEXTOS; va en A-06 futura)", (() => {
+  const { plantaPrimitives } = req(path.join(tmp, "design", "views.js"));
+  const grid = plantaPrimitives(plan).filter((q) => q.t === "L" && q.l === "TEXTOS" && Math.abs(q.x1 - q.x2) < 1e-6);
+  return grid.length === 0;
+})());
+check("rótulo: título COMPLETO con wrap (sin truncar en '+ CU')", multiDxf.includes("CUADRO DE ÁREAS") && dxf.includes("CUADRO DE ÁREAS"));
+
 check("DXF por lámina: N archivos, cada uno 700×500 en origen con su rótulo", (() => {
   const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
   const files = planToDxfSheets(plan, { fecha: "2026-01-15" });

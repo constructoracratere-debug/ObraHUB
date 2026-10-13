@@ -81,22 +81,32 @@ function indexSheetPrimitives(plan: FloorPlan, list: Array<{ code: string; title
 export function sheetContents(plan: FloorPlan): Sheet[] {
   const sheets: Sheet[] = [];
 
-  // A-01 — PLANTA por NIVEL + CUADRO DE ÁREAS + SIMBOLOGÍA MEP (colocación
-  // por bounds: nunca solapa). Guía §2.8: cada planta de piso es una lámina.
+  // A-01 — PLANTA por NIVEL + CUADRO DE ÁREAS + SIMBOLOGÍA MEP. Se elige
+  // ENTRE dos composiciones (lado a lado o apilado) la que mejor LLENA la
+  // proporción del área de dibujo (≈471×456 mm) — review #13: la lámina no
+  // debe quedar media vacía cuando el plano es pequeño.
   const levels = Math.max(1, plan.levels);
   for (let lvl = 0; lvl < levels; lvl++) {
     if (!plan.rooms.some((r) => r.level === lvl)) continue;
     const planta = plantaPrimitives(plan, lvl);
     const pb = primsBounds(planta);
     const tabla = lvl === 0 ? areaTablePrimitives(plan) : [];
-    let prims: Prim[] = [...planta];
-    if (tabla.length) prims = [...prims, ...placeAt(tabla, pb.maxX + GAP, pb.maxY)];
-    // Leyenda MEP bajo el cuadro (o bajo la planta si no hay cuadro).
     const legend = mepLegendPrimitives(plan, lvl);
-    if (legend.length) {
-      const anchor = tabla.length ? primsBounds(tabla) : pb;
-      prims = [...prims, ...placeAt(legend, anchor.minX, anchor.minY - GAP)];
-    }
+
+    const side: Prim[] = [...planta];
+    if (tabla.length) side.push(...placeAt(tabla, pb.maxX + GAP, pb.maxY));
+    if (legend.length) side.push(...placeAt(legend, primsBounds(side).maxX + GAP, pb.minY));
+
+    const stack: Prim[] = [...planta];
+    if (tabla.length) stack.push(...placeAt(tabla, pb.minX, pb.minY - GAP));
+    if (legend.length) stack.push(...placeAt(legend, primsBounds(tabla.length ? stack : planta).minX, primsBounds(tabla.length ? stack : planta).minY - GAP));
+
+    const fills = (prims: Prim[]) => {
+      const b = primsBounds(prims);
+      const aspect = (b.maxX - b.minX) / Math.max(0.01, b.maxY - b.minY);
+      return Math.abs(aspect - 471 / 456); // cercanía a la proporción útil
+    };
+    const prims = stack.length > planta.length && fills(stack) < fills(side) ? stack : side;
     sheets.push({
       code: lvl === 0 ? "A-01" : `A-01.${lvl + 1}`,
       title: levels > 1 ? `PLANTA ARQUITECTÓNICA NIVEL ${lvl + 1} + CUADRO DE ÁREAS` : "PLANTA ARQUITECTÓNICA + CUADRO DE ÁREAS",

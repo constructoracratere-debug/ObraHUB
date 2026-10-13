@@ -25,6 +25,9 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
    *  trabajan así; el export/descarga lleva zapatas y contrapiso). */
   const FOUND = opts.includeFoundations !== false;
   guidCounter = 0; // reproducibilidad: cada generación parte de cero
+  // Identidad PERSISTENTE del proyecto (review #12): sin esto, Project/Site/
+  // Building compartían GlobalId entre proyectos distintos (semillas fijas).
+  guidScope = `${plan.name}|${plan.outline.width}x${plan.outline.depth}|L${plan.levels}|${plan.floorToFloor}|${plan.site?.city ?? ""}`;
   const lines: Line[] = [];
   let next = 0;
   const id = () => ++next;
@@ -75,7 +78,6 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
   const org = ent("ORG", (n) => `#${n}= IFCORGANIZATION($,'Cratere S.A.S. — ObraHub',$,$,$);`);
   const pando = ent("PANDO", (n) => `#${n}= IFCPERSONANDORGANIZATION(#${person},#${org},$);`);
   const app = ent("APP", (n) => `#${n}= IFCAPPLICATION(#${org},'1.0','ObraHub Diseño IA','ObraHub-IA');`);
-  const stamp = ent("STAMP", (n) => `#${n}= IFCCERTIFICATION($,$,$,$,$,$);`);
   const owner = ent("OWNER", (n) => `#${n}= IFCOWNERHISTORY(#${pando},#${app},$,'ADDED',$,${pando},#${app},${epoch});`);
 
   const lengthUnit = ent("LU", (n) => `#${n}= IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);`);
@@ -229,7 +231,10 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
         const dinte = o.head < fft - 0.02 ? seg(o.at - o.w / 2, o.at + o.w / 2, o.head, fft - o.head, "dintel") : null;
         cursor = o.at + o.w / 2;
         // Opening formal: geometría = el volumen del vano (coincide con los
-        // sólidos), hospedado en el dintel (o antepecho) del propio muro.
+        // sólidos). Host = el dintel (o antepecho): con muros SEGMENTADOS no
+        // existe un único muro que contenga el vacío (el visor sin CSG es la
+        // razón de la segmentación); el vano toca el host por su cara
+        // superior (contacto de frontera) — verificado al importar en BIM.
         hostSeg = dinte ?? ante ?? hostSeg;
         const host = hostSeg;
         if (host) {
@@ -240,7 +245,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
           const oprd = shapeRep(osolid, `OP${ox},${oy},${o.sill},${z0}`);
           const opl = ent(`OPPL:${ox},${oy},${o.sill},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${host.pl},#${axisZ});`);
           const op = id();
-          lines.push(`#${op}= IFCOPENINGELEMENT('${guid(`OP${name}${o.at}`)}',#${owner},'Vano ${f(o.w)}m en ${esc(name)}',$,$,#${opl},#${oprd},$);`);
+          lines.push(`#${op}= IFCOPENINGELEMENT('${guid(`OP${name}${o.at}`)}',#${owner},'Vano ${f(o.w)}m en ${esc(name)}',$,$,#${opl},#${oprd},$,.OPENING.);`);
           ent(`RV:${name}:${o.at}`, (n) => `#${n}= IFCRELVOIDSELEMENT('${guid(`RV${name}${o.at}`)}',#${owner},$,$,#${host.prod},#${op});`);
           openingRegistry.push({ kind: o.kind ?? "window", at: o.at, along, w: o.w, sill: o.sill, op, openingPl: opl });
         }
@@ -410,7 +415,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     const fillOpening = (kind: "door" | "window", along: "x" | "y", at: number, w: number, sill: number, el: number, tag: string) => {
       const hit = openingRegistry.find((o) => o.kind === kind && o.along === along && Math.abs(o.at - at) < 0.05 && Math.abs(o.w - w) < 0.02 && Math.abs(o.sill - sill) < 0.02);
       if (!hit) return;
-      ent(`RF:${tag}`, (n) => `#${n}= IFCRELFILLESELEMENT('${guid(`RF${tag}`)}',#${owner},$,$,#${hit.op},#${el});`);
+      ent(`RF:${tag}`, (n) => `#${n}= IFCRELFILLSELEMENT('${guid(`RF${tag}`)}',#${owner},$,$,#${hit.op},#${el});`);
     };
     for (const d of plan.doors.filter((x) => x.level === lvl)) {
       const alongD = d.axis === "y";
@@ -534,28 +539,24 @@ const keyOf = (s: string) => s.toLowerCase().replace(/\s+/g, "");
 
 
 /** ── GUID buildingSMART (IfcGloballyUniqueId) ───────────────────────────────
- *  22 chars, alfabeto 0-9A-Za-z_$, PRIMER CARÁCTER 0-3 (versión). 128 bits:
- *  nibble0 → 1 char; 5 grupos de 6 nibbles (24 bits) → 4 chars c/u; nibble31
- *  → 1 char. Determinista (hash de semilla + contador reiniciado por export)
- *  — misma entrada, mismo GUID, y todos ÚNICOS. */
+ *  Compresión EXACTA de 128 bits → 22 chars, alfabeto 0-9A-Za-z_$, primer
+ *  carácter 0-3 (versión). Layout: nibble0 → 1 char (4 bits); nibbles 1-30
+ *  → 5 grupos de 24 bits (6 nibbles) → 4 chars c/u; nibble31 → 1 char (4
+ *  bits, inyectivo en el alfabeto). `ifcGuidDecompress(ifcGuidCompress(h))`
+ *  === h — biyectivo, testeado (review #12).
+ *
+ *  IDENTIDAD: los GUIDs se derivan de `guidScope` (identidad PERSISTENTE
+ *  del proyecto: nombre + geometría + niveles) + semilla del elemento +
+ *  contador. Dos proyectos distintos JAMÁS comparten GlobalId (antes
+ *  Project/Site/Building usaban semillas fijas P0/S0/B0 — colisión entre
+ *  proyectos). */
 const B64 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
-let guidCounter = 0;
-function guid(seed: string): string {
-  guidCounter++;
-  const s = `${seed}#${guidCounter}`;
-  let h1 = 0x811c9dc5, h2 = 0x1000193;
-  for (let i = 0; i < s.length; i++) {
-    h1 = Math.imul(h1 ^ s.charCodeAt(i), 16777619) >>> 0;
-    h2 = Math.imul(h2 ^ ((h1 >>> 13) + s.charCodeAt(i)), 2246822519) >>> 0;
-  }
-  const h3 = Math.imul(h1 ^ h2, 2654435761) >>> 0;
-  const h4 = Math.imul(h2 ^ h1, 40503) >>> 0;
-  // 32 nibbles: la primera ∈ 0-3 (el requisito del primer carácter).
-  const hex = (h1 & 3).toString(16)
-    + ((h1 >>> 2).toString(16).padStart(7, "0"))
-    + h2.toString(16).padStart(8, "0")
-    + h3.toString(16).padStart(8, "0")
-    + h4.toString(16).padStart(8, "0");
+const b64idx = (c: string) => B64.indexOf(c);
+
+/** hex32 (exactamente 32 nibbles, nibble0 ∈ 0-3) → IfcGloballyUniqueId. */
+export function ifcGuidCompress(hex: string): string {
+  if (hex.length !== 32 || !/^[0-9a-fA-F]{32}$/.test(hex)) throw new Error("ifcGuidCompress: hex de 32 nibbles requerido");
+  if (parseInt(hex[0], 16) > 3) throw new Error("ifcGuidCompress: nibble0 debe ser 0-3 (versión)");
   let out = B64[parseInt(hex[0], 16)];
   for (let i = 1; i < 31; i += 6) {
     let v = 0;
@@ -563,6 +564,39 @@ function guid(seed: string): string {
     for (let j = 3; j >= 0; j--) out += B64[(v >>> (6 * j)) & 63];
   }
   return out + B64[parseInt(hex[31], 16)];
+}
+
+/** IfcGloballyUniqueId → hex32 (inversa exacta de ifcGuidCompress). */
+export function ifcGuidDecompress(g: string): string {
+  if (g.length !== 22) throw new Error("ifcGuidDecompress: 22 chars requerido");
+  let hex = (b64idx(g[0]) & 0xf).toString(16);
+  for (let i = 1; i < 21; i += 4) {
+    let v = 0;
+    for (let j = 0; j < 4; j++) v = v * 64 + b64idx(g[i + j]);
+    hex += v.toString(16).padStart(6, "0");
+  }
+  return hex + (b64idx(g[21]) & 0xf).toString(16);
+}
+
+let guidCounter = 0;
+let guidScope = "";
+function guid(seed: string): string {
+  guidCounter++;
+  const s = `${guidScope}|${seed}|${guidCounter}`;
+  let h1 = 0x811c9dc5, h2 = 0x1000193;
+  for (let i = 0; i < s.length; i++) {
+    h1 = Math.imul(h1 ^ s.charCodeAt(i), 16777619) >>> 0;
+    h2 = Math.imul(h2 ^ ((h1 >>> 13) + s.charCodeAt(i)), 2246822519) >>> 0;
+  }
+  const h3 = Math.imul(h1 ^ h2, 2654435761) >>> 0;
+  const h4 = Math.imul(h2 ^ h1, 40503) >>> 0;
+  // 32 nibbles EXACTAS: 1 (versión 0-3) + 7 (h1>>>4 = 28 bits) + 8×3.
+  const hex = (h1 & 3).toString(16)
+    + ((h1 >>> 4).toString(16).padStart(7, "0"))
+    + h2.toString(16).padStart(8, "0")
+    + h3.toString(16).padStart(8, "0")
+    + h4.toString(16).padStart(8, "0");
+  return ifcGuidCompress(hex);
 }
 
 const extThickness = (asm: { ext: { layers: Array<{ thickness: number }> } }) =>

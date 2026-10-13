@@ -99,6 +99,5 @@ export function structuralPlanPrimitives(plan: FloorPlan): Prim[] {
   });
 
   out.push({ t: "T", l: "TEXTOS", x: 0, y: D + 2.4, h: 0.26, s: "PLANO ESTRUCTURAL \u2014 RETICULA Y CIMENTACION" });
-  out.push({ t: "T", l: "TEXTOS", x: 0, y: D + 2.05, h: 0.16, s: "ESC 1:75" });
   return out;
 }

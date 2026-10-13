@@ -151,10 +151,10 @@ check("AGGREGATES solo en el árbol espacial (Project/Site/Building/Storey→Spa
 // ── Vanos: openings + voids + fills (patrón buildingSMART) ──────────────────
 const openings = rows.filter((r) => r.type === "OPENINGELEMENT");
 const voids = [...ent.values()].filter((e) => e.type === "IFCRELVOIDSELEMENT");
-const fills = [...ent.values()].filter((e) => e.type === "IFCRELFILLESELEMENT");
+const fills = [...ent.values()].filter((e) => e.type === "IFCRELFILLSELEMENT");
 check(`IFCOPENINGELEMENT por cada vano (${openings.length} vanos)`, openings.length >= 4);
 check(`IFCRELVOIDSELEMENT muro→vano (${voids.length})`, voids.length === openings.length && voids.length > 0);
-check(`IFCRELFILLESELEMENT vano→puerta/ventana (${fills.length})`, fills.length >= rows.filter((r) => r.type === "DOOR" || r.type === "WINDOW").length && fills.length > 0);
+check(`IFCRELFILLSELEMENT vano→puerta/ventana (${fills.length})`, fills.length >= rows.filter((r) => r.type === "DOOR" || r.type === "WINDOW").length && fills.length > 0);
 // REGRESIÓN offset: la puerta Cocina→Estudio vive en un muro con inicio
 // x=4 (>0); su opening debe centrarse en las MISMAS coordenadas absolutas.
 const doorEstudio = rows.find((r) => r.type === "DOOR" && /Estudio/.test(r.name));
@@ -196,6 +196,73 @@ const spaces = rows.filter((r) => r.type === "SPACE");
 check(`IFCSPACE por cada cuarto (${spaces.length}/${plan.rooms.length})`, spaces.length === plan.rooms.length);
 check("MEP con clases reales (SanitaryTerminal/LightFixture/DistributionBoard) y 0 proxies genéricos",
   /IFCSANITARYTERMINAL|IFCLIGHTFIXTURE|IFCELECTRICDISTRIBUTIONBOARD/.test(ifc) && !/IFCBUILDINGELEMENTPROXY/.test(ifc));
+
+// ── Review #12: codec GUID exacto + unicidad GLOBAL + aridad OPENING ────────
+const { ifcGuidCompress, ifcGuidDecompress } = req(path.join(process.cwd(), ".tmp-ifc", "ifc.js"));
+check("codec GUID buildingSMART: round-trip exacto (compress∘decompress = id)",
+  guids.every((g) => ifcGuidCompress(ifcGuidDecompress(g)) === g) && ifcGuidDecompress(ifcGuidCompress("2ac13b9d4f0c8a7b1e2d3f4a5b6c7d8e")).length === 32);
+check("GUIDs ÚNICOS ENTRE PROYECTOS (scope = identidad persistente del plan)", (() => {
+  const otro = planToIfc(sanitizeFloorPlan({ ...plan, name: "Otro Proyecto Distinto" }));
+  const g1 = ifc.match(/= IFCPROJECT\('([^']{22})'/)?.[1];
+  const g2 = otro.match(/= IFCPROJECT\('([^']{22})'/)?.[1];
+  return !!g1 && !!g2 && g1 !== g2;
+})());
+check("IFCOPENINGELEMENT aridad IFC4 (9 atributos: PredefinedType .OPENING.)",
+  openingsRowsAll().every((e) => /\$,\s*\.OPENING\.\s*$/.test(e.args)));
+function openingsRowsAll() { return [...ent.values()].filter((e) => e.type === "IFCOPENINGELEMENT"); }
+
+// ── Validador INDEPENDIENTE (IfcOpenShell — EXPRESS real, no regex propio) ──
+if (process.env.SKIP_IFCOPENSHELL !== "1") {
+  let hasIfc = false;
+  try { execSync(`python -c "import ifcopenshell"`, { stdio: "pipe" }); hasIfc = true; } catch { /* soft skip */ }
+  if (!hasIfc) {
+    console.log("ℹ ifcopenshell no instalado — validación EXPRESS externa omitida (soft skip)");
+  } else {
+    try {
+      const { writeFileSync } = await import("node:fs");
+      const dir = path.join(process.cwd(), ".tmp-ifc");
+      writeFileSync(path.join(dir, "zcheck.ifc"), ifc, "utf8");
+      writeFileSync(path.join(dir, "validate_external.py"), [
+        "import sys, re, ifcopenshell, ifcopenshell.guid as G",
+        "from ifcopenshell import ifcopenshell_wrapper as W",
+        `f = ifcopenshell.open(sys.argv[1])`,
+        "assert f.schema == 'IFC4', f.schema",
+        "# 1) NINGUNA entidad puede caerse al parsear (el typo FILLESELEMENT",
+        "#    se coló así: ifcopenshell descarta silenciosamente).",
+        "raw = open(sys.argv[1], encoding='utf-8').read()",
+        "raw_ids = set(int(m) for m in re.findall(r'#(\\d+)= [A-Z]', raw))",
+        "parsed = set(e.id() for e in f)",
+        "dropped = raw_ids - parsed",
+        "assert not dropped, f'entidades descartadas: {sorted(dropped)[:6]}'",
+        "# 2) todo nombre de entidad existe en el schema IFC4",
+        "names = set(re.findall(r'= ([A-Z0-9_]+)\\(', raw))",
+        "decls = set(d.name().upper() for d in W.schema_by_name('IFC4').declarations())",
+        "unknown = names - decls",
+        "assert not unknown, f'fuera de schema IFC4: {sorted(unknown)[:6]}'",
+        "# 3) GUIDs válidos (codec buildingSMART) y únicos",
+        "dec = getattr(G, 'unexpand', None) or getattr(G, 'expand', None) or getattr(G, 'decompress')",
+        "seen = set(); n = 0",
+        "for e in f:",
+        "    gid = getattr(e, 'GlobalId', None)",
+        "    if gid:",
+        "        dec(gid)  # lanza si la compresión no es válida",
+        "        assert gid not in seen, gid",
+        "        seen.add(gid); n += 1",
+        "# 4) patrón de vanos completo (fills > 0 — el typo los mataba)",
+        "ops = f.by_type('IfcOpeningElement')",
+        "assert all(o.PredefinedType == 'OPENING' for o in ops)",
+        "fills = f.by_type('IfcRelFillsElement'); voids = f.by_type('IfcRelVoidsElement')",
+        "cts = f.by_type('IfcRelContainedInSpatialStructure')",
+        "assert len(fills) > 0, 'sin fills'",
+        "print(f'IFCOPENSHELL OK {n} GUIDs | {len(f.by_type(\"IfcWall\"))} muros | {len(ops)} openings | {len(voids)} voids | {len(fills)} fills | {len(cts)} containments')",
+      ].join("\n"));
+      const py = execSync(`python "${path.join(dir, "validate_external.py")}" "${path.join(dir, "zcheck.ifc")}"`, { encoding: "utf8", stdio: "pipe" }).trim();
+      check(`ifcopenshell (EXPRESS independiente): ${py}`, py.startsWith("IFCOPENSHELL OK"));
+    } catch (e) {
+      check(`ifcopenshell valida el archivo (${String(e).split("\n").filter(Boolean).slice(-1)[0]?.slice(0, 80)})`, false);
+    }
+  }
+}
 
 console.log(`\n${pass} ✓ · ${fail} ✗`);
 process.exit(fail ? 1 : 0);

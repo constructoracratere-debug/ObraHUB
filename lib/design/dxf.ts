@@ -78,15 +78,15 @@ class DxfBuilder {
     // Especificación por capa: color (plantilla ISO 128) + linetype + grosor
     // default + CLASE de plot (tabla CPNAA §4.3 → 370 real por entidad).
     const spec: { color: number; lt: Linetype; lw: number; cls: string } =
-      /^(A-MUROS|A-CORTE)$/.test(name) ? { color: PENS.cut.dxfColor, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
-      : /^(S-COLUMNAS|S-VIGAS|S-LOSAS|S-CIMENTACION|S-ELEMENTOS)$/.test(name) ? { color: PENS.cut.dxfColor, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
-      : /^I-ELECTRICO$/.test(name) ? { color: PENS.thin.dxfColor, lt: "DASHED", lw: LW.thin, cls: "elec" }
-      : /^I-HIDRAULICO$/.test(name) ? { color: PENS.extra.dxfColor, lt: "DASHED", lw: LW.thin, cls: "hid" }
-      : /^A-EJES$/.test(name) ? { color: PENS.extra.dxfColor, lt: "CENTER", lw: LW.extra, cls: "ejes" }
-      : /^(A-TEXTOS|A-COTAS)$/.test(name) ? { color: PENS.extra.dxfColor, lt: "CONTINUOUS", lw: LW.extra, cls: "text" }
+      /^(A-MUROS|A-CORTE)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
+      : /^(S-COLUMNAS|S-VIGAS|S-LOSAS|S-CIMENTACION|S-ELEMENTOS)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
+      : /^I-ELECTRICO$/.test(name) ? { color: 7, lt: "DASHED", lw: LW.thin, cls: "elec" }
+      : /^I-HIDRAULICO$/.test(name) ? { color: 7, lt: "DASHED", lw: LW.thin, cls: "hid" }
+      : /^A-EJES$/.test(name) ? { color: 7, lt: "CENTER", lw: LW.extra, cls: "ejes" }
+      : /^(A-TEXTOS|A-COTAS)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: LW.extra, cls: "text" }
       : /^(A-ROTULO|A-ROTULO-TXT)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: name.startsWith("A-ROTULO-TXT") ? LW.thin : LW.profile, cls: "text" }
-      : /^A-FACHADA$/.test(name) ? { color: PENS.profile.dxfColor, lt: "CONTINUOUS", lw: LW.profile, cls: "cubt" }
-      : { color: PENS.profile.dxfColor, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" };
+      : /^A-FACHADA$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: LW.profile, cls: "cubt" }
+      : { color: 7, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" };
     if (!this.layers.has(name)) this.layers.set(name, spec);
     return name;
   }
@@ -173,20 +173,21 @@ class DxfBuilder {
     this.text(RT, rx0 + 8, y + 3, 2.6, "CONSTRUCTION OS · CRATERE S.A.S.");
     this.text(RT, rx1 - 48, y + 3, 2.6, fields.fecha);
 
-    // ── PROYECTO (2 líneas máx) + UBICACIÓN.
+    // ── PROYECTO (wrap por palabras, sin cortes) + UBICACIÓN.
     row(26);
     this.text(RT, rx0 + 6, y + 18.5, 2.5, "PROYECTO");
-    this.text(RT, rx0 + 6, y + 9.5, 3.6, fields.proyecto.toUpperCase().slice(0, 26));
-    this.text(RT, rx0 + 6, y + 3, 3.0, fields.proyecto.toUpperCase().slice(26, 50));
+    wrapText(fields.proyecto.toUpperCase(), 72, 2).forEach((ln, i) =>
+      this.text(RT, rx0 + 6, y + 9.5 - i * 4.6, 3.6, ln));
     row(16);
     this.text(RT, rx0 + 6, y + 9.5, 2.5, "UBICACIÓN");
-    this.text(RT, rx0 + 6, y + 3, 3.2, fields.ubicacion.toUpperCase().slice(0, 30));
+    this.text(RT, rx0 + 6, y + 3, 3.2, fields.ubicacion.toUpperCase());
 
-    // ── Título de lámina (el plano que soy).
+    // ── Título de lámina (el plano que soy) — wrap, JAMÁS truncado.
     row(34);
     this.text(RT, rx0 + 6, y + 21, 2.5, "CONTENIDO");
     this.text(RT, rx0 + 6, y + 9, 4.2, fields.codigo);
-    this.text(RT, rx0 + 6, y + 2.5, 2.8, fields.titulo.slice(0, 34));
+    wrapText(fields.titulo, 88, 3).forEach((ln, i) =>
+      this.text(RT, rx0 + 6, y + 3.5 - i * 3.6, 2.8, ln));
 
     // ── Grilla de datos: ESCALA | FECHA ya arriba; DIBUJÓ/REVISÓ/UNIDADES.
     const gy = y;
@@ -268,6 +269,25 @@ class DxfBuilder {
 /** Formato numérico estable (determinismo byte a byte). */
 function f(n: number): string {
   return (Math.round(n * 1000) / 1000).toFixed(3);
+}
+
+/** Divide un texto en líneas que caben en `maxChars` sin cortar palabras
+ *  (wrap del rótulo — review #13: los títulos jamás se truncan). */
+function wrapText(s: string, maxChars: number, maxLines = 2): string[] {
+  const words = s.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    const cand = cur ? `${cur} ${w}` : w;
+    if (cand.length > maxChars && cur) { lines.push(cur); cur = w; } else cur = cand;
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > maxLines) {
+    const kept = lines.slice(0, maxLines - 1);
+    kept.push(lines.slice(maxLines - 1).join(" "));
+    return kept;
+  }
+  return lines;
 }
 
 const GAP_SHEET = 50; // mm entre láminas del set

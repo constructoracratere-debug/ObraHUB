@@ -11,7 +11,7 @@
  *  · Cotas verticales (piso a piso + total) y horizontales (cadenas).
  *  · Vidrio = diagonales finas (Ching); antepechos/dinteles marcados.
  *  · Terreno rayado; zapatas y viga de cimentación bajo el corte.
- *  · Fachadas: zócalo, textura de mampostería, bajante, manija, ESC 1:75.
+ *  · Fachadas: zócalo, textura de mampostería, bajante, manija.
  */
 
 import type { FloorPlan, Room, WallSide } from "./schema";
@@ -27,7 +27,6 @@ export type Prim =
 
 const DOOR_H = 2.1;
 /** Escala gráfica declarada (Plazola: cortes/fachadas 1:75, planta 1:75/1:100). */
-const ESC = "ESC 1:75";
 
 function fmt(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2);
@@ -175,7 +174,6 @@ export function sectionPrimitives(plan: FloorPlan, opts: { transverse?: boolean 
 
   // Título + escala (Plazola: toda vista rotulada con escala).
   out.push({ t: "T", l: "TEXTOS", x: 0, y: totalH + 1.4, h: 0.26, s: opts.transverse ? "CORTE B-B'" : "CORTE A-A'" });
-  out.push({ t: "T", l: "TEXTOS", x: 4.2, y: totalH + 1.4, h: 0.16, s: ESC });
   return out;
 }
 
@@ -290,22 +288,23 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   for (const r of rooms) {
     out.push({ t: "H", l: L, x: r.x, y: r.y, w: r.width, h: r.depth });
     const a = r.width * r.depth;
-    // Etiqueta en hueco LIBRE (anti-tapado por mobiliario — Ching).
+    // Etiqueta en hueco LIBRE (anti-tapado por mobiliario — Ching) y también
+    // lejos de los SÍMBOLOS MEP de su cuarto (review #13: colisiones en
+    // cocina/lavandería/baño del plano real de Guadua).
     const placed = furnishRoom(out, r, plan.doors.filter((d) => d.level === level), r.name.toLowerCase().includes("principal"));
-    const spot = labelSpot(r, placed);
+    const mepObs = [
+      ...(plan.electrical?.points ?? []),
+      ...(plan.hydro?.points ?? []),
+    ]
+      .filter((p) => p.level === level && p.x >= r.x - 0.3 && p.x <= r.x + r.width + 0.3 && p.y >= r.y - 0.3 && p.y <= r.y + r.depth + 0.3)
+      .map((p) => ({ x: p.x - 0.3, y: p.y - 0.3, w: 0.6, d: 0.6, kind: "mep", wall: "C" as const }));
+    const spot = labelSpot(r, placed.concat(mepObs));
     out.push({ t: "T", l: "TEXTOS", x: spot.x - r.name.length * 0.055, y: spot.y + 0.05, h: 0.14, s: r.name.toUpperCase() });
     out.push({ t: "T", l: "TEXTOS", x: spot.x - 0.75, y: spot.y - 0.18, h: 0.11, s: `${a.toFixed(1)} m² · ${fmt(r.width)}×${fmt(r.depth)}` });
   }
-  // Hatch de piso cerámico en baños y cocina (cuadrícula 0.33).
-  for (const r of rooms) {
-    if (!/ba[nñ]o|bano|cocina|lavander/i.test(r.name)) continue;
-    for (let gx = r.x + 0.33; gx < r.x + r.width - 0.05; gx += 0.33) {
-      out.push({ t: "L", l: "TEXTOS", x1: gx, y1: r.y + 0.05, x2: gx, y2: r.y + r.depth - 0.05, thin: true });
-    }
-    for (let gy = r.y + 0.33; gy < r.y + r.depth - 0.05; gy += 0.33) {
-      out.push({ t: "L", l: "TEXTOS", x1: r.x + 0.05, y1: gy, x2: r.x + r.width - 0.05, y2: gy, thin: true });
-    }
-  }
+  // (La cuadrícula cerámica de baños/cocina vivía AQUÍ en A-TEXTOS — fuera
+  // del plano general: los acabados van en lámina propia A-06 con capa
+  // A-ACABADOS-HATCH cuando exista; el plano arquitectónico queda LIMPIO.)
   // Ejes con burbujas + líneas dash-dot.
   for (const ax of plan.structure?.axes ?? []) {
     if (ax.orientation === "vertical") {
@@ -436,7 +435,6 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   cutMark(["A", "A'"], -0.7, D / 2, W + 0.7, D / 2);
   cutMark(["B", "B'"], W / 2, -0.7, W / 2, D + 0.7);
   out.push({ t: "T", l: "TEXTOS", x: 0, y: D + 2.1, h: 0.22, s: plan.levels > 1 ? `PLANTA NIVEL ${level + 1}` : "PLANTA ARQUITECTÓNICA" });
-  out.push({ t: "T", l: "TEXTOS", x: 4.4, y: D + 2.1, h: 0.16, s: ESC });
   return out;
 }
 
@@ -577,7 +575,6 @@ export function facadePrimitives(plan: FloorPlan, side: WallSide): Prim[] {
 
   // Título de la fachada + escala.
   out.push({ t: "T", l: "TEXTOS", x: 0, y: -1.0, h: 0.24, s: `FACHADA ${side.toUpperCase()}` });
-  out.push({ t: "T", l: "TEXTOS", x: facadeW - 1.6 > 0 ? facadeW - 1.6 : 3, y: -1.0, h: 0.16, s: ESC });
   return out;
 }
 
@@ -753,7 +750,7 @@ export function sheetPrimitives(plan: FloorPlan): Prim[] {
   const rows: Array<[number, string]> = [
     [0.62, plan.name.toUpperCase().slice(0, 38)],
     [0.5, "UBICACIÓN: " + (plan.site?.city ?? "—")],
-    [0.5, "ESC 1:75 · UNIDADES: METROS · FECHA: 2026"],
+    [0.5, "UNIDADES: METROS · ESCALA EN RÓTULO"],
     [0.5, "LÁMINA A-01 — PAQUETE PARA LICENCIA"],
     [0.5, "OBRAHUB · CRATERE S.A.S. — DISEÑO ASISTIDO POR IA"],
   ];
@@ -807,6 +804,5 @@ export function roofPlanPrimitives(plan: FloorPlan): Prim[] {
   out.push({ t: "T", l: L, x: cx - 3.6, y: cy - 0.25, h: 0.15, s: "Sin cubierta — no suma área (MPr / D.1077)" });
   dimChain("COTAS", [0, W], -0.7, out);
   out.push({ t: "T", l: L, x: 0, y: D + 1.2, h: 0.26, s: "PLANTA DE CUBIERTAS" });
-  out.push({ t: "T", l: L, x: 4.6, y: D + 1.2, h: 0.16, s: ESC });
   return out;
 }
