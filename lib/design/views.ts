@@ -190,7 +190,7 @@ function axisBubble(l: string, x: number, y: number, id: string, out: Prim[]) {
 }
 
 /** ── PLANTA como primitivas (para la LÁMINA compuesta). ─────────────────── */
-export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
+export function plantaPrimitives(plan: FloorPlan, level = 0, opts: { den?: number } = {}): Prim[] {
   const out: Prim[] = [];
   const { width: W, depth: D } = plan.outline;
   const L = "MUROS";
@@ -285,6 +285,9 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
       escalera(out, host.x + host.width - sw - 0.15, host.y + 0.15, sw, slen, true);
     }
   }
+  // Cajas de texto de cada espacio (nombre+área): las etiquetas de VANOS las
+  // consultan para no montarse encima (guía §2.7: minimizar cruces/traslapes).
+  const labelBoxes: Array<{ x: number; y: number; w: number; d: number }> = [];
   for (const r of rooms) {
     out.push({ t: "H", l: L, x: r.x, y: r.y, w: r.width, h: r.depth });
     const a = r.width * r.depth;
@@ -292,15 +295,58 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
     // lejos de los SÍMBOLOS MEP de su cuarto (review #13: colisiones en
     // cocina/lavandería/baño del plano real de Guadua).
     const placed = furnishRoom(out, r, plan.doors.filter((d) => d.level === level), r.name.toLowerCase().includes("principal"));
-    const mepObs = [
-      ...(plan.electrical?.points ?? []),
-      ...(plan.hydro?.points ?? []),
-    ]
-      .filter((p) => p.level === level && p.x >= r.x - 0.3 && p.x <= r.x + r.width + 0.3 && p.y >= r.y - 0.3 && p.y <= r.y + r.depth + 0.3)
-      .map((p) => ({ x: p.x - 0.3, y: p.y - 0.3, w: 0.6, d: 0.6, kind: "mep", wall: "C" as const }));
-    const spot = labelSpot(r, placed.concat(mepObs));
-    out.push({ t: "T", l: "TEXTOS", x: spot.x - r.name.length * 0.055, y: spot.y + 0.05, h: 0.14, s: r.name.toUpperCase() });
-    out.push({ t: "T", l: "TEXTOS", x: spot.x - 0.75, y: spot.y - 0.18, h: 0.11, s: `${a.toFixed(1)} m² · ${fmt(r.width)}×${fmt(r.depth)}` });
+    const mepObs = mepSymbols(plan, level)
+      .filter((p) => p.x >= r.x - 0.35 && p.x <= r.x + r.width + 0.35 && p.y >= r.y - 0.35 && p.y <= r.y + r.depth + 0.35)
+      .map((p) => ({ x: p.x - 0.35, y: p.y - 0.35, w: 0.7, d: 0.7, kind: "mep", wall: "C" as const }));
+    // ── Texto a TAMAÑO DE PAPEL FINAL (guía §2.5): con la escala de lámina
+    // conocida se MIDE si el nombre y la línea de área+cotas caben en el
+    // ancho del espacio; si la línea no cabe, las cotas se retiran (área
+    // sola); si el nombre tampoco cabe, parte en dos renglones. Sin den
+    // (vista de pantalla) se mantiene el comportamiento histórico.
+    const k = opts.den ? 1000 / opts.den : 0;
+    const hFloor = opts.den ? 2.5 * opts.den / 1000 : 0; // piso papel → unidades de modelo
+    const effH = (hModel: number) => Math.max(hModel, hFloor);
+    const paperW = (s: string, hModel: number) => s.length * effH(hModel) * 0.7;
+    const fits = (s: string, hModel: number) => !k || paperW(s, hModel) <= r.width * k - 2;
+    const name = r.name.toUpperCase();
+    const nameLines: string[] = fits(name, 0.14) || !name.includes(" ")
+      ? [name]
+      : name.split(/\s+/).reduce<string[][]>((acc, w) => {
+          const last = acc[acc.length - 1];
+          if (!last || (last.join(" ") + " " + w).length > Math.ceil(name.length / 2) + 2) acc.push([w]);
+          else last.push(w);
+          return acc;
+        }, []).map((l) => l.join(" "));
+    const dimsTxt = `${a.toFixed(1)} m² · ${fmt(r.width)}×${fmt(r.depth)}`;
+    const areaOnly = `${a.toFixed(1)} m²`;
+    const nRows = nameLines.length;
+    const longestName = nameLines.reduce((a2, b2) => (b2.length > a2.length ? b2 : a2), "");
+    const dTxt = 0.55 + (nRows - 1) * 0.26 + 0.1;
+    // Escalera de degradación (determinista, sin colisiones): nombre+área+cotas
+    // → nombre+área → nombre. Las cotas del espacio ya viven en las cadenas de
+    // cota de la planta; si el cuarto está saturado, la etiqueta CEDE antes
+    // que montarse sobre un símbolo o mueble (guía §2.7).
+    const obstacles = placed.concat(mepObs);
+    const trySpot = (line: string) => {
+      const w = Math.max(paperW(longestName, 0.14), paperW(line, 0.11)) + 0.3;
+      return { line, w, spot: labelSpot(r, obstacles, Math.min(w, r.width), dTxt) };
+    };
+    let chosen = trySpot(fits(dimsTxt, 0.11) ? dimsTxt : areaOnly);
+    if (!chosen.spot) chosen = trySpot(areaOnly);
+    if (!chosen.spot) {
+      const w = paperW(longestName, 0.14) + 0.3;
+      chosen = { line: "", w, spot: labelSpot(r, obstacles, Math.min(w, r.width), 0.4) };
+    }
+    const spot = chosen.spot ?? { x: r.x + r.width / 2, y: r.y + r.depth / 2 }; // saturación total: el nombre manda al centro
+    const areaTxt = chosen.line;
+    const wTxt = chosen.w;
+    out.push(...nameLines.map((ln, i) => ({
+      t: "T" as const, l: "TEXTOS",
+      x: spot.x - (ln.length * 0.14 * 0.7) / 2, y: spot.y + 0.05 + (nRows - 1 - i) * 0.26,
+      h: 0.14, s: ln,
+    })));
+    if (areaTxt) out.push({ t: "T", l: "TEXTOS", x: spot.x - (areaTxt.length * effH(0.11) * 0.7) / 2, y: spot.y - 0.18, h: 0.11, s: areaTxt });
+    labelBoxes.push({ x: spot.x - wTxt / 2 - 0.05, y: spot.y - dTxt / 2, w: wTxt + 0.1, d: dTxt });
   }
   // (La cuadrícula cerámica de baños/cocina vivía AQUÍ en A-TEXTOS — fuera
   // del plano general: los acabados van en lámina propia A-06 con capa
@@ -363,29 +409,39 @@ export function plantaPrimitives(plan: FloorPlan, level = 0): Prim[] {
   }
 
   // Ancho de cada VANO rotulado junto a su símbolo (convención: cota del
-  // vano). El LADO se deriva del LOCAL al que sirve el vano (no de la
-  // mitad del dibujo): la etiqueta cae DENTRO del cuarto destino; si una
-  // ventana choca ahí con la etiqueta de una puerta, la ventana salta al
-  // lado exterior del muro (guía §2.7: sin cruces ni traslapes).
+  // vano). Escalera de offsets determinista (interior cerca → lejos →
+  // exterior) que esquiva etiquetas de espacio, símbolos MEP y TODAS las
+  // cotas de vano ya puestas — puertas Y ventanas comparten el registro
+  // (antes ambas caían al lado exterior sin mirarse: colisión medida por
+  // el QA cuando puerta y ventana sirven el mismo muro).
   const sideTo = (wallY: number, room?: Room) => (room ? (room.y + room.depth / 2 >= wallY ? 1 : -1) : 1);
-  const doorLabels: Array<{ x: number; y: number }> = [];
+  const mepBoxes = mepSymbols(plan, level).map((p) => ({ x: p.x - 0.3, y: p.y - 0.3, w: 0.6, d: 0.6 }));
+  const obstacles = [...labelBoxes, ...mepBoxes];
+  const hits = (cx: number, cy: number) =>
+    obstacles.some((b) => cx + 0.35 > b.x && cx - 0.35 < b.x + b.w && cy + 0.16 > b.y && cy - 0.16 < b.y + b.d);
+  const vanoTags: Array<{ x: number; y: number }> = [];
+  const tagFree = (x: number, y: number) =>
+    !hits(x, y) && !vanoTags.some((t) => Math.abs(t.y - y) < 0.18 && Math.abs(t.x - x) < 0.7);
+  const OFFSETS = [0.32, 0.52, 0.74, -0.38, -0.58, -0.8];
+  const placeVanoTag = (x: number, wallY: number, dir: number, width: number) => {
+    let y = wallY + dir * 0.32;
+    for (const o of OFFSETS) {
+      if (tagFree(x, wallY + dir * o)) { y = wallY + dir * o; break; }
+    }
+    vanoTags.push({ x, y });
+    out.push({ t: "T", l: "COTAS", x: x - 0.18, y, h: 0.13, s: fmt(width) });
+  };
   for (const d of doorsLvl) {
     if (d.axis === "y") continue;
     const to = plan.rooms.find(roomAt(plan, d.to, level));
-    const y = d.y + sideTo(d.y, to) * 0.32;
-    doorLabels.push({ x: d.x, y });
-    out.push({ t: "T", l: "COTAS", x: d.x - 0.18, y, h: 0.13, s: fmt(d.width) });
+    placeVanoTag(d.x, d.y, sideTo(d.y, to), d.width);
   }
   for (const w of winsLvl) {
     if (w.wall !== "sur" && w.wall !== "norte") continue;
     const room = plan.rooms.find(roomAt(plan, w.room, level));
     if (!room) continue;
     const yy = w.wall === "norte" ? room.y + room.depth : room.y;
-    let y = yy + sideTo(yy, room) * 0.32;
-    if (doorLabels.some((dl) => Math.abs(dl.y - y) < 0.16 && Math.abs(dl.x - w.x) < 0.6)) {
-      y = yy - sideTo(yy, room) * 0.4; // lado exterior del muro
-    }
-    out.push({ t: "T", l: "COTAS", x: w.x - 0.18, y, h: 0.13, s: fmt(w.width) });
+    placeVanoTag(w.x, yy, sideTo(yy, room), w.width);
   }
 
   // Dim INTERIOR de cada espacio (ancho×fondo) bajo el área — lo primero
@@ -444,7 +500,7 @@ export function areaTablePrimitives(plan: FloorPlan): Prim[] {
   const L = "TEXTOS";
   const rows = plan.rooms.map((r) => ({ name: r.name, lvl: r.level, area: r.width * r.depth }));
   const total = rows.reduce((s, r) => s + r.area, 0);
-  const w = 4.6, rowH = 0.32, headerH = 0.4;
+  const w = 4.6, rowH = 0.36, headerH = 0.4;
   const h = headerH + (rows.length + 1) * rowH + 0.15;
   // Marco + cabecera.
   out.push({ t: "H", l: L, x: 0, y: -h, w, h });
@@ -452,10 +508,21 @@ export function areaTablePrimitives(plan: FloorPlan): Prim[] {
   out.push({ t: "T", l: L, x: 0.15, y: -headerH + 0.12, h: 0.14, s: "CUADRO DE ÁREAS" });
   out.push({ t: "L", l: L, x1: 3.1, y1: 0, x2: 3.1, y2: -h });
   out.push({ t: "L", l: L, x1: 4.0, y1: 0, x2: 4.0, y2: -h });
-  // Filas.
+  // Filas — nombre COMPLETO en hasta 2 renglones (jamás truncado: QA plot).
   rows.slice(0, 18).forEach((r, i) => {
     const y = -headerH - (i + 1) * rowH + 0.1;
-    out.push({ t: "T", l: L, x: 0.15, y, h: 0.11, s: r.name.slice(0, 22).toUpperCase() });
+    const nm = r.name.toUpperCase();
+    const words = nm.split(/\s+/);
+    let l1 = nm, l2 = "";
+    if (nm.length > 20 && words.length > 1) {
+      let acc = "";
+      for (const wd of words) {
+        if ((acc + " " + wd).trim().length > 20 && acc) { l2 = nm.slice(acc.length + 1); l1 = acc; break; }
+        acc = (acc + " " + wd).trim();
+      }
+    }
+    out.push({ t: "T", l: L, x: 0.15, y: l2 ? y + 0.13 : y, h: l2 ? 0.09 : 0.11, s: l1 });
+    if (l2) out.push({ t: "T", l: L, x: 0.15, y: y - 0.08, h: 0.09, s: l2 });
     out.push({ t: "T", l: L, x: 3.25, y, h: 0.11, s: String(r.lvl + 1) });
     out.push({ t: "T", l: L, x: 4.1, y, h: 0.11, s: r.area.toFixed(2) });
   });
@@ -595,6 +662,30 @@ export function primsBounds(prims: Prim[]): { minX: number; minY: number; maxX: 
   return { minX, minY, maxX, maxY };
 }
 
+/** Bounds de un conjunto de primitivas con el TEXTO YA CLAMPADO al piso de
+ *  papel (2.5 mm) a la escala `den` — rotación-aware. Es la MISMA medida que
+ *  usa fitSheetScale: componer y medir fill con cualquier otra daría mentiras. */
+export function floorBounds(prims: Prim[], den: number) {
+  const floor = 2.5 * den / 1000; // piso de texto en unidades de modelo
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const see = (x: number, y: number) => {
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  };
+  for (const p of prims) {
+    if (p.t === "L") { see(p.x1, p.y1); see(p.x2, p.y2); }
+    else if (p.t === "T") {
+      const h = Math.max(p.h, floor);
+      if ((p.r ?? 0) === 90) { see(p.x - h, p.y - 0.05); see(p.x, p.y + p.s.length * h * 0.7); }
+      else { see(p.x, p.y); see(p.x + p.s.length * h * 0.7, p.y + h); }
+    }
+    else if (p.t === "C") { see(p.x - p.r, p.y - p.r); see(p.x + p.r, p.y + p.r); }
+    else { see(p.x, p.y); see(p.x + p.w, p.y + p.h); }
+  }
+  if (!Number.isFinite(minX)) return { minX: 0, minY: 0, maxX: 10, maxY: 10 };
+  return { minX, minY, maxX, maxY };
+}
+
 /** ── Escala de lámina con TAMAÑOS DE PAPEL FINALES ──────────────────────────
  *  Elige el denominador de la serie normalizada (50…200) contra el área
  *  imprimible, pero midiéndolo con los bounds DEL TEXTO YA AGRANDADO al
@@ -602,25 +693,13 @@ export function primsBounds(prims: Prim[]): { minX: number; minY: number; maxX: 
  *  clamp de anotación nunca desborda la lámina ni elige una escala que no
  *  cabe después de agrandar. Único punto de decisión para PDF y DXF. */
 export function fitSheetScale(prims: Prim[], availW: number, availH: number): number {
-  for (const den of [50, 75, 100, 125, 150, 200]) {
-    const floor = 2.5 * den / 1000; // piso de texto en unidades de modelo
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    const see = (x: number, y: number) => {
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-    };
-    for (const p of prims) {
-      if (p.t === "L") { see(p.x1, p.y1); see(p.x2, p.y2); }
-      else if (p.t === "T") {
-        const h = Math.max(p.h, floor);
-        if ((p.r ?? 0) === 90) { see(p.x - h, p.y - 0.05); see(p.x, p.y + p.s.length * h * 0.7); }
-        else { see(p.x, p.y); see(p.x + p.s.length * h * 0.7, p.y + h); }
-      }
-      else if (p.t === "C") { see(p.x - p.r, p.y - p.r); see(p.x + p.r, p.y + p.r); }
-      else { see(p.x, p.y); see(p.x + p.w, p.y + p.h); }
-    }
-    const sx = maxX - minX, sy = maxY - minY;
-    if (Number.isFinite(sx) && sx * (1000 / den) <= availW && sy * (1000 / den) <= availH) return den;
+  // Serie con 1:250 REAL: el último candidato se COMPRUEBA igual que los
+  // demás; si ni ese cabe, se devuelve y el QA de plot reporta el desborde
+  // (entidad fuera del marco interior) — nunca un "cabe" en silencio.
+  for (const den of [50, 75, 100, 125, 150, 200, 250]) {
+    const b = floorBounds(prims, den);
+    const sx = b.maxX - b.minX, sy = b.maxY - b.minY;
+    if (sx * (1000 / den) <= availW && sy * (1000 / den) <= availH) return den;
   }
   return 250;
 }
@@ -676,6 +755,208 @@ export function mepLegendPrimitives(plan: FloorPlan, level = 0): Prim[] {
   };
   col(elec, 0.12, ELEC_SYMBOLS, "ELÉCTRICO", "ELECTRICO");
   col(hyd, CW + 0.22, HYDRO_SYMBOLS, "HIDRÁULICO", "HIDROSANITARIO");
+  return out;
+}
+
+/** ── SÍMBOLOS MEP RESUELTOS (fuente única plano/etiquetas/leyenda) ──────────
+ *  Los puntos del JSON tal cual pueden amontonarse (dos tomacorrientes a
+ *  10 cm, tablero sobre interruptor…). Este solver determinista separa pares
+ *  demasiado cercanos (radio+radio+holgura) empujándolos por el eje de mayor
+ *  separación, con clamp al local que los contiene — el plano jamás dibuja
+ *  dos círculos superpuestos. */
+export type MepSymbol = { x: number; y: number; r: number; letter: string; kind: string; disc: "E" | "H" };
+
+export function mepSymbols(plan: FloorPlan, level = 0): MepSymbol[] {
+  const raw: MepSymbol[] = [];
+  for (const p of plan.electrical?.points ?? []) {
+    if (p.level !== level) continue;
+    raw.push({ x: p.x, y: p.y, r: 0.1, letter: (ELEC_SYMBOLS[p.kind] ?? ["?"])[0], kind: p.kind, disc: "E" });
+  }
+  for (const p of plan.hydro?.points ?? []) {
+    if (p.level !== level) continue;
+    raw.push({ x: p.x, y: p.y, r: 0.11, letter: (HYDRO_SYMBOLS[p.kind] ?? ["H"])[0], kind: p.kind, disc: "H" });
+  }
+  const roomOf = (x: number, y: number) =>
+    plan.rooms.find((r) => r.level === level && x >= r.x - 0.2 && x <= r.x + r.width + 0.2 && y >= r.y - 0.2 && y <= r.y + r.depth + 0.2);
+  const clamp = (s: MepSymbol, room: Room | undefined) => {
+    if (!room) return;
+    s.x = Math.min(Math.max(s.x, room.x + 0.12), room.x + room.width - 0.12);
+    s.y = Math.min(Math.max(s.y, room.y + 0.12), room.y + room.depth - 0.12);
+  };
+  for (let sweep = 0; sweep < 8; sweep++) {
+    let moved = false;
+    for (let i = 0; i < raw.length; i++) {
+      for (let j = i + 1; j < raw.length; j++) {
+        const a = raw[i], b = raw[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const minD = a.r + b.r + 0.14;
+        if (dx * dx + dy * dy >= minD * minD) continue;
+        const s = 0.05;
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          const dir = dx >= 0 ? 1 : -1;
+          a.x -= dir * s; b.x += dir * s;
+        } else {
+          const dir = dy >= 0 ? 1 : -1;
+          a.y -= dir * s; b.y += dir * s;
+        }
+        clamp(a, roomOf(a.x, a.y));
+        clamp(b, roomOf(b.x, b.y));
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  return raw;
+}
+
+/** ── PLANTA DE ACABADOS (lámina A-06): el MISMO muro del plano general ──────
+ *  (bandas con jambas reales de plantaPrimitives, capa MUROS) + trama de
+ *  piso por espacio en A-ACABADOS: cerámica 30×30 en húmedos, tablones de
+ *  madera en secos (espaciado real de modelo con piso de papel). El plano
+ *  general queda LIMPIO: los acabados viven en SU lámina y SU capa (guía
+ *  §2.4 + ISO 13567 — apagar A-ACABados apaga TODO acabado). */
+export function acabadosPrimitives(plan: FloorPlan, level = 0, opts: { den?: number; legend?: "below" | "side" } = {}): Prim[] {
+  const walls = plantaPrimitives(plan, level, opts).filter((p) => p.l === "MUROS" && p.t !== "T");
+  const out: Prim[] = [...walls];
+  const AC = "ACABADOS";
+  const floorM = (paperMinMm: number, modelM: number) => Math.max(modelM, (paperMinMm / 1000) * (opts.den ?? 75));
+  const FINISH: Record<string, { piso: string; trama: "ceramica" | "madera" | "liso" }> = {
+    bano: { piso: "Cerámica 30×30 antideslizante", trama: "ceramica" },
+    cocina: { piso: "Cerámica 45×45", trama: "ceramica" },
+    lavanderia: { piso: "Cerámica 30×30", trama: "ceramica" },
+    habitacion: { piso: "Laminado madera 8 mm", trama: "madera" },
+    habitacion_principal: { piso: "Laminado madera 8 mm", trama: "madera" },
+    sala: { piso: "Laminado madera 8 mm", trama: "madera" },
+    comedor: { piso: "Laminado madera 8 mm", trama: "madera" },
+    estudio: { piso: "Laminado madera 8 mm", trama: "madera" },
+    pasillo: { piso: "Laminado madera 8 mm", trama: "madera" },
+    garaje: { piso: "Concreto pulido", trama: "liso" },
+    balcon: { piso: "Cerámica 30×30 exterior", trama: "ceramica" },
+  };
+  for (const r of plan.rooms.filter((r) => r.level === level)) {
+    const fin = FINISH[r.type] ?? { piso: "Laminado madera 8 mm", trama: "madera" as const };
+    const wet = /ba[nñ]o|bano|cocina|lavander|lavado|ropas/.test(r.name.toLowerCase()) || fin.trama === "ceramica";
+    if (fin.trama === "ceramica" || wet) {
+      const step = floorM(2.5, 0.3);
+      for (let gx = r.x + step; gx < r.x + r.width - 0.03; gx += step)
+        out.push({ t: "L", l: AC, x1: gx, y1: r.y + 0.02, x2: gx, y2: r.y + r.depth - 0.02, thin: true });
+      for (let gy = r.y + step; gy < r.y + r.depth - 0.03; gy += step)
+        out.push({ t: "L", l: AC, x1: r.x + 0.02, y1: gy, x2: r.x + r.width - 0.02, y2: gy, thin: true });
+    } else if (fin.trama === "madera") {
+      const step = floorM(2.2, 0.15);
+      const along = r.width >= r.depth;
+      const a0 = along ? r.y : r.x, a1 = along ? r.y + r.depth : r.x + r.width;
+      for (let s = a0 + step; s < a1 - 0.03; s += step) {
+        out.push(along
+          ? { t: "L", l: AC, x1: r.x + 0.02, y1: s, x2: r.x + r.width - 0.02, y2: s, thin: true }
+          : { t: "L", l: AC, x1: s, y1: r.y + 0.02, x2: s, y2: r.y + r.depth - 0.02, thin: true });
+      }
+    }
+    // Nombre del espacio + su acabado de piso (la tabla resume todo).
+    out.push({ t: "T", l: "TEXTOS", x: r.x + r.width / 2 - r.name.length * 0.055, y: r.y + r.depth / 2 + 0.08, h: 0.13, s: r.name.toUpperCase() });
+    out.push({ t: "T", l: "TEXTOS", x: r.x + r.width / 2 - fin.piso.length * 0.042, y: r.y + r.depth / 2 - 0.16, h: 0.1, s: fin.piso.toUpperCase() });
+  }
+  // Cuadro de acabados: qué trama es qué (leyenda de la lámina). Va DEBAJO
+  // del plano o AL LADO — lo elige el compositor de láminas por llenado.
+  const cuadro: Prim[] = [];
+  const ty0 = 0;
+  cuadro.push({ t: "T", l: "TEXTOS", x: 0, y: ty0, h: 0.22, s: "CUADRO DE ACABADOS DE PISO" });
+  const items = [...new Set(plan.rooms.filter((r) => r.level === level).map((r) => (FINISH[r.type] ?? { piso: "Laminado madera 8 mm" }).piso))];
+  items.forEach((piso, i) => {
+    const y = ty0 - 0.42 * (i + 1);
+    const fin = Object.values(FINISH).find((f) => f.piso === piso);
+    // muestra real de la trama al lado del texto
+    if (fin?.trama === "ceramica") {
+      for (let gx = 0.1; gx < 1.0; gx += 0.3) cuadro.push({ t: "L", l: AC, x1: gx, y1: y - 0.12, x2: gx, y2: y + 0.12, thin: true });
+      for (let gy = y - 0.12 + 0.3; gy < y + 0.12; gy += 0.3) cuadro.push({ t: "L", l: AC, x1: 0.1, y1: gy, x2: 1.0, y2: gy, thin: true });
+    } else if (fin?.trama === "madera") {
+      for (let gy = y - 0.1; gy < y + 0.14; gy += 0.15) cuadro.push({ t: "L", l: AC, x1: 0.1, y1: gy, x2: 1.0, y2: gy, thin: true });
+    }
+    cuadro.push({ t: "H", l: "TEXTOS", x: 0.06, y: y - 0.15, w: 1.0, h: 0.3 });
+    cuadro.push({ t: "T", l: "TEXTOS", x: 1.3, y: y - 0.05, h: 0.13, s: piso.toUpperCase() });
+  });
+  const shiftL = (prims: Prim[], dx: number, dy: number): Prim[] =>
+    prims.map((p) =>
+      p.t === "L" ? { ...p, x1: p.x1 + dx, y1: p.y1 + dy, x2: p.x2 + dx, y2: p.y2 + dy }
+      : p.t === "T" ? { ...p, x: p.x + dx, y: p.y + dy }
+      : p.t === "C" ? { ...p, x: p.x + dx, y: p.y + dy }
+      : { ...p, x: p.x + dx, y: p.y + dy },
+    );
+  if (opts.legend === "side") {
+    out.push(...shiftL(cuadro, plan.outline.width + 1.2, plan.outline.depth));
+    out.push({ t: "T", l: "TEXTOS", x: 0, y: plan.outline.depth + 2.1, h: 0.24, s: plan.levels > 1 ? `PLANTA DE ACABADOS NIVEL ${level + 1}` : "PLANTA DE ACABADOS" });
+  } else {
+    out.push(...shiftL(cuadro, 0, plan.outline.depth + 1.1));
+    out.push({ t: "T", l: "TEXTOS", x: 0, y: plan.outline.depth + 0.6, h: 0.24, s: plan.levels > 1 ? `PLANTA DE ACABADOS NIVEL ${level + 1}` : "PLANTA DE ACABADOS" });
+  }
+  return out;
+}
+
+/** ── CUADRO DE PUERTAS Y VENTANAS (guía §6 "cuadros puertas/ventanas" —
+ *  backlog del libro): el computo de vanos que el constructor compra.
+ *  Las columnas se miden al TAMAÑO DE PAPEL FINAL (con den: el piso de
+ *  2.5 mm manda) y las celdas envuelven por palabras — JAMÁS truncadas.
+ *  Texto 100% ASCII portable (txt.shx no tiene flechas). Comparte la
+ *  lámina de fachadas (A-03), donde el vano se ve en contexto. */
+export function openingSchedulePrimitives(plan: FloorPlan, opts: { den?: number } = {}): Prim[] {
+  const out: Prim[] = [];
+  const L = "TEXTOS";
+  const rowH = 0.4, headH = 0.7;
+  const hFloor = opts.den ? 2.5 * opts.den / 1000 : 0; // piso papel → modelo
+  const effH = (hModel: number) => Math.max(hModel, hFloor);
+  const cell = (x: number, y: number, s: string, colW: number, hModel: number): string[] => {
+    const maxChars = Math.max(6, Math.floor((colW - 0.12) / (effH(hModel) * 0.7)));
+    if (s.length <= maxChars) { out.push({ t: "T", l: L, x, y, h: hModel, s }); return [s]; }
+    const words = s.split(/\s+/);
+    const lines: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      if ((cur + " " + w).trim().length > maxChars && cur) { lines.push(cur); cur = w; } else cur = (cur + " " + w).trim();
+    }
+    if (cur) lines.push(cur);
+    lines.slice(0, 2).forEach((ln, i) => out.push({ t: "T", l: L, x, y: y - i * (effH(hModel) * 1.5), h: hModel, s: ln }));
+    return lines.slice(0, 2);
+  };
+  const table = (x0: number, title: string, cols: Array<[string, number]>, rows: string[][], hModel: number) => {
+    const w = cols.reduce((s, c) => s + c[1], 0); // el marco mide EXACTO la suma de columnas
+    // Altura de fila por fila: la celda que envuelve pide renglón más alto
+    // (antes la 2ª línea pisaba la fila siguiente — colisión medida).
+    const charsOf = (cw: number) => Math.max(6, Math.floor((cw - 0.12) / (effH(hModel) * 0.7)));
+    const rowHs = rows.map((row) =>
+      row.some((c, ci) => c.length > charsOf(cols[ci][1]) && c.includes(" ")) ? rowH * 1.6 : rowH);
+    const h = headH + rowHs.reduce((s, rh) => s + rh, 0) + 0.1;
+    out.push({ t: "H", l: L, x: x0, y: -h, w, h });
+    out.push({ t: "T", l: L, x: x0 + 0.12, y: -0.2, h: 0.13, s: title });
+    let cx = x0 + 0.06;
+    cols.forEach(([hd, cw]) => {
+      // cabecera: si no cabe ni encogida al 80%, se acorta la PALABRA (datos enteros siempre)
+      const need = hd.length * effH(hModel) * 0.7 + 0.14;
+      const hh = need <= cw ? hModel : Math.max(hModel * 0.8, (cw - 0.14) / (hd.length * 0.7));
+      out.push({ t: "T", l: L, x: cx, y: -0.46, h: hh, s: hd });
+      cx += cw;
+    });
+    out.push({ t: "L", l: L, x1: x0, y1: -0.58, x2: x0 + w, y2: -0.58, thin: true });
+    let ry = -headH;
+    rows.forEach((row, ri) => {
+      ry -= rowHs[ri] * 0.8;
+      let px = x0 + 0.06;
+      row.forEach((c, ci) => { cell(px, ry, c, cols[ci][1], hModel); px += cols[ci][1]; });
+      ry -= rowHs[ri] * 0.2;
+    });
+  };
+  // Anchos de columna calculados para el PEOR texto a tamaño papel: cabeceras
+  // y "ALCOBA PRINCIPAL - BAÑO SOCIAL" caben envueltos, no truncados.
+  const den = opts.den ?? 75;
+  const mm = (chars: number) => (chars * 2.5 * 0.7 + 3) * den / 1000 + 0.12; // ancho modelo para N caracteres a piso 2.5 mm
+  const locW = mm(16);
+  const doorCols: Array<[string, number]> = [["TIPO", mm(4)], ["NIV", mm(3)], ["ANCHO M", mm(7)], ["UBICACIÓN", locW]];
+  table(0, "CUADRO DE PUERTAS", doorCols,
+    plan.doors.map((d, i) => [`P-${i + 1}`, `N${(d.level ?? 0) + 1}`, d.width.toFixed(2), `${d.from.toUpperCase()} - ${d.to.toUpperCase()}`]),
+    0.1);
+  table(doorCols.reduce((s, c) => s + c[1], 0) + 0.5, "CUADRO DE VENTANAS",
+    [["TIPO", mm(4)], ["NIV", mm(3)], ["ANCHO M", mm(7)], ["ALTO/ANTE M", mm(11)]],
+    plan.windows.map((w, i) => [`V-${i + 1}`, `N${(w.level ?? 0) + 1}`, w.width.toFixed(2), `${w.height.toFixed(2)} / ${w.sill.toFixed(2)}`]),
+    0.1);
   return out;
 }
 
@@ -747,8 +1028,10 @@ export function sheetPrimitives(plan: FloorPlan): Prim[] {
   // Cajetín (title block) pegado a la esquina inferior derecha del marco.
   const cw = 9.0, ch = 3.2;
   const cx0 = fx1 - m2 + (m2 - m1) - cw, cy0 = fy0 + (m2 - m1);
+  const fit = (s: string, base = 0.18, maxChars = 48) => Math.max(Math.min(base, (base * maxChars) / Math.max(s.length, 1)), 0.1);
+  const nm = plan.name.toUpperCase();
   const rows: Array<[number, string]> = [
-    [0.62, plan.name.toUpperCase().slice(0, 38)],
+    [0.62, nm],
     [0.5, "UBICACIÓN: " + (plan.site?.city ?? "—")],
     [0.5, "UNIDADES: METROS · ESCALA EN RÓTULO"],
     [0.5, "LÁMINA A-01 — PAQUETE PARA LICENCIA"],
@@ -759,7 +1042,7 @@ export function sheetPrimitives(plan: FloorPlan): Prim[] {
   for (const [rh, label] of rows) {
     yy -= rh;
     cajetin.push({ t: "L", l: "TEXTOS", x1: cx0, y1: yy, x2: cx0 + cw, y2: yy, thin: true });
-    cajetin.push({ t: "T", l: "TEXTOS", x: cx0 + 0.25, y: yy + rh / 2 - 0.08, h: 0.18, s: label });
+    cajetin.push({ t: "T", l: "TEXTOS", x: cx0 + 0.25, y: yy + rh / 2 - 0.08, h: fit(label), s: label });
   }
 
   // Escala gráfica (0—1—2—5 m) y flecha N justo ENCIMA del cajetín, dentro
@@ -783,18 +1066,24 @@ export function sheetPrimitives(plan: FloorPlan): Prim[] {
 
 
 /** PLANTA DE CUBIERTAS (curaduría la exige; placa maciza SIN cubierta =
- *  no suma área — MPr/D.1077). Pendientes 2%, bajales, rotulada. */
+   no suma área — MPr/D.1077). Pendientes 2%, bajales, rotulada y ACOTADA
+   en ambos ejes (Plazola: todo plano de cubiertas dimensiona el faldón). */
 export function roofPlanPrimitives(plan: FloorPlan): Prim[] {
   const out: Prim[] = [];
   const { width: W, depth: D } = plan.outline;
   const L = "TEXTOS";
   out.push({ t: "H", l: "MUROS", x: 0, y: 0, w: W, h: D });
   const cx = W / 2, cy = D / 2;
-  for (const [tx, ty] of [[cx, D * 0.25], [cx, D * 0.75], [W * 0.25, cy], [W * 0.75, cy]] as Array<[number, number]>) {
+  // Flechas de pendiente: las del EJE X (a cy) rotulan DEBAJO de la flecha
+  // para no invadir el título central (colisión medida por el QA plot).
+  const slopes: Array<[number, number, "up" | "down"]> = [
+    [cx, D * 0.25, "up"], [cx, D * 0.75, "up"], [W * 0.25, cy, "down"], [W * 0.75, cy, "down"],
+  ];
+  for (const [tx, ty, side] of slopes) {
     out.push({ t: "L", l: L, x1: tx - 0.5, y1: ty, x2: tx + 0.5, y2: ty });
     out.push({ t: "L", l: L, x1: tx + 0.5, y1: ty, x2: tx + 0.35, y2: ty + 0.1 });
     out.push({ t: "L", l: L, x1: tx + 0.5, y1: ty, x2: tx + 0.35, y2: ty - 0.1 });
-    out.push({ t: "T", l: L, x: tx - 0.12, y: ty + 0.3, h: 0.16, s: "2%" });
+    out.push({ t: "T", l: L, x: tx - 0.12, y: ty + (side === "up" ? 0.3 : -0.55), h: 0.16, s: "2%" });
   }
   for (const [bx, by] of [[0.15, 0.15], [W - 0.15, D - 0.15]] as Array<[number, number]>) {
     out.push({ t: "H", l: L, x: bx - 0.08, y: by - 0.08, w: 0.16, h: 0.16 });
@@ -803,6 +1092,12 @@ export function roofPlanPrimitives(plan: FloorPlan): Prim[] {
   out.push({ t: "T", l: L, x: cx - 2.6, y: cy + 0.1, h: 0.22, s: "PLACA MACIZA e=12 cm" });
   out.push({ t: "T", l: L, x: cx - 3.6, y: cy - 0.25, h: 0.15, s: "Sin cubierta — no suma área (MPr / D.1077)" });
   dimChain("COTAS", [0, W], -0.7, out);
+  out.push({ t: "T", l: "COTAS", x: W / 2 - 0.22, y: -1.15, h: 0.18, s: fmt(W) });
+  // Cadena Y (total del faldón) — mismo formato que la planta.
+  out.push({ t: "L", l: "COTAS", x1: -0.7, y1: 0, x2: -0.7, y2: D });
+  out.push({ t: "L", l: "COTAS", x1: -0.77, y1: -0.07, x2: -0.63, y2: 0.07 });
+  out.push({ t: "L", l: "COTAS", x1: -0.77, y1: D - 0.07, x2: -0.63, y2: D + 0.07 });
+  out.push({ t: "T", l: "COTAS", x: -1.17, y: D / 2, h: 0.18, s: fmt(D), r: 90 });
   out.push({ t: "T", l: L, x: 0, y: D + 1.2, h: 0.26, s: "PLANTA DE CUBIERTAS" });
   return out;
 }

@@ -159,10 +159,15 @@ check("estructura por tipo: S-COLUMNAS/S-VIGAS/S-LOSAS en tabla", (() => {
 })());
 check("STYLE portable OBRAHUB (txt.shx) + código 7 en TEXT", dxf.includes("2\nSTYLE") && /0\nTEXT\n8\n[^\n]+\n(?:370\n\d+\n)?7\nOBRAHUB\n10\n/.test(dxf));
 // ── Review #13: legibilidad de impresión y composición real ──────────────────
-check("colores plot-safe: TODAS las capas 62=7 (B/N, jerarquía por 370)", (() => {
+check("colores de IDENTIDAD por capa (guía §1): ejes 1, cotas 3, eléctrico 2, hidráulico 4, estructura 8", (() => {
   const rows = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)\n70\n0\n62\n(\d+)\n/g)];
-  return rows.length >= 15 && rows.every((m) => m[2] === "7");
+  const map = Object.fromEntries(rows.map((m) => [m[1], Number(m[2])]));
+  return rows.length >= 15
+    && map["A-EJES"] === 1 && map["A-COTAS"] === 3 && map["I-ELECTRICO"] === 2
+    && map["I-HIDRAULICO"] === 4 && map["S-COLUMNAS"] === 8 && map["A-MUROS"] === 7
+    && map["A-PUERTAS"] === 6 && map["A-VENTANAS"] === 5;
 })());
+check("grosores VISIBLES al abrir: $LWDISPLAY 1 en header (el plot sigue por 370)", /\$LWDISPLAY\n290\n1/.test(dxf));
 check("cero textos de escala estáticos (el rótulo es la única autoridad)", !dxf.includes("ESC 1:75"));
 check("plano general SIN grilla de acabados (fuera de A-TEXTOS; va en A-06 futura)", (() => {
   const { plantaPrimitives } = req(path.join(tmp, "design", "views.js"));
@@ -170,6 +175,47 @@ check("plano general SIN grilla de acabados (fuera de A-TEXTOS; va en A-06 futur
   return grid.length === 0;
 })());
 check("rótulo: título COMPLETO con wrap (sin truncar en '+ CU')", multiDxf.includes("CUADRO DE ÁREAS") && dxf.includes("CUADRO DE ÁREAS"));
+
+// ── QA de plot (review de exportaciones): A-06, aislamiento de capas y
+//    rótulo JAMÁS truncado — todo lo que midió scripts/qa-dxf-geometry.py
+//    en las láminas de los fixtures reales. ──────────────────────────────────
+check("A-06 planta de acabados abre el set con cuadro de acabados", dxf.includes("A-06") && dxf.includes("PLANTA DE ACABADOS") && dxf.includes("CUADRO DE ACABADOS"));
+check("capa A-ACABADOS declarada y SOLO lleva hatch de acabados (A-01 limpio)", (() => {
+  const declared = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]);
+  if (!declared.includes("A-ACABADOS")) return false;
+  // A-01 (planta general) no tiene entidades de acabado: el plano queda limpio.
+  const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
+  const a01 = planToDxfSheets(plan, { fecha: "2026-01-15" }).find((f) => f.code === "A-01");
+  const a06 = planToDxfSheets(plan, { fecha: "2026-01-15" }).find((f) => f.code === "A-06");
+  return !!a01 && !!a06 && !/8\nA-ACABADOS\n/.test(a01.dxf) && /8\nA-ACABADOS\n/.test(a06.dxf);
+})());
+check("A-03 lleva el cuadro de puertas y ventanas (guía §6)", dxf.includes("CUADRO DE PUERTAS") && dxf.includes("CUADRO DE VENTANAS"));
+check("rótulo JAMÁS trunca: nombre patológico completo, palabra por palabra", (() => {
+  const largo = sanitizeFloorPlan({
+    ...rawPlan,
+    name: "Ampliacion Vivienda Guadua del Conjunto Los Yarumos de Manizales Etapa Segunda Obra Nueva Licencia",
+  });
+  const dx = planToDxf(largo, { fecha: "2026-01-15" });
+  return largo.name.toUpperCase().split(/\s+/).every((w) => w.length < 3 || dx.includes(w.toUpperCase()));
+})());
+check("MEP resuelto: letras dentro de círculos (solver mepSymbols, sin amontone)", (() => {
+  const { mepSymbols } = req(path.join(tmp, "design", "views.js"));
+  const syms = mepSymbols(plan, 0);
+  if (syms.length < 5) return false;
+  for (let i = 0; i < syms.length; i++) for (let j = i + 1; j < syms.length; j++) {
+    const a = syms[i], b = syms[j];
+    const d2 = (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+    if (d2 < (a.r + b.r + 0.1) ** 2) return false;
+  }
+  return true;
+})());
+check("escala única por lámina: un solo 1:NN en cada archivo por lámina", (() => {
+  const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
+  return planToDxfSheets(plan, { fecha: "2026-01-15" }).every((f) => {
+    const scales = [...f.dxf.matchAll(/1\n(1:\d+)\n/g)].map((m) => m[1]);
+    return scales.length === 1 && /^1:(50|75|100|125|150|200|250)$/.test(scales[0]);
+  });
+})());
 
 check("DXF por lámina: N archivos, cada uno 700×500 en origen con su rótulo", (() => {
   const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
@@ -238,9 +284,13 @@ check("marco interior a 10 mm (doble filete)", /20\n10\.000[\s\S]{0,140}10\n690\
 
 // ── Contenido del motor de vistas (Ching/Neufert) ───────────────────────────
 check("entidades LINE presentes", (dxf.match(/0\nLINE\n/g) ?? []).length > 50);
-check("contornos POLYLINE con VERTEX ≥ 2 balanceados", (() => {
-  const polylines = dxf.split("0\nPOLYLINE\n").slice(1);
-  return polylines.length >= 10 && polylines.every((pl) => (pl.split("0\nSEQEND\n")[0].match(/0\nVERTEX\n/g) ?? []).length >= 2);
+check("contornos LWPOLYLINE modernas con vértices 10/20 (compatibilidad visores)", (() => {
+  const chunks = dxf.split("0\nLWPOLYLINE\n").slice(1);
+  return chunks.length >= 10 && chunks.every((c) => {
+    const n = Number((c.match(/\n90\n(\d+)\n/) ?? [0, "0"])[1]);
+    const verts = (c.match(/\n10\n/g) ?? []).length;
+    return n >= 2 && verts >= n;
+  }) && !dxf.includes("0\nSEQEND\n");
 })());
 check("MEP: círculos I-ELECTRICO e I-HIDRAULICO en A-01", entityLayers.has("I-ELECTRICO") && entityLayers.has("I-HIDRAULICO"));
 check("TEXT con nombre de espacios", dxf.includes("ALCOBA PRINCIPAL") || dxf.includes("Alcoba Principal"));
@@ -272,7 +322,7 @@ if (process.env.SKIP_EZDXF !== "1") {
     console.log("ℹ ezdxf no instalado — validación profesional omitida (soft skip)");
   } else {
     try {
-      const { writeFileSync } = await import("node:fs");
+      const { writeFileSync, mkdirSync, rmSync } = await import("node:fs");
       const out = path.join(root, "test-output.dxf");
       writeFileSync(out, dxf, "utf8");
       const py = execSync(
@@ -280,6 +330,28 @@ if (process.env.SKIP_EZDXF !== "1") {
         { encoding: "utf8", stdio: "pipe" },
       ).trim();
       check(`ezdxf parsea: ${py}`, py.startsWith("ezdxf OK"));
+
+      // QA GEOMÉTRICO del plot (fuente: review de exportaciones): traslapes de
+      // texto, fuera de lámina, alturas, escala declarada vs barra vs geometría
+      // y llenado — medido sobre las LÁMINAS reales del fixture (regresión de
+      // los defectos corregidos: colisiones etiquetas/MEP/cotas, A-03 2×2,
+      // láminas media vacías, escala del cajetín).
+      const qaDir = path.join(root, ".tmp-design-test", "qa-sheets");
+      rmSync(qaDir, { recursive: true, force: true });
+      mkdirSync(qaDir, { recursive: true });
+      const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
+      for (const f of planToDxfSheets(plan, { fecha: "2026-01-15" })) {
+        writeFileSync(path.join(qaDir, `${f.code.toLowerCase()}.dxf`), f.dxf, "utf8");
+      }
+      try {
+        const qa = execSync(`python "${path.join(root, "scripts", "qa-dxf-geometry.py")}" "${qaDir}"`, {
+          encoding: "utf8", stdio: "pipe",
+        }).trim();
+        check(`QA geométrico del plot: ${qa.split("\n").pop()}`, qa.includes("geometría OK"));
+      } catch (e) {
+        const out_ = String(e.stdout ?? "") + String(e.stderr ?? "");
+        check(`QA geométrico del plot (${out_.split("\n").filter((l) => l.trim()).slice(0, 2).join(" | ").slice(0, 80)})`, false);
+      }
     } catch (e) {
       check(`ezdxf valida el archivo (${String(e).split("\n")[0].slice(0, 60)})`, false);
     }

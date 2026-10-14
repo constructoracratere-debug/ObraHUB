@@ -157,24 +157,48 @@ export function layoutFurniture(room: Room, doors: Door[], isPrincipal = false):
   return placed;
 }
 
-/** Hueco libre para la etiqueta nombre/área del espacio (centro → bordes). */
-export function labelSpot(room: Room, furniture: PlacedFurniture[]): { x: number; y: number } {
+/** Hueco libre para la etiqueta nombre/área del espacio (centro → bordes →
+ *  anillos). La caja por defecto cubre una etiqueta típica; con textos
+ *  largos o escala que agranda el piso de 2.5 mm el QUE LLAMA pasa el
+ *  tamaño REAL medido (wTxt/dTxt). Devuelve null si NO hay hueco: el
+ *  llamador decide cómo degradar (menos líneas), jamás se monta en silencio. */
+export function labelSpot(room: Room, furniture: PlacedFurniture[], wTxt = 1.2, dTxt = 0.6): { x: number; y: number } | null {
   const cx = room.x + room.width / 2;
   const cy = room.y + room.depth / 2;
-  const labelBox = (x: number, y: number): Rect => ({ x: x - 0.6, y: y - 0.3, w: 1.2, d: 0.6 });
+  const hw = wTxt / 2, hd = dTxt / 2;
+  const labelBox = (x: number, y: number): Rect => ({ x: x - hw, y: y - hd, w: wTxt, d: dTxt });
   const cands: Array<{ x: number; y: number }> = [
     { x: cx, y: cy },
-    { x: cx, y: room.y + 0.42 },
-    { x: cx, y: room.y + room.depth - 0.42 },
-    { x: room.x + 0.75, y: room.y + 0.45 },
-    { x: room.x + room.width - 0.75, y: room.y + room.depth - 0.45 },
-    { x: room.x + 0.75, y: room.y + room.depth - 0.45 },
-    { x: room.x + room.width - 0.75, y: room.y + 0.45 },
+    { x: cx, y: room.y + hd + 0.12 },
+    { x: cx, y: room.y + room.depth - hd - 0.12 },
+    { x: room.x + hw + 0.1, y: room.y + hd + 0.12 },
+    { x: room.x + room.width - hw - 0.1, y: room.y + room.depth - hd - 0.12 },
+    { x: room.x + hw + 0.1, y: room.y + room.depth - hd - 0.12 },
+    { x: room.x + room.width - hw - 0.1, y: room.y + hd + 0.12 },
   ];
   for (const c of cands) {
+    if (c.x - hw < room.x - 0.01 || c.x + hw > room.x + room.width + 0.01) continue; // etiqueta más ancha que el local
     if (!furniture.some((f) => intersects(labelBox(c.x, c.y), f, 0.05))) return c;
   }
-  return { x: cx, y: cy }; // espacio saturado: centro (la etiqueta manda)
+  // Barrido en ANILLOS determinista alrededor del centro: los candidatos
+  // fijos pueden estar TODOS bloqueados (iluminación en el centro + tomacorriente
+  // junto a la puerta + mobiliario en los bordes) — antes el fallback devolvía
+  // el centro y la etiqueta caía sobre el símbolo (colisión medida por el QA
+  // plot). Anillos de 0.15 a 0.9 en 8 direcciones: cubre el hueco libre más
+  // cercano en cuartos densos.
+  for (let ring = 1; ring <= 6; ring++) {
+    const rr = ring * 0.15;
+    for (let a = 0; a < 8; a++) {
+      const dx = Math.round(Math.cos((a * Math.PI) / 4) * rr * 1000) / 1000;
+      const dy = Math.round(Math.sin((a * Math.PI) / 4) * rr * 1000) / 1000;
+      const x = Math.min(Math.max(cx + dx, room.x + hw + 0.04), room.x + room.width - hw - 0.04);
+      const y = cy + dy;
+      if (y + hd > room.y + room.depth - 0.04 || y - hd < room.y + 0.04) continue;
+      if (x - hw < room.x - 0.01 || x + hw > room.x + room.width + 0.01) continue;
+      if (!furniture.some((f) => intersects(labelBox(x, y), f, 0.05))) return { x, y };
+    }
+  }
+  return null; // sin hueco para ESTE tamaño: el llamador degrada (menos líneas)
 }
 
 // ── Símbolos 2D (Ching §simbología) ─────────────────────────────────────────

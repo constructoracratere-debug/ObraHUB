@@ -1201,7 +1201,8 @@ function PlanSvg({ plan, onEdit, onlyLevel }: { plan: FloorPlan; onEdit: (next: 
       const doors = plan.doors.filter((d) => d.level === level);
       for (const r of rooms) {
         const placed = furnishRoom(out, r, doors, r.name.toLowerCase().includes("principal"));
-        spots.set(`${level}:${r.name}`, labelSpot(r, placed));
+        // labelSpot puede no hallar hueco (null): la pantalla usa el centro.
+        spots.set(`${level}:${r.name}`, labelSpot(r, placed) ?? { x: r.x + r.width / 2, y: r.y + r.depth / 2 });
       }
       fur.set(level, out);
     }

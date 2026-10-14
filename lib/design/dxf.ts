@@ -21,8 +21,8 @@
 
 import type { FloorPlan } from "./schema";
 import { PENS, plotMm, ANNOT, HATCH } from "./knowledge";
-import { sheetContents, type Sheet } from "./sheets";
-import { primsBounds, fitSheetScale, ELEC_SYMBOLS, HYDRO_SYMBOLS, type Prim } from "./views";
+import { sheetContents, SHEET_AVAIL_W, SHEET_AVAIL_H, type Sheet } from "./sheets";
+import { primsBounds, fitSheetScale, mepSymbols, ELEC_SYMBOLS, HYDRO_SYMBOLS, type Prim } from "./views";
 
 // Símbolos MEP: fuente única en views.ts (plano y leyenda comparten tabla).
 export { ELEC_SYMBOLS, HYDRO_SYMBOLS };
@@ -66,7 +66,7 @@ class DxfBuilder {
     const m = l.match(/^ESTRUCTURA-(COLUMNAS|VIGAS|LOSAS|CIMENTACION)$/);
     if (m) return "S-" + m[1];
     if (/^FACHADA/.test(l)) return "A-FACHADA";
-    if (/^(MUROS|CORTE|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|TEXTOS|COTAS|EJES|ROTULO|ROTULO-TXT)$/.test(l)) return "A-" + l;
+    if (/^(MUROS|CORTE|PUERTAS|VENTANAS|MOBILIARIO|SANITARIOS|TEXTOS|COTAS|EJES|ROTULO|ROTULO-TXT|ACABADOS)$/.test(l)) return "A-" + l;
     if (/^ESTRUCTURA/.test(l)) return "S-ELEMENTOS";
     if (/^ELECTRICO/.test(l)) return "I-ELECTRICO";
     if (/^HIDRO/.test(l)) return "I-HIDRAULICO";
@@ -75,17 +75,23 @@ class DxfBuilder {
 
   private layerOf(raw: string): string {
     const name = DxfBuilder.cad(raw);
-    // Especificación por capa: color (plantilla ISO 128) + linetype + grosor
-    // default + CLASE de plot (tabla CPNAA §4.3 → 370 real por entidad).
+    // Especificación por capa (guía §1): COLOR ACAD de identidad en pantalla
+    // + linetype + grosor default + CLASE de plot (tabla CPNAA §4.3 → 370
+    // real por entidad — el color NO controla la plumilla, el plot es B/N).
     const spec: { color: number; lt: Linetype; lw: number; cls: string } =
       /^(A-MUROS|A-CORTE)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
-      : /^(S-COLUMNAS|S-VIGAS|S-LOSAS|S-CIMENTACION|S-ELEMENTOS)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
-      : /^I-ELECTRICO$/.test(name) ? { color: 7, lt: "DASHED", lw: LW.thin, cls: "elec" }
-      : /^I-HIDRAULICO$/.test(name) ? { color: 7, lt: "DASHED", lw: LW.thin, cls: "hid" }
-      : /^A-EJES$/.test(name) ? { color: 7, lt: "CENTER", lw: LW.extra, cls: "ejes" }
-      : /^(A-TEXTOS|A-COTAS)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: LW.extra, cls: "text" }
+      : /^(S-COLUMNAS|S-VIGAS|S-LOSAS|S-CIMENTACION|S-ELEMENTOS)$/.test(name) ? { color: 8, lt: "CONTINUOUS", lw: LW.cut, cls: "cut" }
+      : /^I-ELECTRICO$/.test(name) ? { color: 2, lt: "DASHED", lw: LW.thin, cls: "elec" }
+      : /^I-HIDRAULICO$/.test(name) ? { color: 4, lt: "DASHED", lw: LW.thin, cls: "hid" }
+      : /^A-EJES$/.test(name) ? { color: 1, lt: "CENTER", lw: LW.extra, cls: "ejes" }
+      : /^(A-TEXTOS|A-COTAS)$/.test(name) ? { color: name === "A-COTAS" ? 3 : 7, lt: "CONTINUOUS", lw: LW.extra, cls: "text" }
+      : /^A-ACABADOS$/.test(name) ? { color: 9, lt: "CONTINUOUS", lw: LW.extra, cls: "text" }
       : /^(A-ROTULO|A-ROTULO-TXT)$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: name.startsWith("A-ROTULO-TXT") ? LW.thin : LW.profile, cls: "text" }
       : /^A-FACHADA$/.test(name) ? { color: 7, lt: "CONTINUOUS", lw: LW.profile, cls: "cubt" }
+      : /^A-PUERTAS$/.test(name) ? { color: 6, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" }
+      : /^A-VENTANAS$/.test(name) ? { color: 5, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" }
+      : /^A-MOBILIARIO$/.test(name) ? { color: 9, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" }
+      : /^A-SANITARIOS$/.test(name) ? { color: 4, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" }
       : { color: 7, lt: "CONTINUOUS", lw: LW.profile, cls: "profile" };
     if (!this.layers.has(name)) this.layers.set(name, spec);
     return name;
@@ -102,13 +108,18 @@ class DxfBuilder {
     this.entities.push(`0\nLINE\n8\n${l}${lt ? `\n6\n${lt}` : ""}${lw > 0 ? `\n370\n${lw}` : ""}\n10\n${f(x1)}\n20\n${f(y1)}\n11\n${f(x2)}\n21\n${f(y2)}\n`);
   }
 
+  /** LWPOLYLINE (moderna, R13+): un solo registro con vértices 10/20 — los
+   *  visores web y CAD actuales la renderizan SIEMPRE (la POLYLINE clásica
+   *  con VERTEX/SEQEND se pierde en algunos viewers: "el DXF llega sin
+   *  muros" era eso). Grosor 370 por entidad como toda línea. */
   polyline(rawLayer: string, pts: Array<[number, number]>, closed = false) {
     if (pts.length < 2) return;
     const l = this.layerOf(rawLayer);
     const lw = this.lw370(l);
-    let s = `0\nPOLYLINE\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n66\n1\n70\n${closed ? 1 : 0}\n10\n0.0\n20\n0.0\n30\n0.0\n`;
-    for (const [x, y] of pts) s += `0\nVERTEX\n8\n${l}\n10\n${f(x)}\n20\n${f(y)}\n30\n0.0\n`;
-    s += `0\nSEQEND\n8\n${l}\n`;
+    // Subclass markers (100) obligatorios en AC1021: ezdxf/AutoCAD los
+    // exigen para LWPOLYLINE ("missing AcDbPolyline subclass" sin ellos).
+    let s = `0\nLWPOLYLINE\n100\nAcDbEntity\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n100\nAcDbPolyline\n90\n${pts.length}\n70\n${closed ? 1 : 0}\n`;
+    for (const [x, y] of pts) s += `10\n${f(x)}\n20\n${f(y)}\n`;
     this.entities.push(s);
   }
 
@@ -173,21 +184,26 @@ class DxfBuilder {
     this.text(RT, rx0 + 8, y + 3, 2.6, "CONSTRUCTION OS · CRATERE S.A.S.");
     this.text(RT, rx1 - 48, y + 3, 2.6, fields.fecha);
 
-    // ── PROYECTO (wrap por palabras, sin cortes) + UBICACIÓN.
+    // ── PROYECTO (wrap+shrink por palabras, sin cortes NI desbordes) +
+    //    UBICACIÓN (idem — antes una sola línea larga invadía el marco).
     row(26);
     this.text(RT, rx0 + 6, y + 18.5, 2.5, "PROYECTO");
-    wrapText(fields.proyecto.toUpperCase(), 72, 2).forEach((ln, i) =>
-      this.text(RT, rx0 + 6, y + 9.5 - i * 4.6, 3.6, ln));
+    const pj = fitWrap(fields.proyecto.toUpperCase(), 68, 2);
+    pj.lines.slice(0, 2).forEach((ln, i) =>
+      this.text(RT, rx0 + 6, y + 9.5 - i * (4.6 * pj.hScale), 3.6 * pj.hScale, ln));
     row(16);
     this.text(RT, rx0 + 6, y + 9.5, 2.5, "UBICACIÓN");
-    this.text(RT, rx0 + 6, y + 3, 3.2, fields.ubicacion.toUpperCase());
+    const ub = fitWrap(fields.ubicacion.toUpperCase(), 77, 2);
+    ub.lines.slice(0, 2).forEach((ln, i) =>
+      this.text(RT, rx0 + 6, y + 6.2 - i * (4 * ub.hScale), 3.2 * ub.hScale, ln));
 
-    // ── Título de lámina (el plano que soy) — wrap, JAMÁS truncado.
+    // ── Título de lámina (el plano que soy) — wrap+shrink, JAMÁS truncado.
     row(34);
     this.text(RT, rx0 + 6, y + 21, 2.5, "CONTENIDO");
     this.text(RT, rx0 + 6, y + 9, 4.2, fields.codigo);
-    wrapText(fields.titulo, 88, 3).forEach((ln, i) =>
-      this.text(RT, rx0 + 6, y + 3.5 - i * 3.6, 2.8, ln));
+    const tt = fitWrap(fields.titulo, 88, 3);
+    tt.lines.slice(0, 3).forEach((ln, i) =>
+      this.text(RT, rx0 + 6, y + 3.5 - i * (3.6 * tt.hScale), 2.8 * tt.hScale, ln));
 
     // ── Grilla de datos: ESCALA | FECHA ya arriba; DIBUJÓ/REVISÓ/UNIDADES.
     const gy = y;
@@ -199,7 +215,11 @@ class DxfBuilder {
     row(14);
     this.text(RT, rx0 + 6, y + 9.5, 2.5, "DIBUJÓ");
     this.text(RT, rx0 + 60, y + 9.5, 2.5, "REVISÓ");
-    this.text(RT, rx0 + 6, y + 2.5, 3.0, fields.dibujo.slice(0, 22));
+    // DIBUJÓ completo: wrap+shrink en la media columna (≈82 mm / 2.1 mm por
+    // carácter) — antes slice(0,22) cortaba en silencio.
+    const db = fitWrap(fields.dibujo.toUpperCase(), 25, 2);
+    db.lines.slice(0, 2).forEach((ln, i) =>
+      this.text(RT, rx0 + 6, y + 4.6 - i * (3.4 * db.hScale), 3.0 * db.hScale, ln));
     this.text(RT, rx0 + 60, y + 2.5, 2.6, "PENDIENTE DE REVISIÓN");
 
     // ── Lámina N de M + código grande abajo.
@@ -234,10 +254,12 @@ class DxfBuilder {
   }
 
   build(): string {
-    // HEADER R2007 (AC1021): mm de lámina a 1:1 (INSUNITS 4). Desde R2007
-    // el DXF es UTF-8 NATIVO — los acentos (Á, É, Ñ) viajan bien; en R2000
-    // (cp1252) salían como "BOGOTÃ…" en AutoCAD.
-    let out = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1021\n9\n$INSUNITS\n70\n4\n9\n$LTSCALE\n40\n1.0\n9\n$MEASUREMENT\n70\n1\n0\nENDSEC\n";
+    // HEADER R2007 (AC1021): mm de lámina a 1:1 (INSUNITS 4) y GROSORES
+    // VISIBLES al abrir ($LWDISPLAY 1 — sin esto AutoCAD muestra todo
+    // hairline y el archivo "no tiene plumillas" aunque los 370 existan).
+    // Desde R2007 el DXF es UTF-8 NATIVO — los acentos (Á, É, Ñ) viajan
+    // bien; en R2000 (cp1252) salían como "BOGOTÃ…" en AutoCAD.
+    let out = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1021\n9\n$INSUNITS\n70\n4\n9\n$LWDISPLAY\n290\n1\n9\n$LTSCALE\n40\n1.0\n9\n$MEASUREMENT\n70\n1\n0\nENDSEC\n";
     // TABLES: LTYPE con patrón real + LAYER con color/linetype/grosor (370).
     out += "0\nSECTION\n2\nTABLES\n";
     out += "0\nTABLE\n2\nLTYPE\n70\n3\n";
@@ -271,23 +293,34 @@ function f(n: number): string {
   return (Math.round(n * 1000) / 1000).toFixed(3);
 }
 
-/** Divide un texto en líneas que caben en `maxChars` sin cortar palabras
- *  (wrap del rótulo — review #13: los títulos jamás se truncan). */
-function wrapText(s: string, maxChars: number, maxLines = 2): string[] {
-  const words = s.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    const cand = cur ? `${cur} ${w}` : w;
-    if (cand.length > maxChars && cur) { lines.push(cur); cur = w; } else cur = cand;
+/** Divide un texto en líneas que caben en `maxChars` sin cortar palabras.
+ *  Si necesita más de `maxLines`, NO funde líneas (desbordaría el rótulo):
+ *  reduce el ancho objetivo y re-envuelve — devuelve las líneas y el factor
+ *  de altura que las hace caber (review de plot: los títulos JAMÁS se
+ *  truncan ni se salen del cajetín). */
+function fitWrap(s: string, maxChars: number, maxLines = 2): { lines: string[]; hScale: number } {
+  const wrap = (width: number) => {
+    const words = s.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      const cand = cur ? `${cur} ${w}` : w;
+      if (cand.length > width && cur) { lines.push(cur); cur = w; } else cur = cand;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  };
+  let width = maxChars;
+  let lines = wrap(width);
+  let guard = 0;
+  while (lines.length > maxLines && guard++ < 24) {
+    width = Math.ceil(width * 1.18);
+    lines = wrap(width);
   }
-  if (cur) lines.push(cur);
-  if (lines.length > maxLines) {
-    const kept = lines.slice(0, maxLines - 1);
-    kept.push(lines.slice(maxLines - 1).join(" "));
-    return kept;
-  }
-  return lines;
+  // Palabra individual más larga que el ancho final → escala por ella.
+  const longest = Math.max(...lines.map((l) => l.length), 1);
+  const hScale = Math.min(1, maxChars / longest);
+  return { lines, hScale };
 }
 
 const GAP_SHEET = 50; // mm entre láminas del set
@@ -325,9 +358,10 @@ function emitSheets(plan: FloorPlan, sheets: Sheet[], opts: { fecha?: string }):
     const content: Prim[] = sheet.prims;
     const b = primsBounds(content);
     const sx = b.maxX - b.minX, sy = b.maxY - b.minY; // metros de modelo
-    // Área útil: marco 10mm, rótulo 185mm, aire 12mm.
-    const availW = 700 - 2 * 10 - 185 - 2 * DRAW_PAD;
-    const availH = 500 - 2 * 10 - 2 * DRAW_PAD;
+    // Área útil: marco 10mm, rótulo 185mm, aire 12mm — MISMA medida que usa
+    // el motor de láminas para componer (SHEET_AVAIL_* en sheets.ts).
+    const availW = SHEET_AVAIL_W;
+    const availH = SHEET_AVAIL_H;
     // Escala con TAMAÑOS DE PAPEL FINALES (texto ya clamped al piso
     // 2.5 mm): el fit no puede mentir tras agrandar la anotación.
     const den = fitSheetScale(content, availW, availH);
@@ -392,20 +426,17 @@ function emitSheets(plan: FloorPlan, sheets: Sheet[], opts: { fecha?: string }):
     }
 
     // ── Las láminas de planta (A-01*) llevan el MEP de SU nivel
-    //    (RETIE/RAS): círculos + inicial.
+    //    (RETIE/RAS): círculo + inicial CENTRADA (antes la letra nacía abajo-
+    //    izquierda del círculo y rozaba etiquetas). Las posiciones vienen del
+    //    SOLVER (mepSymbols): símbolos separados entre sí, encerrados en su
+    //    local — la misma fuente que usa el plan para esquivarlos.
+    //    A-06 (acabados) NO lleva MEP: su lámina es el acabado, limpia (§2.4).
     if (sheet.code.startsWith("A-01")) {
-      const EL = "ELECTRICO", HY = "HIDROSANITARIO";
-      for (const p of plan.electrical?.points ?? []) {
-        if (p.level !== lvl) continue;
-        const [sym] = ELEC_SYMBOLS[p.kind] ?? ["?"];
-        d.circle(EL, X(p.x), Y(p.y), Math.max(0.09 * k, 1.3));
-        d.text(EL, X(p.x) - 0.9, Y(p.y) - 0.75, ANNOT.symbolTextMm, sym);
-      }
-      for (const p of plan.hydro?.points ?? []) {
-        if (p.level !== lvl) continue;
-        const [sym] = HYDRO_SYMBOLS[p.kind] ?? ["H"];
-        d.circle(HY, X(p.x), Y(p.y), Math.max(0.1 * k, 1.4));
-        d.text(HY, X(p.x) - 0.9, Y(p.y) - 0.75, ANNOT.symbolTextMm, sym);
+      for (const s of mepSymbols(plan, lvl)) {
+        const l = s.disc === "E" ? "ELECTRICO" : "HIDROSANITARIO";
+        d.circle(l, X(s.x), Y(s.y), Math.max(s.r * k, 1.3));
+        const h = ANNOT.symbolTextMm;
+        d.text(l, X(s.x) - (s.letter.length * h * 0.7) / 2, Y(s.y) - h * 0.5, h, s.letter);
       }
     }
   });

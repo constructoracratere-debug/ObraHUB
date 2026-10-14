@@ -22,13 +22,25 @@ Disciplina es un código de un carácter. Tabla canónica de ObraHub
 | Capa | Disciplina | Grosor (mm) | Linetype | Color ACAD | Uso |
 |---|---|---|---|---|---|
 | `A-MUROS`, `A-CORTE` | A | **0.70** | CONTINUOUS | 7 | Elementos cortados a 1.20 m — línea más gruesa del plano. El ACHURADO del poché vive EN A-MUROS (370 propio de la fila achu): apagar muros apaga su hatch |
-| `A-PUERTAS`, `A-VENTANAS`, `A-MOBILIARIO`, `A-SANITARIOS`, `A-FACHADA`, `A-ROTULO` | A | 0.35 | CONTINUOUS | variable | Perfiles visos no cortados |
+| `A-PUERTAS` | A | 0.35 | CONTINUOUS | 6 | Hoja + arco de giro |
+| `A-VENTANAS` | A | 0.35 | CONTINUOUS | 5 | Triple línea en el vano |
+| `A-MOBILIARIO` | A | 0.35 | CONTINUOUS | 9 | Muebles (solver anti-amontone) |
+| `A-SANITARIOS` | A | 0.35 | CONTINUOUS | 4 | Aparatos sanitarios (mismo azul del hidráulico) |
+| `A-FACHADA`, `A-ROTULO` | A | 0.35 | CONTINUOUS | 7 | Perfiles visos no cortados / rótulo |
+| `A-ACABADOS` | A | 0.13 | CONTINUOUS | 9 | Tramas de piso (lámina A-06) |
 | `I-ELECTRICO` | I | 0.25 | DASHED | 2 | MEP eléctrico (RETIE) |
 | `I-HIDRAULICO` | I | 0.25 | DASHED | 4 | MEP hidrosanitario (RAS) |
 | `S-COLUMNAS`, `S-VIGAS`, `S-LOSAS`, `S-CIMENTACION` | S | 0.70 | CONTINUOUS | 8 | Estructura POR TIPO (control fino en CAD) |
 | `A-EJES` | A | 0.13 | **CENTER** (punto-raya) | 1 | Retícula de ejes: centros de columnas, vigas, muros |
 | `A-COTAS` | A | 0.13 | CONTINUOUS | 3 | Cotas y líneas de extensión |
 | `A-TEXTOS` | A | 0.13 | CONTINUOUS | 7 | Nombres de espacio, notas, áreas |
+
+**Color de capa = identidad en PANTALLA; grosor 370 = tinta en PAPEL.** El
+color no controla la plumilla: el plot B/N va por los 370 de entidad (tabla
+CPNAA §4.3) — con estilos de trazado monochrome.ctb o by-layer la impresión
+sale en negro con su jerarquía, y en pantalla cada disciplina se reconoce
+por color (práctica ISO 13567). `$LWDISPLAY=1` en el header para que el
+archivo MUESTRE los grosores al abrirlo en AutoCAD/BricsCAD/LibreCAD.
 
 **Capas GLOBALES por categoría — regla de uso real (review #11)**: el nivel
 NO crea capas (`A-MUROS-N2` PROHIBIDO). Apagar `A-MUROS` debe apagar TODOS
