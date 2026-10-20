@@ -211,18 +211,56 @@ check("IFCOPENINGELEMENT aridad IFC4 (9 atributos: PredefinedType .OPENING.)",
   openingsRowsAll().every((e) => /\$,\s*\.OPENING\.\s*$/.test(e.args)));
 function openingsRowsAll() { return [...ent.values()].filter((e) => e.type === "IFCOPENINGELEMENT"); }
 
+// ── Review de exportaciones: GlobalIds ESTABLES ante edición ajena ─────────
+// Editar UN cuarto no puede desplazar los IDs de elementos no relacionados
+// (antes el contador global los corría a todos — emparejar revisiones era azar).
+check("GlobalIds estables: editar 1 cuarto no mueve los IDs ajenos", (() => {
+  const guidsPorNombre = (texto) => {
+    const map = new Map();
+    for (const m of texto.matchAll(/= IFC\w+\('([^']{22})',#\d+,'([^']*)'/g)) map.set(m[2].trim(), m[1]);
+    return map;
+  };
+  const a = guidsPorNombre(ifc);
+  const editado = planToIfc(sanitizeFloorPlan({
+    ...plan,
+    rooms: plan.rooms.map((r) => (r.name === plan.rooms[plan.rooms.length - 1].name ? { ...r, name: "Cuarto Editado QA" } : r)),
+  }));
+  const b = guidsPorNombre(editado);
+  let iguales = 0, distintos = 0;
+  for (const [nombre, gid] of a) {
+    if (!b.has(nombre)) continue; // elementos del cuarto editado: cambian, es correcto
+    if (b.get(nombre) === gid) iguales++; else distintos++;
+  }
+  return iguales > 30 && distintos === 0;
+})());
+
 // ── Validador INDEPENDIENTE (IfcOpenShell — EXPRESS real, no regex propio) ──
+// OBLIGATORIO (review de exportaciones): un verde sin validación externa no
+// prueba nada. Si falta python/ifcopenshell el check FALLA — escapar exige
+// SKIP_IFCOPENSHELL=1 explícito (consciente, no por accidente).
 if (process.env.SKIP_IFCOPENSHELL !== "1") {
   let hasIfc = false;
-  try { execSync(`python -c "import ifcopenshell"`, { stdio: "pipe" }); hasIfc = true; } catch { /* soft skip */ }
+  try { execSync(`python -c "import ifcopenshell"`, { stdio: "pipe" }); hasIfc = true; } catch { /* abajo falla */ }
   if (!hasIfc) {
-    console.log("ℹ ifcopenshell no instalado — validación EXPRESS externa omitida (soft skip)");
+    check("ifcopenshell DISPONIBLE para validación independiente (instálalo: pip install ifcopenshell — o SKIP_IFCOPENSHELL=1 consciente)", false);
   } else {
     try {
       const { writeFileSync } = await import("node:fs");
       const dir = path.join(process.cwd(), ".tmp-ifc");
       writeFileSync(path.join(dir, "zcheck.ifc"), ifc, "utf8");
-      writeFileSync(path.join(dir, "validate_external.py"), [
+      // Suite completa de QA IFC: schema validate + GUID encoder vs referencia
+      // + unicidad (archivo y entre archivos) + espacial + vanos + unidades.
+      try {
+        const qa = execSync(`python "${path.join(process.cwd(), "scripts", "qa-ifc.py")}" "${dir}"`, {
+          encoding: "utf8", stdio: "pipe",
+        }).trim();
+        check(`qa-ifc (schema + GUID + vanos + unidades): ${qa.split("\n").pop()}`, qa.includes("IFC validado"));
+      } catch (e) {
+        const out_ = (String(e.stdout ?? "") + String(e.stderr ?? "")).split("\n").filter((l) => l.trim());
+        check(`qa-ifc (${out_.slice(-2).join(" | ").slice(0, 110)})`, false);
+      }
+      const { writeFileSync: wf } = await import("node:fs");
+      wf(path.join(dir, "validate_external.py"), [
         "import sys, re, ifcopenshell, ifcopenshell.guid as G",
         "from ifcopenshell import ifcopenshell_wrapper as W",
         `f = ifcopenshell.open(sys.argv[1])`,

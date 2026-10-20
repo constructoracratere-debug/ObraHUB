@@ -253,9 +253,54 @@ export function gateInstallations(plan: FloorPlan): Gate {
   return { stage: "installations", title: "Puerta 3 · Instalaciones", checks };
 }
 
+/** Puerta de GEOMETRÍA SANEADA (review de exportaciones): el sanitizador
+ *  ajusta en silencio — esta gate hace que lo ajustado se VEA y que cualquier
+ *  residuo (solape, cuarto fuera de envolvente, MEP fuera del local) salga
+ *  en el reporte en vez de dibujarse como si nada. */
+export function gateSanitized(plan: FloorPlan): Gate {
+  const { width: W, depth: D } = plan.outline;
+  const fuera = plan.rooms.filter((r) => r.x < -0.01 || r.y < -0.01 || r.x + r.width > W + 0.01 || r.y + r.depth > D + 0.01);
+  const solapes: string[] = [];
+  for (let i = 0; i < plan.rooms.length; i++) {
+    for (let j = i + 1; j < plan.rooms.length; j++) {
+      const a = plan.rooms[i], b = plan.rooms[j];
+      if (a.level !== b.level) continue;
+      const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+      const oy = Math.min(a.y + a.depth, b.y + b.depth) - Math.max(a.y, b.y);
+      if (ox > 0.05 && oy > 0.05) solapes.push(`${a.name}×${b.name} ${ox.toFixed(2)}×${oy.toFixed(2)} m`);
+    }
+  }
+  const mep = [...(plan.electrical?.points ?? []), ...(plan.hydro?.points ?? [])];
+  const mepFuera = mep.filter((p) => p.x < -0.01 || p.x > W + 0.01 || p.y < -0.01 || p.y > D + 0.01);
+  const checks: GateCheck[] = [
+    {
+      id: "dentro-envolvente",
+      label: "Espacios dentro de la envolvente",
+      pass: fuera.length === 0,
+      detail: fuera.length === 0 ? `${plan.rooms.length} espacios dentro del outline` : `${fuera.length} fuera: ${fuera.map((r) => r.name).slice(0, 4).join(", ")}`,
+      ref: "Sanitizador — clamps",
+    },
+    {
+      id: "sin-solapes",
+      label: "Sin solapes entre espacios",
+      pass: solapes.length === 0,
+      detail: solapes.length === 0 ? "Cero traslapes residuales" : `${solapes.length} solape(s): ${solapes.slice(0, 3).join(" · ")}`,
+      ref: "Sanitizador — resolveOverlaps",
+    },
+    {
+      id: "mep-dentro",
+      label: "Puntos MEP dentro de la envolvente",
+      pass: mepFuera.length === 0,
+      detail: mepFuera.length === 0 ? `${mep.length} puntos dentro` : `${mepFuera.length} fuera del outline`,
+      ref: "RETIE/RAS — ubicación",
+    },
+  ];
+  return { stage: "sanitized", title: "Puerta 0 · Geometría saneada", checks };
+}
+
 /** Todas las gates acumuladas del expediente. */
 export function allGates(plan: FloorPlan): Gate[] {
-  return [gateDraft(plan), gateAdapt(plan), gateInstallations(plan)];
+  return [gateSanitized(plan), gateDraft(plan), gateAdapt(plan), gateInstallations(plan)];
 }
 
 export function gateFails(gate: Gate): number {

@@ -142,6 +142,48 @@ export type RevisionLog = {
   at: string; // ISO
 };
 
+/** Reporte legible de lo que el SANITIZADOR corrigió del boceto del LLM
+ *  (review de exportaciones: un plano ajustado en silencio no puede verse
+ *  como autoritativo — el usuario debe saber qué se movió). Determinista:
+ *  compara el raw contra el plan saneado, mismos índices. */
+export function sanitizerFixes(raw: unknown, plan: FloorPlan): string[] {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  const fixes: string[] = [];
+  // Cuartos movidos/ajustados (clamps + resolveOverlaps).
+  const rawRooms = Array.isArray(o.rooms) ? (o.rooms as Array<Record<string, unknown>>) : [];
+  let moved = 0;
+  rawRooms.forEach((r0, i) => {
+    const r = plan.rooms[i];
+    if (!r) return;
+    const dx = Math.abs(((r0.x as number) ?? r.x) - r.x);
+    const dy = Math.abs(((r0.y as number) ?? r.y) - r.y);
+    const dw = Math.abs(((r0.width as number) ?? r.width) - r.width);
+    const dd = Math.abs(((r0.depth as number) ?? r.depth) - r.depth);
+    if (dx + dy + dw + dd > 0.06) moved++;
+  });
+  if (moved > 0) fixes.push(`${moved} espacio${moved > 1 ? "s" : ""} reubicado${moved > 1 ? "s" : ""} para eliminar solapes y caber en la envolvente`);
+  // Puertas: el sanitizador DERIVA posición/eje/giro (las del LLM no se dibujan tal cual).
+  const rawDoors = Array.isArray(o.doors) ? (o.doors as unknown[]).length : 0;
+  if (rawDoors !== plan.doors.length) {
+    fixes.push(`${rawDoors} puerta(s) propuestas → ${plan.doors.length} válidas sobre aristas reales (posición y giro derivados de la geometría)`);
+  } else if (rawDoors > 0) {
+    fixes.push(`${plan.doors.length} puertas re-ancladas a su arista compartida (eje y giro derivados, no los del modelo)`);
+  }
+  // Ventanas fuera de su cuarto descartadas.
+  const rawWins = Array.isArray(o.windows) ? (o.windows as unknown[]).length : 0;
+  if (rawWins > plan.windows.length) fixes.push(`${rawWins - plan.windows.length} ventana(s) descartada(s): su cuarto no existe o no da a esa fachada`);
+  // MEP fuera del outline (clamped a la envolvente).
+  const mepRaw = [
+    ...(Array.isArray((o.electrical as Record<string, unknown>)?.points) ? (o.electrical as any).points : []),
+    ...(Array.isArray((o.hydro as Record<string, unknown>)?.points) ? (o.hydro as any).points : []),
+  ] as Array<Record<string, unknown>>;
+  const mepOut = mepRaw.filter(
+    (p) => (p.x as number) < -0.01 || (p.x as number) > plan.outline.width + 0.01 || (p.y as number) < -0.01 || (p.y as number) > plan.outline.depth + 0.01,
+  ).length;
+  if (mepOut > 0) fixes.push(`${mepOut} punto(s) eléctrico/hidráulico(s) trajinado(s) al interior de la envolvente`);
+  return fixes;
+}
+
 export type SiteFicha = {
   city: string;
   department: string;

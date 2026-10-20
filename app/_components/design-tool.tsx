@@ -122,7 +122,10 @@ class DesignErrorBoundary extends React.Component<
 function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string; initialPrompt?: string }) {
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
   // 🖼️ Referencia visual del cliente para el boceto (data URL ≤1024px).
-  const [referenceImage, setReferenceImage] = useState<string | null>(null);
+  // Referencias visuales del cliente (hasta 10): planos, fotos de lo que
+  // imagina, imágenes de la mente del constructor — el arquitecto las estudia
+  // TODAS y sintetiza el patrón común (pedido explícito del operador).
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
   // Revision del MODELO PARAMETRICO (comportamiento Revit): cada edicion en
   // planta (arrastrar vano/muro) bump la revision — el IFC/3D, cotas, cortes,
   // takeoff y pasaporte se regeneran deterministamente desde el mismo plan.
@@ -288,7 +291,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const runDraft = async () => {
     setBusy(1); setError(null);
     try {
-      const data = await callWithRetries({ stage: "draft", prompt, siteMemo, ...(referenceImage ? { referenceImages: [referenceImage] } : {}) });
+      const data = await callWithRetries({ stage: "draft", prompt, siteMemo, ...(referenceImages.length ? { referenceImages } : {}) });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`🏛️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(2);
@@ -519,7 +522,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             siteMemo={siteMemo} plan={plan} constructorMemo={constructorMemo}
             civilMemo={civilMemo} equipment={equipment}
             busy={busy} onRun={() => runStage(stage)}
-            referenceImage={referenceImage} setReferenceImage={setReferenceImage}
+            referenceImages={referenceImages} setReferenceImages={setReferenceImages}
           />
           {providerInfo && <p className="text-[10px] text-slate-500">⚡ {providerInfo}</p>}
           {error && (
@@ -770,7 +773,7 @@ function StagePanel(props: {
   siteMemo: SiteMemo | null; plan: FloorPlan | null;
   constructorMemo: ConstructorMemo | null; civilMemo: CivilMemo | null;
   equipment: Equipment; busy: Stage | null; onRun: () => void;
-  referenceImage: string | null; setReferenceImage: (v: string | null) => void;
+  referenceImages: string[]; setReferenceImages: (v: string[]) => void;
 }) {
   const { stage, busy, onRun } = props;
   const running = busy === stage;
@@ -820,44 +823,67 @@ function StagePanel(props: {
             placeholder="Apartamento 2 alcobas de 58 m² en Bogotá…"
             className="w-full resize-none rounded-lg border border-white/10 bg-[#0a1120] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-blue-500/50 focus:outline-none"
           />
-          {/* 🖼️ Referencia visual del cliente — "lo que tengo en la mente" */}
+          {/* 🖼️ Referencias visuales del cliente (hasta 10) — planos, fotos,
+              "la mente del constructor": el arquitecto las estudia TODAS y
+              sintetiza el patrón común (distribución, proporciones, estilo). */}
           <div className="mt-2">
-            {props.referenceImage ? (
-              <div className="relative overflow-hidden rounded-lg border border-violet-500/30">
-                <img src={props.referenceImage} alt="Referencia del cliente" className="h-28 w-full object-cover" />
-                <button
-                  type="button" onClick={() => props.setReferenceImage(null)}
-                  className="absolute right-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white/90 hover:bg-red-600/80"
-                >
-                  ✕ quitar
-                </button>
-                <p className="bg-violet-500/15 px-2 py-1 text-[10px] text-violet-200">
-                  🖼️ El arquitecto usará esta referencia (distribución, proporciones, estilo)
-                </p>
+            {props.referenceImages.length > 0 && (
+              <div className="mb-2 grid grid-cols-5 gap-1.5">
+                {props.referenceImages.map((img, i) => (
+                  <div key={i} className="relative overflow-hidden rounded-lg border border-violet-500/30">
+                    <img src={img} alt={`Referencia ${i + 1}`} className="h-16 w-full object-cover" />
+                    <button
+                      type="button" onClick={() => props.setReferenceImages(props.referenceImages.filter((_, j) => j !== i))}
+                      className="absolute right-1 top-1 rounded bg-black/70 px-1 text-[9px] font-semibold text-white/90 hover:bg-red-600/80"
+                    >
+                      ✕
+                    </button>
+                    <span className="absolute bottom-0.5 left-1 rounded bg-black/60 px-1 text-[8px] text-white/70">{i + 1}</span>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/[0.05] px-3 py-2.5 text-[11px] text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/10">
-                🖼️ Subir imagen de referencia (plano o foto de lo que imaginas)
-                <input
-                  type="file" accept="image/*" className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.currentTarget.value = "";
-                    if (!f || !f.type.startsWith("image/")) return;
-                    // Redimensiona en el cliente (≤1024px, JPEG) — payload liviano.
+            )}
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/[0.05] px-3 py-2.5 text-[11px] text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/10">
+              🖼️ Subir referencias ({props.referenceImages.length}/10) — planos o fotos de lo que imaginas
+              <input
+                type="file" accept="image/*" multiple className="hidden"
+                onChange={async (e) => {
+                  const files = [...(e.target.files ?? [])].filter((f) => f.type.startsWith("image/"));
+                  e.currentTarget.value = "";
+                  if (files.length === 0) return;
+                  const room = 10 - props.referenceImages.length;
+                  if (room <= 0) { alert("Máximo 10 referencias — quita alguna para subir más."); return; }
+                  if (files.length > room) alert(`Solo caben ${room} más (máx. 10): se tomarán las primeras ${room}.`);
+                  // Redimensiona + comprime EN EL CLIENTE (≤1024px JPEG, con
+                  // re-compresión adaptativa): 10 imágenes viajan livianas y
+                  // el cuerpo total no rompe el límite del despliegue (~4 MB).
+                  const encode = (img: HTMLImageElement, maxPx: number, q: number) => {
+                    const k = Math.min(1, maxPx / Math.max(img.width, img.height));
+                    const c = document.createElement("canvas");
+                    c.width = Math.max(1, Math.round(img.width * k));
+                    c.height = Math.max(1, Math.round(img.height * k));
+                    c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+                    return c.toDataURL("image/jpeg", q);
+                  };
+                  const loaded = await Promise.all(files.slice(0, room).map((f) => new Promise<string | null>((res) => {
                     const img = new Image();
                     img.onload = () => {
-                      const k = Math.min(1, 1024 / Math.max(img.width, img.height));
-                      const c = document.createElement("canvas");
-                      c.width = Math.round(img.width * k);
-                      c.height = Math.round(img.height * k);
-                      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
-                      props.setReferenceImage(c.toDataURL("image/jpeg", 0.78));
+                      let url = encode(img, 1024, 0.72);
+                      if (url.length > 260_000) url = encode(img, 832, 0.66); // misma img en memoria
+                      if (url.length > 320_000) url = encode(img, 704, 0.62);
+                      res(url);
                     };
+                    img.onerror = () => res(null);
                     img.src = URL.createObjectURL(f);
-                  }}
-                />
-              </label>
+                  })));
+                  props.setReferenceImages([...props.referenceImages, ...loaded.filter((x): x is string => !!x)]);
+                }}
+              />
+            </label>
+            {props.referenceImages.length > 0 && (
+              <p className="mt-1.5 rounded-lg bg-violet-500/15 px-2 py-1 text-[10px] text-violet-200">
+                🖼️ El arquitecto estudiará las {props.referenceImages.length} referencia{props.referenceImages.length > 1 ? "s" : ""} y sintetizará el patrón común (distribución, proporciones, estilo)
+              </p>
             )}
           </div>
           {props.siteMemo && (

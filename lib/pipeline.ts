@@ -203,15 +203,21 @@ export type ScheduleTask = {
 };
 
 const DAY = 86400000;
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+// Fecha LOCAL (no toISOString: en Colombia UTC−5 la tarde/noche rueda al día
+// siguiente en UTC y los cronogramas generados de noche arrancaban MARTES —
+// bug real de usuario, cazado por el verify corrido a las 23:00).
+const pad = (n: number) => String(n).padStart(2, "0");
+const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
 
 /** Presupuesto → cronograma con dependencias reales (ruta crítica constructiva). */
 export function budgetToSchedule(budget: APUBudget, startFrom?: Date): ScheduleTask[] {
-  // Lunes siguiente al lunes de la próxima semana — arranque limpio.
+  // Lunes siguiente (hoy lunes → el próximo) al MEDIODÍA local — arranque
+  // limpio e inmune al huso horario.
   const start = startFrom ?? (() => {
     const d = new Date();
-    const monday = addDays(d, ((8 - d.getDay()) % 7 || 7));
+    const noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    const monday = addDays(noon, ((8 - noon.getDay()) % 7 || 7));
     return monday;
   })();
 

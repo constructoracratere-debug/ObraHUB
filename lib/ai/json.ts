@@ -85,7 +85,7 @@ export async function llmJson<T = unknown>(
       content: params.images?.length
         ? [
             { type: "text" as const, text: params.user },
-            ...params.images.slice(0, 3).map((url) => ({ type: "image_url" as const, image_url: { url } })),
+            ...params.images.slice(0, 10).map((url) => ({ type: "image_url" as const, image_url: { url } })),
           ]
         : params.user,
     },

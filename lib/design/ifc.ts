@@ -25,6 +25,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
    *  trabajan así; el export/descarga lleva zapatas y contrapiso). */
   const FOUND = opts.includeFoundations !== false;
   guidCounter = 0; // reproducibilidad: cada generación parte de cero
+  guidSeen.clear(); // los IDs de ESTA generación no ven los de la anterior
   // Identidad PERSISTENTE del proyecto (review #12): sin esto, Project/Site/
   // Building compartían GlobalId entre proyectos distintos (semillas fijas).
   guidScope = `${plan.name}|${plan.outline.width}x${plan.outline.depth}|L${plan.levels}|${plan.floorToFloor}|${plan.site?.city ?? ""}`;
@@ -78,15 +79,22 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
   const org = ent("ORG", (n) => `#${n}= IFCORGANIZATION($,'Cratere S.A.S. — ObraHub',$,$,$);`);
   const pando = ent("PANDO", (n) => `#${n}= IFCPERSONANDORGANIZATION(#${person},#${org},$);`);
   const app = ent("APP", (n) => `#${n}= IFCAPPLICATION(#${org},'1.0','ObraHub Diseño IA','ObraHub-IA');`);
-  const owner = ent("OWNER", (n) => `#${n}= IFCOWNERHISTORY(#${pando},#${app},$,'ADDED',$,${pando},#${app},${epoch});`);
+  const owner = ent("OWNER", (n) => `#${n}= IFCOWNERHISTORY(#${pando},#${app},$,.ADDED.,$,#${pando},#${app},${epoch});`);
 
   const lengthUnit = ent("LU", (n) => `#${n}= IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);`);
   const areaUnit = ent("AU", (n) => `#${n}= IFCSIUNIT(*,.AREAUNIT.,$,.SQUARE_METRE.);`);
   const volUnit = ent("VU", (n) => `#${n}= IFCSIUNIT(*,.VOLUMEUNIT.,$,.CUBIC_METRE.);`);
-  const units = ent("UNITS", (n) => `#${n}= IFCUNITASSIGNMENT((#${lengthUnit},#${areaUnit},#${volUnit}));`);
+  // MASA: los IFCQUANTITYWEIGHT (acero kg) exigen su unidad declarada — sin
+  // ella el archivo no es SI-completo (lo exige el QA ifcopenshell). OJO: el
+  // enum IfcSIUnitName NO tiene KILOGRAM — kilogramo = prefijo .KILO. + GRAM.
+  const massUnit = ent("MU", (n) => `#${n}= IFCSIUNIT(*,.MASSUNIT.,.KILO.,.GRAM.);`);
+  const units = ent("UNITS", (n) => `#${n}= IFCUNITASSIGNMENT((#${lengthUnit},#${areaUnit},#${volUnit},#${massUnit}));`);
 
   const worldCS = ent("WCS", (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(0, 0, 0)},#${dir3(0, 0, 1)},#${dir3(1, 0, 0)});`);
-  const ctx = ent("CTX", (n) => `#${n}= IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#${worldCS},#${units});`);
+  // Contexto: (…, precisión, WorldCS, TrueNorth?) — TrueNorth OPCIONAL en
+  // dirección; aquí NUNCA van las unidades (iban en el slot de TrueNorth:
+  // error de schema detectado por ifcopenshell).
+  const ctx = ent("CTX", (n) => `#${n}= IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#${worldCS},$);`);
 
   const proj = ent("PROJ", (n) => `#${n}= IFCPROJECT('${guid("P0")}',#${owner},'${plan.name.replace(/'/g, "")}',$,$,$,$,(#${ctx}),#${units});`);
   const sitePlace = ent("SITEPL", (n) => `#${n}= IFCLOCALPLACEMENT($,#${axisZ});`);
@@ -105,10 +113,19 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
   // ── Materiales (IfcMaterial + LayerSets) ─────────────────────────────────
   const material = (name: string) => ent(`MAT:${name}`, (n) => `#${n}= IFCMATERIAL('${esc(name)}',$,$);`);
   const layerSet = (label: string, layers: Array<{ name: string; thickness: number }>) => {
-    const ls = ent(`MLS:${label}`, (n) => `#${n}= IFCMATERIALLAYERSET((#${layers.map((l) => layer(l.name, l.thickness)).join(",#")}), '${esc(label)}');`);
-    return ls;
+    // La capa se instancia POR LAYERSET y POR OCURRENCIA: un IFCMATERIALLAYER
+    // sólo puede vivir en UN layerset una vez (inverso ToMaterialLayerSet
+    // [0:1] — 'Pañete 1:4' dos veces en el mismo set era violación).
+    const seenInSet = new Map<string, number>();
+    const ids = layers.map((l) => {
+      const k = `${l.name}:${l.thickness}`;
+      const i = (seenInSet.get(k) ?? 0) + 1;
+      seenInSet.set(k, i);
+      return layer(`${label}#${i}`, l.name, l.thickness);
+    });
+    return ent(`MLS:${label}`, (n) => `#${n}= IFCMATERIALLAYERSET((#${ids.join(",#")}), '${esc(label)}');`);
   };
-  const layer = (name: string, t: number) => ent(`LY:${name}:${t}`, (n) => `#${n}= IFCMATERIALLAYER(#${material(name)},${f(t)},$,'${esc(name)}',$,$,$);`);
+  const layer = (occurrKey: string, name: string, t: number) => ent(`LY:${occurrKey}:${name}:${t}`, (n) => `#${n}= IFCMATERIALLAYER(#${material(name)},${f(t)},$,'${esc(name)}',$,$,$);`);
 
   /** Pset 5D/6D: carbono y clasificación por elemento. Números como
    *  IFCREAL (legibles por máquina — no IFCLABEL), textos como IFCLABEL.
@@ -338,7 +355,10 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     }
 
     // Vigas: a lo largo de cada eje horizontal/vertical (intra nivel superior).
-    const beamMat = material(MATERIALS.concreto);
+    // Vigas: material POR SISTEMA (madera/guadua no llevan concreto — igual
+    // que columnas; antes todo viga nacía concreto aunque el sistema fuera
+    // madera: contradicción 5D señalada por el review).
+    const beamMat = colMat;
     for (const y of hs.length ? hs : []) {
       if (y < 0.05 || y > D - 0.05) continue;
       const solid = solidBox(W / 2, y, fft - CONCRETE.beam.d, W - 2 * te, CONCRETE.beam.w, CONCRETE.beam.d, "x");
@@ -496,7 +516,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
         const pr6 = shapeRep(s6, `FU${fu.x},${fu.y},${lvl}`);
         const pl6 = ent(`FUPL:${fu.x},${fu.y},${lvl}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
         const fu6 = id();
-        lines.push(`#${fu6}= IFCFURNISHINGELEMENT('${guid(`FU${fu.x},${fu.y},${lvl}`)}',#${owner},'${esc(fu.name)} (Neufert)',$,$,#${pl6},#${pr6},$,.ELEMENT.);`);
+        lines.push(`#${fu6}= IFCFURNISHINGELEMENT('${guid(`FU${fu.x},${fu.y},${lvl}`)}',#${owner},'${esc(fu.name)} (Neufert)',$,$,#${pl6},#${pr6},$);`);
         relAssoc(fu6, maderaMat, `FUM${fu.x},${fu.y},${lvl}`);
         products.push(fu6);
       }
@@ -532,57 +552,79 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-const f = (n: number) => (Math.round(n * 1000) / 1000).toString();
+/** REAL de STEP: SIEMPRE con punto decimal ("0." es válido, "0" NO — el
+ * validador ifcopenshell rechaza enteros donde el schema pide IfcReal;
+ * era el defecto más repetido del export: coordenadas, cotas, magnitudes). */
+const f = (n: number) => {
+  const r = Math.round(n * 1000) / 1000;
+  return Number.isInteger(r) ? `${r}.0` : r.toString();
+};
 const esc = (s: string) => s.replace(/'/g, "''").slice(0, 90);
 const keyOf = (s: string) => s.toLowerCase().replace(/\s+/g, "");
 
 
 
-/** ── GUID buildingSMART (IfcGloballyUniqueId) ───────────────────────────────
- *  Compresión EXACTA de 128 bits → 22 chars, alfabeto 0-9A-Za-z_$, primer
- *  carácter 0-3 (versión). Layout: nibble0 → 1 char (4 bits); nibbles 1-30
- *  → 5 grupos de 24 bits (6 nibbles) → 4 chars c/u; nibble31 → 1 char (4
- *  bits, inyectivo en el alfabeto). `ifcGuidDecompress(ifcGuidCompress(h))`
- *  === h — biyectivo, testeado (review #12).
- *
- *  IDENTIDAD: los GUIDs se derivan de `guidScope` (identidad PERSISTENTE
- *  del proyecto: nombre + geometría + niveles) + semilla del elemento +
- *  contador. Dos proyectos distintos JAMÁS comparten GlobalId (antes
- *  Project/Site/Building usaban semillas fijas P0/S0/B0 — colisión entre
- *  proyectos). */
+/** ── GUID buildingSMART (IfcGloballyUniqueId) — ALGORITMO ESTÁNDAR ─────────
+ *  Puerto EXACTO de ifcopenshell.guid.compress (referencia buildingSMART):
+ *  hex32 → anteponer "0000" (8 bits cero) → 18 bytes → base64 (24 chars) →
+ *  descartar los 2 primeros chars (el padding) → alfabeto IFC 0-9A-Za-z_$.
+ *  El layout ANTERIOR (nibble + 5 grupos de 24 bits) era biyectivo consigo
+ *  mismo pero NO interoperable: comprimía distinto que TODA la herramienta
+ *  BIM estándar (hallazgo del QA contra ifcopenshell.guid.compress). */
 const B64 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
 const b64idx = (c: string) => B64.indexOf(c);
 
-/** hex32 (exactamente 32 nibbles, nibble0 ∈ 0-3) → IfcGloballyUniqueId. */
+/** hex32 (128 bits, nibble0 ∈ 0-3) → IfcGloballyUniqueId (22 chars). */
 export function ifcGuidCompress(hex: string): string {
   if (hex.length !== 32 || !/^[0-9a-fA-F]{32}$/.test(hex)) throw new Error("ifcGuidCompress: hex de 32 nibbles requerido");
   if (parseInt(hex[0], 16) > 3) throw new Error("ifcGuidCompress: nibble0 debe ser 0-3 (versión)");
-  let out = B64[parseInt(hex[0], 16)];
-  for (let i = 1; i < 31; i += 6) {
-    let v = 0;
-    for (let j = 0; j < 6; j++) v = v * 16 + parseInt(hex[i + j], 16);
-    for (let j = 3; j >= 0; j--) out += B64[(v >>> (6 * j)) & 63];
+  const h = ("0000" + hex.toLowerCase()).slice(0, 36);
+  const bytes: number[] = [];
+  for (let i = 0; i < 36; i += 2) bytes.push(parseInt(h.slice(i, i + 2), 16));
+  let out = "";
+  for (let i = 0; i < 18; i += 3) {
+    const a = bytes[i], b = bytes[i + 1], c = bytes[i + 2];
+    out += B64[a >> 2] + B64[((a & 3) << 4) | (b >> 4)] + B64[((b & 15) << 2) | (c >> 6)] + B64[c & 63];
   }
-  return out + B64[parseInt(hex[31], 16)];
+  return out.slice(2); // los 2 chars del padding "0000"
 }
 
-/** IfcGloballyUniqueId → hex32 (inversa exacta de ifcGuidCompress). */
+/** IfcGloballyUniqueId → hex32 (inversa EXACTA del algoritmo estándar). */
 export function ifcGuidDecompress(g: string): string {
   if (g.length !== 22) throw new Error("ifcGuidDecompress: 22 chars requerido");
-  let hex = (b64idx(g[0]) & 0xf).toString(16);
-  for (let i = 1; i < 21; i += 4) {
-    let v = 0;
-    for (let j = 0; j < 4; j++) v = v * 64 + b64idx(g[i + j]);
-    hex += v.toString(16).padStart(6, "0");
+  const full = "00" + g; // reponer el padding base64
+  const bytes: number[] = [];
+  for (let i = 0; i < 24; i += 4) {
+    const v = [0, 1, 2, 3].reduce((acc, j) => acc * 64 + b64idx(full[i + j]), 0);
+    bytes.push((v >> 16) & 255, (v >> 8) & 255, v & 255);
   }
-  return hex + (b64idx(g[21]) & 0xf).toString(16);
+  const hex = bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (!hex.startsWith("0000")) throw new Error("ifcGuidDecompress: GUID con bits de version no estándar");
+  return hex.slice(4);
 }
 
-let guidCounter = 0;
+let guidCounter = 0; // sólo para el reporte de determinismo (los IDs no dependen de él)
 let guidScope = "";
+const guidSeen = new Set<string>();
 function guid(seed: string): string {
   guidCounter++;
-  const s = `${guidScope}|${seed}|${guidCounter}`;
+  // ID ESTABLE ante ediciones ajenas: el hash es SOLO identidad (scope +
+  // semilla del elemento) — SIN contador global. Antes el contador hacía
+  // que mover un cuarto desplazara los GlobalIds de TODOS los elementos
+  // posteriores (review: emparejar elementos entre revisiones era azar).
+  // Colisión real (misma identidad dos veces): sufijo determinista.
+  let s = `${guidScope}|${seed}`;
+  for (let attempt = 2; ; attempt++) {
+    const g = guidHash(s);
+    if (!guidSeen.has(g)) {
+      guidSeen.add(g);
+      return g;
+    }
+    if (attempt > 64) return g; // seguridad: misma identidad 64 veces (no ocurre)
+    s = `${guidScope}|${seed}#${attempt}`;
+  }
+}
+function guidHash(s: string): string {
   let h1 = 0x811c9dc5, h2 = 0x1000193;
   for (let i = 0; i < s.length; i++) {
     h1 = Math.imul(h1 ^ s.charCodeAt(i), 16777619) >>> 0;
@@ -604,33 +646,63 @@ const extThickness = (asm: { ext: { layers: Array<{ thickness: number }> } }) =>
 const intThickness = (asm: { int: { layers: Array<{ thickness: number }> } }) =>
   Math.max(asm.int.layers.reduce((s, l) => s + l.thickness, 0), 0.07);
 
-/** Aristas interiores compartidas entre espacios (dedup + fusión simple). */
+/** Aristas interiores compartidas entre espacios, FUSIONADAS por línea: un
+ *  muro por pared (antes cada cuarto aportaba SU arista → el mismo muro
+ *  nacía 2 veces con tramos distintos y las puertas cortaban/fallaban entre
+ *  duplicados: openings sin host ni llenado — hallazgo del QA ifcopenshell).
+ *  Tolerancia 0.15 m = banda de muro interior: los cuartos lindan cara-a-
+ *  cara con el muro entre medio; el muro vive en el punto MEDIO de la banda. */
 function interiorEdges(rooms: Room[], W: number, D: number, te: number): Array<{ cx: number; cy: number; len: number; along: "x" | "y" }> {
-  const out: Array<{ cx: number; cy: number; len: number; along: "x" | "y" }> = [];
-  const seen = new Set<string>();
+  const TOL = 0.15;
+  type Span = { a: number; b: number };
+  const vLines = new Map<string, { c: number; spans: Span[] }>();
+  const hLines = new Map<string, { c: number; spans: Span[] }>();
+  const add = (map: Map<string, { c: number; spans: Span[] }>, c: number, s: Span) => {
+    const k = c.toFixed(2);
+    if (!map.has(k)) map.set(k, { c, spans: [] });
+    map.get(k)!.spans.push(s);
+  };
   for (const r of rooms) {
-    // Aristas verticales (compartidas si otro espacio toca el mismo x en rango y).
     for (const [x, y1, y2] of [[r.x, r.y, r.y + r.depth], [r.x + r.width, r.y, r.y + r.depth]] as const) {
       if (x <= te + 0.01 || x >= W - te - 0.01) continue;
-      const shared = rooms.some((o) => o !== r && ((Math.abs(o.x + o.width - x) < 0.02 && overlap(o.y, o.depth, y1, y2 - y1)) || (Math.abs(o.x - x) < 0.02 && overlap(o.y, o.depth, y1, y2 - y1))));
-      if (!shared) continue;
-      const key = `V${x.toFixed(2)},${y1.toFixed(2)},${y2.toFixed(2)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ cx: x, cy: (y1 + y2) / 2, len: y2 - y1, along: "y" });
+      const other = rooms.find((o) => o !== r && ((Math.abs(o.x + o.width - x) < TOL || Math.abs(o.x - x) < TOL) && overlap(o.y, o.depth, y1, y2 - y1)));
+      if (!other) continue;
+      add(vLines, (x + nearestFace(other, x)) / 2, { a: Math.min(y1, y2), b: Math.max(y1, y2) });
     }
-    // Aristas horizontales.
     for (const [y, x1, x2] of [[r.y, r.x, r.x + r.width], [r.y + r.depth, r.x, r.x + r.width]] as const) {
       if (y <= te + 0.01 || y >= D - te - 0.01) continue;
-      const shared = rooms.some((o) => o !== r && ((Math.abs(o.y + o.depth - y) < 0.02 && overlap(o.x, o.width, x1, x2 - x1)) || (Math.abs(o.y - y) < 0.02 && overlap(o.x, o.width, x1, x2 - x1))));
-      if (!shared) continue;
-      const key = `H${y.toFixed(2)},${x1.toFixed(2)},${x2.toFixed(2)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ cx: (x1 + x2) / 2, cy: y, len: x2 - x1, along: "x" });
+      const other = rooms.find((o) => o !== r && ((Math.abs(o.y + o.depth - y) < TOL || Math.abs(o.y - y) < TOL) && overlap(o.x, o.width, x1, x2 - x1)));
+      if (!other) continue;
+      add(hLines, (y + nearestFaceY(other, y)) / 2, { a: Math.min(x1, x2), b: Math.max(x1, x2) });
     }
   }
+  // Fusión de tramos solapados/adyacentes de la MISMA línea → un solo muro.
+  const merged = (spans: Span[]): Span[] => {
+    const sorted = [...spans].sort((p, q) => p.a - q.a);
+    const out: Span[] = [];
+    for (const s of sorted) {
+      const last = out[out.length - 1];
+      if (last && s.a <= last.b + 0.05) last.b = Math.max(last.b, s.b);
+      else out.push({ ...s });
+    }
+    return out;
+  };
+  const out: Array<{ cx: number; cy: number; len: number; along: "x" | "y" }> = [];
+  for (const { c, spans } of vLines.values()) {
+    for (const s of merged(spans)) out.push({ cx: c, cy: (s.a + s.b) / 2, len: s.b - s.a, along: "y" });
+  }
+  for (const { c, spans } of hLines.values()) {
+    for (const s of merged(spans)) out.push({ cx: (s.a + s.b) / 2, cy: c, len: s.b - s.a, along: "x" });
+  }
   return out;
+}
+
+/** Cara enfrentada del OTRO cuarto a la arista x (para centrar la banda). */
+function nearestFace(o: Room, x: number): number {
+  return Math.abs(o.x + o.width - x) < Math.abs(o.x - x) ? o.x + o.width : o.x;
+}
+function nearestFaceY(o: Room, y: number): number {
+  return Math.abs(o.y + o.depth - y) < Math.abs(o.y - y) ? o.y + o.depth : o.y;
 }
 
 const overlap = (a: number, la: number, b: number, lb: number) =>

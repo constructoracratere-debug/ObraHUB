@@ -14,7 +14,7 @@ import {
   AGENT_SITE,
   planContext,
 } from "@/lib/design/agents";
-import { sanitizeFloorPlan, type SiteFicha, type RevisionLog } from "@/lib/design/schema";
+import { sanitizeFloorPlan, sanitizerFixes, type SiteFicha, type RevisionLog } from "@/lib/design/schema";
 import { allGates, type Gate } from "@/lib/design/validate";
 
 export const maxDuration = 60;
@@ -147,20 +147,20 @@ export async function POST(req: NextRequest) {
         if (!prompt) throw new Error("Describe el proyecto a diseñar");
         say("🏛️ Arquitecto: interpretando el encargo del cliente…", "arquitecto");
         if (b.siteMemo) say("📍 Aplicando directrices de la ficha de sitio (POT/clima/materiales).", "arquitecto");
-        // 🖼️ Imagen de referencia del cliente: el arquitecto la MIRA y extrae
-        // el patrón (distribución, proporciones, estilo) que el texto no logra
-        // describir — "lo que tengo en la mente".
+        // 🖼️ Referencias visuales del cliente (hasta 10): el arquitecto las
+        // estudia TODAS y extrae el patrón común (distribución, proporciones,
+        // estilo) que el texto no logra describir — "la mente del constructor".
         const refImages = Array.isArray(b.referenceImages)
-          ? b.referenceImages.filter((x: unknown) => typeof x === "string" && x.startsWith("data:image/")).slice(0, 3)
+          ? b.referenceImages.filter((x: unknown) => typeof x === "string" && x.startsWith("data:image/")).slice(0, 10)
           : [];
         if (refImages.length > 0) {
-          say("🖼️ Analizando tu imagen de referencia (distribución, proporciones, estilo)…", "arquitecto");
+          say(`🖼️ Analizando tus ${refImages.length} referencia${refImages.length > 1 ? "s" : ""} (distribución, proporciones, estilo)…`, "arquitecto");
         }
         say("📐 Dimensionando espacios con la tabla Neufert/Plazola/Panero…", "arquitecto");
         say("🚪 Ubicando puertas (≥0.90 m accesible) y ventilación cruzada…", "arquitecto");
         const ficha = b.siteMemo ? JSON.stringify(b.siteMemo).slice(0, 2200) : "";
         const refNote = refImages.length > 0
-          ? `\n\nREFERENCIA VISUAL DEL CLIENTE (adjunta como imagen): aplícala como guía de DISEÑO — respeta su patrón de distribución, proporciones de espacios, jerarquía y estilo en la medida del programa y la normativa. Si contradice un mínimo normativo, gana la norma y lo notas en designReport.notes.`
+          ? `\n\nREFERENCIAS VISUALES DEL CLIENTE (${refImages.length} imágenes adjuntas): estúdialas TODAS antes de diseñar. Sintetiza su PATRÓN COMÚN — distribución, proporciones de espacios, jerarquía, orientación y estilo — y aplícalo como guía de DISEÑO en la medida del programa y la normativa. Si se contradicen entre sí, manda la más recurrente; si contradice un mínimo normativo, gana la norma y lo notas en designReport.notes.`
           : "";
         const res = await llmJson<Record<string, unknown>>("structure", {
           system: AGENT_ARCHITECT_DRAFT,
@@ -173,7 +173,12 @@ export async function POST(req: NextRequest) {
         });
         say("🧹 Sanitizando geometría (clamps, redondeo a cm, anclajes)…", "arquitecto");
         const plan = sanitizeFloorPlan(res.data);
-        say(`🛡️ Puerta de verificación 1: ${allGates(plan)[0].checks.filter((c) => !c.pass).length} observaciones.`, "arquitecto");
+        // Lo corregido se REPORTA, no se esconde (review de exportaciones):
+        // el usuario ve qué movió el sanitizador antes de confiar en el plano.
+        const fixes = sanitizerFixes(res.data, plan);
+        if (fixes.length > 0) fixes.slice(0, 5).forEach((fx) => say(`🧹 ${fx}`, "arquitecto"));
+        const totalFails = allGates(plan).reduce((s, g) => s + g.checks.filter((c) => !c.pass).length, 0);
+        say(`🛡️ Verificación: ${totalFails} observación(es) en ${allGates(plan).length} puertas.`, "arquitecto");
         send({ type: "done", plan, gates: allGates(plan), provider: res.providerLabel, model: res.model, latencyMs: Date.now() - t0 });
         return;
       }
