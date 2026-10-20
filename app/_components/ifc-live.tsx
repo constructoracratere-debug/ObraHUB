@@ -122,7 +122,14 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           count++;
         });
         // Encuadre automático al tamaño del modelo (el espejo z no afecta el bbox).
-        const box = new THREE.Box3().setFromObject(root);
+        // ANTI-EDIFICIO-EN EL-AIRE: las mallas usan matrixAutoUpdate=false —
+        // su matrixWorld es IDENTIDAD hasta el primer render. Medir el bbox
+        // sin propagar ponía la REJILLA y la cámara en coordenadas basura
+        // (min.y llegó a leer −4 m con el modelo en −1.4) y el edificio
+        // quedaba flotando sobre el piso, según timing del dispositivo.
+        // Fuerza la propagación ANTES de medir: determinista a la primera.
+        root.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(root, true);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3()).length() || 10;
         // Rejilla apoyada en la base del edificio (y=0 con el flag off).
