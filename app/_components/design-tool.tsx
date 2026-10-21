@@ -21,7 +21,7 @@ import {
   STRUCTURE_LABELS,
 } from "@/lib/design/schema";
 import type { Gate } from "@/lib/design/validate";
-import { gateFails } from "@/lib/design/validate";
+import { gateFails, allGates } from "@/lib/design/validate";
 import { penWidth, plotMm, scaleBarMm, ANNOT, HATCH, PEN_BY_LAYER } from "@/lib/design/knowledge";
 import { planToDxf, planToDxfSheets } from "@/lib/design/dxf";
 import { planToIfc } from "@/lib/design/ifc";
@@ -119,6 +119,38 @@ class DesignErrorBoundary extends React.Component<
   }
 }
 
+// ── PERSISTENCIA DE LA SESIÓN DE DISEÑO (pedido del operador) ────────────────
+// El dibujo NO se pierde al salir de la herramienta ni al recargar: sesión
+// COMPLETA por proyecto en localStorage (instantánea, mismo dispositivo) +
+// fallback al plan publicado en el kit del proyecto (servidor, cruza
+// dispositivos). Sólo se borra con el botón "Nuevo dibujo" (explícito).
+type DesignSession = {
+  plan: FloorPlan;
+  stage: Stage;
+  siteMemo: SiteMemo | null;
+  constructorMemo: ConstructorMemo | null;
+  civilMemo: CivilMemo | null;
+  equipment: Equipment;
+  revisions: RevisionLog[];
+  savedAt: string;
+};
+const sessionKey = (slug?: string) => `obrahub-design-${slug ? slug.replace(/[^a-z0-9-]+/gi, "-") : "sin-proyecto"}`;
+function loadSession(slug?: string): DesignSession | null {
+  try {
+    const raw = localStorage.getItem(sessionKey(slug));
+    if (!raw) return null;
+    const s = JSON.parse(raw) as DesignSession;
+    if (!s?.plan || s.plan.version !== 2 || !Array.isArray(s.plan.rooms) || s.plan.rooms.length === 0) return null;
+    if (typeof s.stage !== "number" || s.stage < 0 || s.stage > 5) s.stage = 5;
+    return s;
+  } catch { return null; }
+}
+/** Etapa razonable al restaurar SOLO el plan (sin sesión local): si ya tiene
+ *  estructura e instalaciones, el expediente está completo → edición libre. */
+function stageForPlan(p: FloorPlan): Stage {
+  return p.structure && (p.electrical || p.hydro) ? 5 : p.structure ? 4 : 2;
+}
+
 function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string; initialPrompt?: string }) {
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
   // 🖼️ Referencia visual del cliente para el boceto (data URL ≤1024px).
@@ -149,22 +181,25 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const [location, setLocation] = useState("");
-  const [stage, setStage] = useState<Stage>(0);
+  // Restauración (lectura ÚNICA al montar): la sesión local manda; si no hay
+  // y hay proyecto, el plan del kit llega async más abajo.
+  const [restored, setRestored] = useState<DesignSession | null>(() => loadSession(projectSlug));
+  const [stage, setStage] = useState<Stage>(restored?.stage ?? 0);
   const [busy, setBusy] = useState<Stage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [providerInfo, setProviderInfo] = useState<string | null>(null);
 
-  const [siteMemo, setSiteMemo] = useState<SiteMemo | null>(null);
-  const [plan, setPlan] = useState<FloorPlan | null>(null);
-  const [gates, setGates] = useState<Gate[] | null>(null);
-  const [constructorMemo, setConstructorMemo] = useState<ConstructorMemo | null>(null);
-  const [civilMemo, setCivilMemo] = useState<CivilMemo | null>(null);
-  const [equipment, setEquipment] = useState<Equipment>([]);
+  const [siteMemo, setSiteMemo] = useState<SiteMemo | null>(restored?.siteMemo ?? null);
+  const [plan, setPlan] = useState<FloorPlan | null>(restored?.plan ?? null);
+  const [gates, setGates] = useState<Gate[] | null>(restored ? allGates(restored.plan) : null);
+  const [constructorMemo, setConstructorMemo] = useState<ConstructorMemo | null>(restored?.constructorMemo ?? null);
+  const [civilMemo, setCivilMemo] = useState<CivilMemo | null>(restored?.civilMemo ?? null);
+  const [equipment, setEquipment] = useState<Equipment>(restored?.equipment ?? []);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   // Bucle de revisión con el profesional + paquete de licencia.
   const [feedback, setFeedback] = useState("");
   const [promptOpen, setPromptOpen] = useState(true); // barra ámbar minimizable
-  const [revisions, setRevisions] = useState<RevisionLog[]>([]);
+  const [revisions, setRevisions] = useState<RevisionLog[]>(restored?.revisions ?? []);
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
   const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split">("split");
@@ -185,10 +220,48 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [consoleLines, setConsoleLines] = useState<Array<{ agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }>>([]);
 
   useEffect(() => { if (initialPrompt) setPrompt(initialPrompt); }, [initialPrompt]);
-  // Ultimo plano disponible para la herramienta Pasaporte (tool propia).
+  // 💾 AUTOGUARDADO de la sesión (el dibujo SE QUEDA hasta "Nuevo dibujo"):
+  // sesión completa por proyecto + clave global para Pasaporte/Estructural.
   useEffect(() => {
-    if (plan) { try { localStorage.setItem("obrahub-last-plan", JSON.stringify(plan)); } catch { /* */ } }
-  }, [plan]);
+    if (!plan) return;
+    const t = setTimeout(() => {
+      try {
+        const session: DesignSession = { plan, stage, siteMemo, constructorMemo, civilMemo, equipment, revisions, savedAt: new Date().toISOString() };
+        localStorage.setItem(sessionKey(projectSlug), JSON.stringify(session));
+        localStorage.setItem("obrahub-last-plan", JSON.stringify(plan));
+      } catch { /* cuota llena: el kit del proyecto sigue recibiendo el plan */ }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, stage, siteMemo, constructorMemo, civilMemo, equipment, revisions, projectSlug]);
+  // 🌐 Fallback CRUZA-DISPOSITIVOS: sin sesión local pero con proyecto → el
+  // plan publicado en el kit del servidor vuelve como punto de partida.
+  useEffect(() => {
+    if (restored || !projectSlug) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/kit`);
+        if (!res.ok) return;
+        const kit = (await res.json()) as { plan?: FloorPlan };
+        if (cancelled || !kit?.plan || kit.plan.version !== 2 || !Array.isArray(kit.plan.rooms) || kit.plan.rooms.length === 0) return;
+        setPlan(kit.plan);
+        setGates(allGates(kit.plan));
+        setStage(stageForPlan(kit.plan));
+        pushLine({ agent: null, kind: "status", text: `🌐 Plano restaurado desde el proyecto (${kit.plan.rooms.length} espacios) — sigue editando o pulsa Nuevo dibujo para empezar de cero.` });
+      } catch { /* sin red: el formulario queda disponible */ }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectSlug]);
+  // Aviso de sesión restaurada (una vez).
+  useEffect(() => {
+    if (restored) {
+      pushLine({ agent: null, kind: "status", text: `🔄 Sesión restaurada (autoguardada ${new Date(restored.savedAt).toLocaleString()}) — el dibujo se conserva hasta que pulses "Nuevo dibujo".` });
+      setRestored(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const pushLine = useCallback((line: { agent: string | null; kind: "say" | "delta" | "provider" | "status" | "fallback" | "error"; text: string }) => {
     setConsoleLines((prev) => {
@@ -362,6 +435,20 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     if (!plan) return null;
     return new Blob([planToIfc(plan)], { type: "application/x-step" });
   }, [plan]);
+
+  // ── 🗑️ NUEVO DIBUJO: la ÚNICA forma de perder el plano (explícita) ──────
+  const nuevoDibujo = () => {
+    if (!confirm("¿Empezar un DIBUJO NUEVO?\n\nEl plano actual y su sesión se BORRAN de este navegador. Descarga DXF/IFC antes si los necesitas. (El plan publicado en el Kit del proyecto NO se toca).")) return;
+    try {
+      localStorage.removeItem(sessionKey(projectSlug));
+      localStorage.removeItem("obrahub-last-plan");
+    } catch { /* */ }
+    undoRef.current = [];
+    setPlan(null); setGates(null); setStage(0); setSiteMemo(null);
+    setConstructorMemo(null); setCivilMemo(null); setEquipment([]);
+    setRevisions([]); setView("split"); setPrompt(""); setRestored(null);
+    pushLine({ agent: null, kind: "status", text: "🗑️ Sesión borrada — lienzo limpio para un dibujo nuevo." });
+  };
 
   // ── Publicar el modelo al Kit (fuente única de la cadena de obra) ──────
   // Cada cambio de plan (generar, revisar, arrastrar) se publica con debounce
@@ -584,6 +671,16 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                   {saving === "saving" ? "Guardando…" : saving === "saved" ? "✓ Guardado en Documentos" : "💾 Guardar en Documentos"}
                 </button>
               )}
+              <button
+                type="button" onClick={nuevoDibujo}
+                title="Borra la sesión de este navegador y empieza de cero — el plano actual se pierde (el Kit del proyecto conserva lo publicado)"
+                className="w-full rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 ring-1 ring-red-400/25 transition hover:bg-red-500/20"
+              >
+                🗑️ Nuevo dibujo (borra esta sesión)
+              </button>
+              <p className="text-[9px] leading-relaxed text-slate-500">
+                💾 El plano se autoguarda en este navegador al salir o recargar — vuelve y sigue editando. Sólo "Nuevo dibujo" lo borra.
+              </p>
               <p className="text-[9px] leading-relaxed text-slate-500">
                 Esquema conceptual generado por IA. Debe ser revisado y firmado por profesionales matriculados.
               </p>
