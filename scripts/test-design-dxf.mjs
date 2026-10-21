@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
 const tmp = path.join(root, ".tmp-design-test");
-execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/structural/plan.ts lib/structural/loads.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
+execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/structural/plan.ts lib/structural/loads.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
 
 const { createRequire } = await import("node:module");
 const req = createRequire(import.meta.url);
@@ -309,6 +309,29 @@ check(`tamaño razonable (${(dxf.length / 1024).toFixed(1)} KB)`, dxf.length < 4
 const clamped = sanitizeFloorPlan({ ...rawPlan, rooms: [{ ...rawPlan.rooms[0], x: 999, width: -5 }] });
 check("sanitizador clampa x y width", clamped.rooms[0].x <= clamped.outline.width && clamped.rooms[0].width >= 0.9);
 
+// ── PDF VECTORIAL del set (plot.ts: MISMO motor de emisión que el DXF) ─────
+const { planToPdfSet } = req(path.join(tmp, "design", "plot.js"));
+const pdf = planToPdfSet(plan, { fecha: "2026-01-15" });
+check("PDF del set: una página por lámina", (() => {
+  const n = Number((pdf.match(/\/Count (\d+)/) ?? [0, "0"])[1]);
+  return n >= 6 && n === sheetCodes(plan).length;
+})());
+check("PDF MediaBox EXACTO 700×500 mm a 1:1 (1984.25×1417.32 pt)", pdf.includes("/MediaBox[0 0 1984.25 1417.32]"));
+check("PDF Helvetica WinAnsi (sin incrustar, acentos viajan)", /BaseFont\/Helvetica\/Encoding\/WinAnsiEncoding/.test(pdf) && pdf.includes("(CUADRO DE"));
+check("PDF vectorial: trazos S y textos Tj en cantidad", ((pdf.match(/ S\n/g) ?? []).length > 800 && (pdf.match(/\) Tj/g) ?? []).length > 200));
+check("PDF paridad DXF: mismas escalas declaradas (una por lámina)", (() => {
+  const nPdf = [...pdf.matchAll(/\(1:\d+\) Tj/g)].length;
+  return nPdf >= 6 && nPdf === (dxf.match(/\n1:(50|75|100|125|150|200|250)\n/g) ?? []).length;
+})());
+check("PDF plumillas reales (w pt) y patrones DASHED/CENTER de la guía", /\d+\.\d+ w/.test(pdf) && pdf.includes("[17.01 8.5] 0 d") && pdf.includes("[34.02 8.5 5.67 8.5] 0 d"));
+check("PDF determinista byte a byte", planToPdfSet(plan, { fecha: "2026-01-15" }) === pdf);
+check("PDF xref/trailer bien formado", /xref\n0 \d+\n0000000000 65535 f/.test(pdf) && pdf.trimEnd().endsWith("%%EOF"));
+check(`PDF tamaño razonable (${(pdf.length / 1024).toFixed(0)} KB)`, pdf.length > 50_000 && pdf.length < 3_000_000);
+function sheetCodes(plan2) {
+  const { sheetContents } = req(path.join(tmp, "design", "sheets.js"));
+  return sheetContents(plan2).map((s) => s.code);
+}
+
 // ── ezdxf (validador profesional — como lo abriría AutoCAD/LibreCAD) ────────
 if (process.env.SKIP_EZDXF !== "1") {
   let hasEzdxf = false;
@@ -330,6 +353,22 @@ if (process.env.SKIP_EZDXF !== "1") {
         { encoding: "utf8", stdio: "pipe" },
       ).trim();
       check(`ezdxf parsea: ${py}`, py.startsWith("ezdxf OK"));
+
+      // PDF con parser REAL (pypdf): páginas, tamaño de papel exacto y texto
+      // extraíble — como lo abre cualquier lector del usuario.
+      try {
+        const pdfPath = path.join(root, ".tmp-design-test", "qa-set.pdf");
+        const { pdfBytes } = req(path.join(tmp, "design", "plot.js"));
+        writeFileSync(pdfPath, pdfBytes(pdf));
+        const pypdf = execSync(
+          `python -c "import pypdf,json; r=pypdf.PdfReader(r'${pdfPath}'); mb=r.pages[0].mediabox; t=r.pages[1].extract_text() or ''; print(json.dumps({'n':len(r.pages),'w':round(float(mb.width),2),'h':round(float(mb.height),2),'txt':('OBRAHUB' in t and 'CUADRO' in t)}))"`,
+          { encoding: "utf8", stdio: "pipe" },
+        ).trim();
+        const meta = JSON.parse(pypdf);
+        check(`pypdf abre el set: ${meta.n} páginas ${meta.w}×${meta.h} pt, texto legible`, meta.n >= 6 && Math.abs(meta.w - 1984.25) < 0.3 && Math.abs(meta.h - 1417.32) < 0.3 && meta.txt === true);
+      } catch (e) {
+        check(`pypdf valida el PDF (${String(e).split("\n").filter(Boolean).slice(-1)[0]?.slice(0, 60)})`, false);
+      }
 
       // QA GEOMÉTRICO del plot (fuente: review de exportaciones): traslapes de
       // texto, fuera de lámina, alturas, escala declarada vs barra vs geometría

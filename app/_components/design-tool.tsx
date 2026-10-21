@@ -24,6 +24,7 @@ import type { Gate } from "@/lib/design/validate";
 import { gateFails, allGates } from "@/lib/design/validate";
 import { penWidth, plotMm, scaleBarMm, ANNOT, HATCH, PEN_BY_LAYER } from "@/lib/design/knowledge";
 import { planToDxf, planToDxfSheets } from "@/lib/design/dxf";
+import { planToPdfSet, pdfBytes } from "@/lib/design/plot";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
 import { sectionPrimitives, facadePrimitives, sheetPrimitives, primsBounds, fitSheetScale, plantaPrimitives, areaTablePrimitives, type Prim } from "@/lib/design/views";
@@ -513,6 +514,19 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     URL.revokeObjectURL(a.href);
   };
 
+  /** 📄 PDF VECTORIAL del set (A-00…A-06) a escala real: mismas láminas,
+   *  misma escala y plumilla que el DXF — del MISMO motor (plot.ts). Imprime
+   *  directo o comparte con el cliente sin pasar por CAD. */
+  const downloadPdf = () => {
+    if (!plan) return;
+    const bytes = pdfBytes(planToPdfSet(plan, { fecha: dxfGeneratedAt.current }));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }));
+    a.download = `${slugify(plan.name)}-set-laminas.pdf`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   // Un DXF POR LÁMINA (700×500 en origen): abrir/imprimir una lámina sola
   // sin que el CAD reduzca el set completo a una hoja.
   const downloadDxfSheets = () => {
@@ -649,6 +663,13 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                 className="w-full rounded-lg bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-100 ring-1 ring-emerald-400/30 transition hover:bg-emerald-500/30"
               >
                 ⬇️ Descargar DXF por capas
+              </button>
+              <button
+                type="button" onClick={downloadPdf}
+                title="Set completo A-00…A-06 en un PDF vectorial 700×500 mm a escala real — el mismo motor del DXF, listo para imprimir o compartir"
+                className="w-full rounded-lg bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-100 ring-1 ring-rose-400/30 transition hover:bg-rose-500/25"
+              >
+                📄 Descargar PDF del set (escala real)
               </button>
               <button
                 type="button" onClick={downloadDxfSheets}

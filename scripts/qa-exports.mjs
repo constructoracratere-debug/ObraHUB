@@ -24,7 +24,7 @@ mkdirSync(outDir, { recursive: true });
 
 const tmp = path.join(root, ".tmp-design-test");
 execSync(
-  `npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/ifc.ts lib/structural/plan.ts lib/structural/loads.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`,
+  `npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/ifc.ts lib/structural/plan.ts lib/structural/loads.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`,
   { cwd: root, stdio: "pipe" },
 );
 
@@ -32,6 +32,7 @@ const { createRequire } = await import("node:module");
 const req = createRequire(import.meta.url);
 const { sanitizeFloorPlan } = req(path.join(tmp, "design", "schema.js"));
 const { planToDxfSheets, planToDxf } = req(path.join(tmp, "design", "dxf.js"));
+const { planToPdfSet, pdfBytes } = req(path.join(tmp, "design", "plot.js"));
 const { planToIfc } = req(path.join(tmp, "design", "ifc.js"));
 
 // ── Fixture: Vivienda Guadúa Manizales (caso reportado) ─────────────────────
@@ -154,6 +155,7 @@ for (const [slug, plan] of fixtures) {
   }
   writeFileSync(path.join(outDir, `${slug}.ifc`), planToIfc(plan), "utf8");
   files.push(`${slug}.ifc`);
+  writeFileSync(path.join(outDir, `${slug}-set.pdf`), pdfBytes(planToPdfSet(plan, { fecha: "2026-10-13" })));
 }
 
 console.log(`✅ ${files.length} entregables en ${outDir}`);

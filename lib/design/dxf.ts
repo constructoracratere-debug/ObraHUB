@@ -20,9 +20,10 @@
  */
 
 import type { FloorPlan } from "./schema";
-import { PENS, plotMm, ANNOT, HATCH } from "./knowledge";
-import { sheetContents, SHEET_AVAIL_W, SHEET_AVAIL_H, type Sheet } from "./sheets";
-import { primsBounds, fitSheetScale, mepSymbols, ELEC_SYMBOLS, HYDRO_SYMBOLS, type Prim } from "./views";
+import { plotMm } from "./knowledge";
+import { sheetContents, type Sheet } from "./sheets";
+import { emitSheet } from "./plot";
+import { ELEC_SYMBOLS, HYDRO_SYMBOLS } from "./views";
 
 // Símbolos MEP: fuente única en views.ts (plano y leyenda comparten tabla).
 export { ELEC_SYMBOLS, HYDRO_SYMBOLS };
@@ -158,100 +159,8 @@ class DxfBuilder {
     this.entities.push(`0\nTEXT\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n7\nOBRAHUB\n10\n${f(x)}\n20\n${f(y)}\n40\n${f(height)}\n1\n${safe}\n50\n${f(rotationDeg)}\n`);
   }
 
-  // ── LÁMINA OBRAHUB 700×500 (mm, espacio modelo a 1:1) ─────────────────────
-
-  /** Marco doble 5/10 mm + rótulo vertical derecho 185 mm (formato estudio,
-   *  con OBRAHUB en vez de universidad — SIEMPRE limpio: líneas, nada más). */
-  rotulo(ox: number, oy: number, fields: {
-    proyecto: string; ubicacion: string; codigo: string; titulo: string;
-    escala: string; fecha: string; dibujo: string; lamina: string; total: string;
-  }) {
-    const W = 700, H = 500;
-    const mOut = 5, mIn = 10;
-    const R = "ROTULO", RT = "ROTULO-TXT";
-    // Marco exterior (fino) + interior (grueso) — doble filete del manual.
-    this.polyline(R, [[ox + mOut, oy + mOut], [ox + W - mOut, oy + mOut], [ox + W - mOut, oy + H - mOut], [ox + mOut, oy + H - mOut]], true);
-    this.polyline(R, [[ox + mIn, oy + mIn], [ox + W - mIn, oy + mIn], [ox + W - mIn, oy + H - mIn], [ox + mIn, oy + H - mIn]], true);
-    // Rótulo vertical derecho: 185 mm pegado al marco interior.
-    const rx0 = ox + W - mIn - 185, rx1 = ox + W - mIn;
-    this.line(R, rx0, oy + mIn, rx0, oy + H - mIn);
-
-    // ── Bloque marca (OBRAHUB) — arriba del rótulo.
-    let y = oy + H - mIn;
-    const row = (h: number) => { if (h <= 0.1) return y; y -= h; this.line(R, rx0, y, rx1, y); return y; };
-    row(30); // banda marca
-    this.text(RT, rx0 + 8, y + 14, 10, "OBRAHUB");
-    this.text(RT, rx0 + 8, y + 3, 2.6, "CONSTRUCTION OS · CRATERE S.A.S.");
-    this.text(RT, rx1 - 48, y + 3, 2.6, fields.fecha);
-
-    // ── PROYECTO (wrap+shrink por palabras, sin cortes NI desbordes) +
-    //    UBICACIÓN (idem — antes una sola línea larga invadía el marco).
-    row(26);
-    this.text(RT, rx0 + 6, y + 18.5, 2.5, "PROYECTO");
-    const pj = fitWrap(fields.proyecto.toUpperCase(), 68, 2);
-    pj.lines.slice(0, 2).forEach((ln, i) =>
-      this.text(RT, rx0 + 6, y + 9.5 - i * (4.6 * pj.hScale), 3.6 * pj.hScale, ln));
-    row(16);
-    this.text(RT, rx0 + 6, y + 9.5, 2.5, "UBICACIÓN");
-    const ub = fitWrap(fields.ubicacion.toUpperCase(), 77, 2);
-    ub.lines.slice(0, 2).forEach((ln, i) =>
-      this.text(RT, rx0 + 6, y + 6.2 - i * (4 * ub.hScale), 3.2 * ub.hScale, ln));
-
-    // ── Título de lámina (el plano que soy) — wrap+shrink, JAMÁS truncado.
-    row(34);
-    this.text(RT, rx0 + 6, y + 21, 2.5, "CONTENIDO");
-    this.text(RT, rx0 + 6, y + 9, 4.2, fields.codigo);
-    const tt = fitWrap(fields.titulo, 88, 3);
-    tt.lines.slice(0, 3).forEach((ln, i) =>
-      this.text(RT, rx0 + 6, y + 3.5 - i * (3.6 * tt.hScale), 2.8 * tt.hScale, ln));
-
-    // ── Grilla de datos: ESCALA | FECHA ya arriba; DIBUJÓ/REVISÓ/UNIDADES.
-    const gy = y;
-    row(14);
-    this.text(RT, rx0 + 6, gy - 4.5, 2.5, "ESCALA");
-    this.text(RT, rx0 + 60, gy - 4.5, 2.5, "UNIDADES");
-    this.text(RT, rx0 + 6, gy - 11, 3.2, fields.escala);
-    this.text(RT, rx0 + 60, gy - 11, 3.2, "MM · METROS S.I.");
-    row(14);
-    this.text(RT, rx0 + 6, y + 9.5, 2.5, "DIBUJÓ");
-    this.text(RT, rx0 + 60, y + 9.5, 2.5, "REVISÓ");
-    // DIBUJÓ completo: wrap+shrink en la media columna (≈82 mm / 2.1 mm por
-    // carácter) — antes slice(0,22) cortaba en silencio.
-    const db = fitWrap(fields.dibujo.toUpperCase(), 25, 2);
-    db.lines.slice(0, 2).forEach((ln, i) =>
-      this.text(RT, rx0 + 6, y + 4.6 - i * (3.4 * db.hScale), 3.0 * db.hScale, ln));
-    this.text(RT, rx0 + 60, y + 2.5, 2.6, "PENDIENTE DE REVISIÓN");
-
-    // ── Lámina N de M + código grande abajo.
-    row(20);
-    this.text(RT, rx0 + 6, y + 12, 2.5, "LÁMINA");
-    this.text(RT, rx0 + 6, y + 3, 5.5, `${fields.lamina} / ${fields.total}`);
-    // Banda inferior: norte + escala gráfica.
-    row(28);
-    const ncx = rx0 + 24, ncy = y + 10;
-    this.polyline(RT, [[ncx - 6, ncy - 8], [ncx, ncy + 8], [ncx + 6, ncy - 8]]);
-    this.line(RT, ncx, ncy - 8, ncx, ncy + 8);
-    this.text(RT, ncx - 2, ncy + 10, 3, "N");
-    // Escala gráfica 0–1–2–5 m a la escala de la lámina.
-    this.scaleBarMm(rx0 + 50, y + 12, fields.escala);
-    row(y - (oy + mIn)); // cierre al marco interior
-  }
-
-  /** Escala gráfica en mm de papel con tramos de metros reales. */
-  private scaleBarMm(x: number, y: number, escala: string) {
-    const m = escala.match(/1:(\d+)/);
-    const den = m ? Number(m[1]) : 75;
-    const mmPerM = 1000 / den;
-    let cx = x;
-    for (const segM of [1, 1, 3]) {
-      const w = segM * mmPerM;
-      this.polyline("ROTULO-TXT", [[cx, y], [cx + w, y], [cx + w, y - 2.5], [cx, y - 2.5]], true);
-      if (cx === x) this.text("ROTULO-TXT", cx - 1, y + 1, 2.2, "0");
-      cx += w;
-      this.text("ROTULO-TXT", cx - 2, y + 1, 2.2, String(Math.round((cx - x) / mmPerM)));
-    }
-    this.text("ROTULO-TXT", cx + 2, y - 1, 2.2, "m");
-  }
+  // Rótulo + emisión de lámina: viven en plot.ts (motor COMPARTIDO con el
+  // PDF — un cerebro, dos plumillas; el PDF imprime lo que el DXF declara).
 
   build(): string {
     // HEADER R2007 (AC1021): mm de lámina a 1:1 (INSUNITS 4) y GROSORES
@@ -293,36 +202,6 @@ function f(n: number): string {
   return (Math.round(n * 1000) / 1000).toFixed(3);
 }
 
-/** Divide un texto en líneas que caben en `maxChars` sin cortar palabras.
- *  Si necesita más de `maxLines`, NO funde líneas (desbordaría el rótulo):
- *  reduce el ancho objetivo y re-envuelve — devuelve las líneas y el factor
- *  de altura que las hace caber (review de plot: los títulos JAMÁS se
- *  truncan ni se salen del cajetín). */
-function fitWrap(s: string, maxChars: number, maxLines = 2): { lines: string[]; hScale: number } {
-  const wrap = (width: number) => {
-    const words = s.split(/\s+/).filter(Boolean);
-    const lines: string[] = [];
-    let cur = "";
-    for (const w of words) {
-      const cand = cur ? `${cur} ${w}` : w;
-      if (cand.length > width && cur) { lines.push(cur); cur = w; } else cur = cand;
-    }
-    if (cur) lines.push(cur);
-    return lines;
-  };
-  let width = maxChars;
-  let lines = wrap(width);
-  let guard = 0;
-  while (lines.length > maxLines && guard++ < 24) {
-    width = Math.ceil(width * 1.18);
-    lines = wrap(width);
-  }
-  // Palabra individual más larga que el ancho final → escala por ella.
-  const longest = Math.max(...lines.map((l) => l.length), 1);
-  const hScale = Math.min(1, maxChars / longest);
-  return { lines, hScale };
-}
-
 const GAP_SHEET = 50; // mm entre láminas del set
 const DRAW_PAD = 12; // mm de aire dentro del área de dibujo
 
@@ -352,94 +231,10 @@ function emitSheets(plan: FloorPlan, sheets: Sheet[], opts: { fecha?: string }):
   const total = String(sheets.length);
   const city = plan.site?.city ? `${plan.site.city.toUpperCase()}${plan.site.department ? " · " + plan.site.department.toUpperCase() : ""}` : "COLOMBIA";
   const fecha = opts.fecha ?? "";
-
-  sheets.forEach((sheet: Sheet, i: number) => {
-    const ox = i * (700 + GAP_SHEET), oy = 0;
-    const content: Prim[] = sheet.prims;
-    const b = primsBounds(content);
-    const sx = b.maxX - b.minX, sy = b.maxY - b.minY; // metros de modelo
-    // Área útil: marco 10mm, rótulo 185mm, aire 12mm — MISMA medida que usa
-    // el motor de láminas para componer (SHEET_AVAIL_* en sheets.ts).
-    const availW = SHEET_AVAIL_W;
-    const availH = SHEET_AVAIL_H;
-    // Escala con TAMAÑOS DE PAPEL FINALES (texto ya clamped al piso
-    // 2.5 mm): el fit no puede mentir tras agrandar la anotación.
-    const den = fitSheetScale(content, availW, availH);
-    const k = 1000 / den; // mm de papel por metro de modelo
-    // Centrado en el área de dibujo (Y de lámina hacia arriba).
-    const dx0 = 10 + DRAW_PAD + (availW - sx * k) / 2;
-    const dy0 = 10 + DRAW_PAD + (availH - sy * k) / 2;
-    const X = (v: number) => ox + dx0 + (v - b.minX) * k;
-    const Y = (v: number) => oy + dy0 + (v - b.minY) * k;
-    // Capas GLOBALES por categoría en TODAS las láminas (review #11): el
-    // nivel NO crea capas — apagar A-MUROS apaga los muros de todos los
-    // pisos. El MEP de cada lámina de planta es el de SU nivel.
-    const lvl = sheet.level ?? 0;
-    // Escala REAL de esta lámina → 370 por entidad con la tabla CPNAA §4.3.
-    d.setPlot(den);
-
-    d.rotulo(ox, oy, {
-      proyecto: plan.name,
-      ubicacion: city,
-      codigo: sheet.code,
-      titulo: sheet.title,
-      escala: `1:${den}`,
-      fecha,
-      dibujo: "OBRAHUB DISEÑO IA",
-      lamina: sheet.code,
-      total,
-    });
-
-    // Contenido escalado 1:den (metros → mm de papel). Los flags de
-    // primitiva (thin/dash) PASAN IGUAL que en el SVG/PDF — misma línea,
-    // mismo formato.
-    for (const p of content) {
-      if (p.t === "L") d.line(p.l, X(p.x1), Y(p.y1), X(p.x2), Y(p.y2), { thin: p.thin, dash: p.dash });
-      // Texto a TAMAÑO DE PAPEL (guía §2.5: la anotación responde a la
-      // escala): nunca por debajo del piso del libro (2.5 mm impresos).
-      else if (p.t === "T") d.text(p.l, X(p.x), Y(p.y), Math.max(p.h * k, ANNOT.minTextMm), p.s, p.r ?? 0);
-      else if (p.t === "C") d.circle(p.l, X(p.x), Y(p.y), Math.max(p.r * k, 0.8));
-      else if (p.t === "F") {
-        const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);
-        if (p.l === "MUROS" && Math.min(p.w, p.h) * k >= HATCH.solidBelowMm) {
-          // POCHÉ de muro: contorno + rayado 45° a ESPACIADO DE PAPEL
-          // constante, TODO EN LA MISMA CAPA A-MUROS (review #11: apagar
-          // muros oculta también su achurado — el rayado imprime con la
-          // fila achu por ENTIDAD, 370 propio).
-          d.polyline(p.l, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
-          const step = HATCH.spacingMm;
-          for (let s = -(p.h * k); s < p.w * k; s += step) {
-            const ax = Math.max(x0, x0 + s), ay = Math.min(y1, y0 + s + p.h * k);
-            const bx = Math.min(x1, x0 + s + p.h * k), by = Math.max(y0, y0 + s);
-            if (ax < bx && by < ay) d.line(p.l, ax, by, bx, ay, { cls: "achu" });
-          }
-        } else {
-          // SÍMBOLO pequeño (manija, marca de corte, zapata) o banda de
-          // muro que a esta escala imprime <1.6 mm → SÓLIDO (poché macizo,
-          // convención a escalas pequeñas).
-          d.solid(p.l, x0, y0, x1, y1);
-        }
-      } else {
-        const x0 = X(p.x), y0 = Y(p.y), x1 = X(p.x + p.w), y1 = Y(p.y + p.h);
-        d.polyline(p.l, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
-      }
-    }
-
-    // ── Las láminas de planta (A-01*) llevan el MEP de SU nivel
-    //    (RETIE/RAS): círculo + inicial CENTRADA (antes la letra nacía abajo-
-    //    izquierda del círculo y rozaba etiquetas). Las posiciones vienen del
-    //    SOLVER (mepSymbols): símbolos separados entre sí, encerrados en su
-    //    local — la misma fuente que usa el plan para esquivarlos.
-    //    A-06 (acabados) NO lleva MEP: su lámina es el acabado, limpia (§2.4).
-    if (sheet.code.startsWith("A-01")) {
-      for (const s of mepSymbols(plan, lvl)) {
-        const l = s.disc === "E" ? "ELECTRICO" : "HIDROSANITARIO";
-        d.circle(l, X(s.x), Y(s.y), Math.max(s.r * k, 1.3));
-        const h = ANNOT.symbolTextMm;
-        d.text(l, X(s.x) - (s.letter.length * h * 0.7) / 2, Y(s.y) - h * 0.5, h, s.letter);
-      }
-    }
+  // La EMISIÓN vive en plot.ts (motor compartido con el PDF): misma escala,
+  // mismo rótulo, mismas colisiones — el DXF y el PDF salen del mismo cerebro.
+  sheets.forEach((sheet, i) => {
+    emitSheet(d, plan, sheet, { ox: i * (700 + GAP_SHEET), total, fecha, city });
   });
-
   return d.build();
 }
