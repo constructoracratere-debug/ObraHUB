@@ -224,6 +224,22 @@ check("DXF por lámina: N archivos, cada uno 700×500 en origen con su rótulo",
     && files.every((f) => f.dxf.startsWith("0\nSECTION") && f.dxf.trimEnd().endsWith("0\nEOF") && f.dxf.includes(`${f.code} / 1`) && /10\n5\.000\n20\n5\.000/.test(f.dxf))
     && new Set(files.map((f) => f.code)).size === files.length;
 })());
+// ── DXF DUAL: el set completo lleva las LÁMINAS de plot (mm) + el MODELO
+//    1:1 en METROS debajo (referencia xref para otro CAD); las láminas
+//    sueltas siguen siendo impresión pura (review: dual export). ──────────
+check("DXF dual: set completo incluye MODELO 1:1 en metros", dxf.includes("MODELO 1:1 (METROS, REFERENCIA CAD)") && /\n20\n-/.test(dxf));
+check("DXF dual: un modelo por nivel", (() => {
+  const n = multiLevelPlan.levels ?? 1;
+  return (multiDxf.match(/— MODELO 1:1/g) ?? []).length === n;
+})());
+check("DXF dual: modelo BYLAYER (sin 370 tras su cabecera) y láminas sueltas sin modelo", (() => {
+  const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
+  const idx = dxf.indexOf("MODELO 1:1 (METROS");
+  const after = dxf.slice(idx, idx + 400);
+  return !/\n370\n\d+\n/.test(after.slice(after.indexOf("0\nLINE")))
+    && planToDxfSheets(plan, { fecha: "2026-01-15" }).every((f) => !f.dxf.includes("MODELO 1:1"));
+})());
+
 check("símbolos F ≠ poché: SOLID macizo (marca de corte en A-CORTE)", /0\nSOLID\n8\nA-CORTE\n/.test(dxf));
 check("SOLID también lleva 370 de entidad (política única de grosor)", /0\nSOLID\n8\nA-CORTE\n370\n60\n/.test(dxf));
 check("plantilla de capa conserva default ISO (370=70 en tabla A-MUROS)", /LAYER\n2\nA-MUROS\n70\n0\n62\n[-\d]+\n6\nCONTINUOUS\n370\n70/.test(dxf));
@@ -239,10 +255,23 @@ check("scaleBarMm: presets que nunca desbordan", (() => {
 })());
 
 // ── Anotación a TAMAÑO DE PAPEL (guía §2.5 + libro h≥2.5) ────────────────────
-check("todo TEXT imprime ≥2.2 mm (piso 2.5; exentos numerales/símbolos 2.2)", (() => {
-  const chunks = dxf.split("0\nTEXT\n").slice(1);
+// El piso de 2.5 mm rige las LÁMINAS (y≥0, mm de papel); el bloque MODELO
+// 1:1 debajo anota en METROS (0.1–0.6 m) — no es plot, es referencia CAD.
+check("láminas: todo TEXT imprime ≥2.2 mm (piso 2.5; exentos numerales/símbolos 2.2)", (() => {
+  const idx = dxf.indexOf("MODELO 1:1 (METROS");
+  const modelStart = dxf.lastIndexOf("0\nTEXT\n", idx); // borde de ENTIDAD del header
+  const sheets = dxf.slice(0, modelStart);
+  const chunks = sheets.split("0\nTEXT\n").slice(1);
   const heights = chunks.map((c) => Number((c.match(/40\n(\d+\.\d{3})\n/) ?? [0, "99"])[1]));
   return heights.length > 100 && heights.every((h) => h >= 2.19) && heights.some((h) => h >= 2.5);
+})());
+check("modelo 1:1: anotación en metros (letras MEP ≥0.06 m, textos ≤0.6 m)", (() => {
+  const idx = dxf.indexOf("MODELO 1:1 (METROS");
+  const modelStart = dxf.lastIndexOf("0\nTEXT\n", idx);
+  const model = dxf.slice(modelStart);
+  const chunks = model.split("0\nTEXT\n").slice(1);
+  const heights = chunks.map((c) => Number((c.match(/40\n(\d+\.\d{3})\n/) ?? [0, "99"])[1]));
+  return heights.length >= 30 && heights.every((h) => h >= 0.06 && h <= 0.6);
 })());
 check("lámina A-00 índice + simbología abre el set", dxf.includes("A-00") && dxf.includes("ÍNDICE DEL SET"));
 check("REVISÓ veraz: pendiente hasta firma profesional", dxf.includes("PENDIENTE DE REVISIÓN") && !dxf.includes("ING. MATRICULADO"));
@@ -349,7 +378,7 @@ if (process.env.SKIP_EZDXF !== "1") {
       const out = path.join(root, "test-output.dxf");
       writeFileSync(out, dxf, "utf8");
       const py = execSync(
-        `python -c "import ezdxf,sys; d=ezdxf.readfile(r'${out}'); ms=d.modelspace(); lws={l.dxf.name:l.dxf.lineweight for l in d.layers}; assert lws.get('A-MUROS')==70, lws; assert lws.get('A-EJES')==13, lws; n=len(ms); assert n>200, n; print('ezdxf OK', n, 'entidades,', len(d.layers), 'capas')"`,
+        `python -c "import ezdxf,sys; d=ezdxf.readfile(r'${out}'); ms=d.modelspace(); lws={l.dxf.name:l.dxf.lineweight for l in d.layers}; assert lws.get('A-MUROS')==70, lws; assert lws.get('A-EJES')==13, lws; n=len(ms); assert n>200, n; neg=sum(1 for e in ms if e.dxftype()=='LINE' and e.dxf.start.y < -40); assert neg>100, neg; print('ezdxf OK', n, 'entidades,', len(d.layers), 'capas,', neg, 'lineas modelo 1:1')"`,
         { encoding: "utf8", stdio: "pipe" },
       ).trim();
       check(`ezdxf parsea: ${py}`, py.startsWith("ezdxf OK"));

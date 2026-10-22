@@ -23,7 +23,7 @@ import type { FloorPlan } from "./schema";
 import { plotMm } from "./knowledge";
 import { sheetContents, type Sheet } from "./sheets";
 import { emitSheet } from "./plot";
-import { ELEC_SYMBOLS, HYDRO_SYMBOLS } from "./views";
+import { ELEC_SYMBOLS, HYDRO_SYMBOLS, mepSymbols, plantaPrimitives, primsBounds } from "./views";
 
 // Símbolos MEP: fuente única en views.ts (plano y leyenda comparten tabla).
 export { ELEC_SYMBOLS, HYDRO_SYMBOLS };
@@ -216,7 +216,7 @@ const DRAW_PAD = 12; // mm de aire dentro del área de dibujo
  * producción del archivo) vía opts.fecha; sin ella, la celda queda vacía.
  */
 export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): string {
-  return emitSheets(plan, sheetContents(plan), opts);
+  return emitSheets(plan, sheetContents(plan), opts, true);
 }
 
 /** Un archivo DXF POR LÁMINA (review #11): abrir o imprimir una lámina sola
@@ -226,7 +226,45 @@ export function planToDxfSheets(plan: FloorPlan, opts: { fecha?: string } = {}):
   return sheetContents(plan).map((sheet) => ({ code: sheet.code, dxf: emitSheets(plan, [sheet], opts) }));
 }
 
-function emitSheets(plan: FloorPlan, sheets: Sheet[], opts: { fecha?: string }): string {
+/** BLOQUE MODELO 1:1 (metros) — el "DXF dual": arriba viajan las LÁMINAS
+ *  (mm de papel, plot 1:1); debajo el MISMO plano en unidades REALES para
+ *  que otro arquitecto lo REFERENCIE (xref) o mida directo en CAD, sin
+ *  convertir escalas. Geometría + anotación de modelo: sin rótulo ni poché
+ *  macizo (los muros viajan como contorno). Grosores BYLAYER — el modelo no
+ *  es plot, es referencia. Sólo en el set completo: las láminas sueltas y
+ *  el PDF son impresión pura. */
+function emitModel1to1(d: DxfBuilder, plan: FloorPlan): void {
+  d.setPlot(0); // 370 BYLAYER en el modelo
+  const nLevels = typeof plan.levels === "number" && plan.levels > 0 ? plan.levels : 1;
+  let oy = -40; // aire bajo la última lámina
+  for (let lvl = 0; lvl < nLevels; lvl++) {
+    const prims = plantaPrimitives(plan, lvl);
+    const b = primsBounds(prims);
+    const sy = b.maxY - b.minY;
+    d.text("TEXTOS", 0, oy + 2.6, 0.5, `NIVEL ${lvl + 1} — MODELO 1:1 (METROS, REFERENCIA CAD)`);
+    // El plano en unidades reales: su parte ALTA queda en oy y crece hacia
+    // ABAJO (alejándose de las láminas, que viven en y≥0).
+    const X = (v: number) => v - b.minX;
+    const Y = (v: number) => oy - (b.maxY - v);
+    for (const p of prims) {
+      if (p.t === "L") d.line(p.l, X(p.x1), Y(p.y1), X(p.x2), Y(p.y2), { thin: p.thin, dash: p.dash });
+      else if (p.t === "T") d.text(p.l, X(p.x), Y(p.y), p.h, p.s, p.r ?? 0);
+      else if (p.t === "C") d.circle(p.l, X(p.x), Y(p.y), p.r);
+      // F (poché/zócalo/símbolo relleno) → CONTORNO: en el modelo se
+      // referencia el borde del muro, no su relleno de impresión.
+      else d.polyline(p.l, [[X(p.x), Y(p.y)], [X(p.x + p.w), Y(p.y)], [X(p.x + p.w), Y(p.y + p.h)], [X(p.x), Y(p.y + p.h)]], true);
+    }
+    // Instalaciones del nivel (mismo solver que la lámina) a escala real.
+    for (const s of mepSymbols(plan, lvl)) {
+      const l = s.disc === "E" ? "ELECTRICO" : "HIDROSANITARIO";
+      d.circle(l, X(s.x), Y(s.y), s.r);
+      d.text(l, X(s.x) - (s.letter.length * s.r * 0.35), Y(s.y) - s.r * 0.3, s.r * 0.8, s.letter);
+    }
+    oy -= sy + 9;
+  }
+}
+
+function emitSheets(plan: FloorPlan, sheets: Sheet[], opts: { fecha?: string }, withModel = false): string {
   const d = new DxfBuilder();
   const total = String(sheets.length);
   const city = plan.site?.city ? `${plan.site.city.toUpperCase()}${plan.site.department ? " · " + plan.site.department.toUpperCase() : ""}` : "COLOMBIA";
@@ -236,5 +274,6 @@ function emitSheets(plan: FloorPlan, sheets: Sheet[], opts: { fecha?: string }):
   sheets.forEach((sheet, i) => {
     emitSheet(d, plan, sheet, { ox: i * (700 + GAP_SHEET), total, fecha, city });
   });
+  if (withModel) emitModel1to1(d, plan);
   return d.build();
 }

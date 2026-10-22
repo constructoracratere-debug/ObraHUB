@@ -136,14 +136,19 @@ type DesignSession = {
   savedAt: string;
 };
 const sessionKey = (slug?: string) => `obrahub-design-${slug ? slug.replace(/[^a-z0-9-]+/gi, "-") : "sin-proyecto"}`;
+/** Validación de fondo de UNA sesión (local o de la nube): plano vivo v2 con
+ *  espacios reales; etapa fuera de rango → edición libre (5). */
+function validSession(raw: unknown): DesignSession | null {
+  const s = raw as DesignSession | null;
+  if (!s?.plan || s.plan.version !== 2 || !Array.isArray(s.plan.rooms) || s.plan.rooms.length === 0) return null;
+  if (typeof s.stage !== "number" || s.stage < 0 || s.stage > 5) s.stage = 5;
+  return s;
+}
 function loadSession(slug?: string): DesignSession | null {
   try {
     const raw = localStorage.getItem(sessionKey(slug));
     if (!raw) return null;
-    const s = JSON.parse(raw) as DesignSession;
-    if (!s?.plan || s.plan.version !== 2 || !Array.isArray(s.plan.rooms) || s.plan.rooms.length === 0) return null;
-    if (typeof s.stage !== "number" || s.stage < 0 || s.stage > 5) s.stage = 5;
-    return s;
+    return validSession(JSON.parse(raw));
   } catch { return null; }
 }
 /** Etapa razonable al restaurar SOLO el plan (sin sesión local): si ya tiene
@@ -197,6 +202,8 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [civilMemo, setCivilMemo] = useState<CivilMemo | null>(restored?.civilMemo ?? null);
   const [equipment, setEquipment] = useState<Equipment>(restored?.equipment ?? []);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  // ☁️ Estado del autoguardado EN LA NUBE (off = sin proyecto: sólo local).
+  const [cloudSave, setCloudSave] = useState<"off" | "saving" | "saved" | "error">("off");
   // Bucle de revisión con el profesional + paquete de licencia.
   const [feedback, setFeedback] = useState("");
   const [promptOpen, setPromptOpen] = useState(true); // barra ámbar minimizable
@@ -222,25 +229,61 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
 
   useEffect(() => { if (initialPrompt) setPrompt(initialPrompt); }, [initialPrompt]);
   // 💾 AUTOGUARDADO de la sesión (el dibujo SE QUEDA hasta "Nuevo dibujo"):
-  // sesión completa por proyecto + clave global para Pasaporte/Estructural.
+  // sesión completa por proyecto + clave global para Pasaporte/Estructural
+  // + COPIA EN LA NUBE cuando hay proyecto (cruza dispositivos).
   useEffect(() => {
     if (!plan) return;
     const t = setTimeout(() => {
+      const session: DesignSession = { plan, stage, siteMemo, constructorMemo, civilMemo, equipment, revisions, savedAt: new Date().toISOString() };
       try {
-        const session: DesignSession = { plan, stage, siteMemo, constructorMemo, civilMemo, equipment, revisions, savedAt: new Date().toISOString() };
         localStorage.setItem(sessionKey(projectSlug), JSON.stringify(session));
         localStorage.setItem("obrahub-last-plan", JSON.stringify(plan));
-      } catch { /* cuota llena: el kit del proyecto sigue recibiendo el plan */ }
+      } catch { /* cuota llena: la nube sigue recibiendo la sesión */ }
+      // ☁️ PUT idempotente (una sesión activa por proyecto); el debounce de
+      // 400 ms coalesce las ráfagas de edición. Fire-and-forget con estado.
+      if (projectSlug) {
+        setCloudSave("saving");
+        void fetch(`/api/projects/${encodeURIComponent(projectSlug)}/design-session`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(session),
+        })
+          .then((r) => setCloudSave(r.ok ? "saved" : "error"))
+          .catch(() => setCloudSave("error"));
+      }
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, stage, siteMemo, constructorMemo, civilMemo, equipment, revisions, projectSlug]);
-  // 🌐 Fallback CRUZA-DISPOSITIVOS: sin sesión local pero con proyecto → el
-  // plan publicado en el kit del servidor vuelve como punto de partida.
+  // 🌐 SINCRONÍA CON LA NUBE (pedido del operador: el dibujo lo SIGUE a
+  // cualquier dispositivo): al montar se compara la sesión del servidor con
+  // la local por savedAt — gana la MÁS RECIENTE, sea de donde sea. Sin
+  // sesión en ningún lado → fallback al plan publicado en el kit.
   useEffect(() => {
-    if (restored || !projectSlug) return;
+    if (!projectSlug) return;
     let cancelled = false;
     void (async () => {
+      let remote: DesignSession | null = null;
+      try {
+        const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/design-session`);
+        if (res.ok) remote = validSession((await res.json()).session);
+      } catch { /* sin red: manda la copia local */ }
+      if (cancelled) return;
+      if (remote && (!restored || remote.savedAt > restored.savedAt)) {
+        setPlan(remote.plan);
+        setGates(allGates(remote.plan));
+        setStage(remote.stage);
+        setSiteMemo(remote.siteMemo ?? null);
+        setConstructorMemo(remote.constructorMemo ?? null);
+        setCivilMemo(remote.civilMemo ?? null);
+        setEquipment(remote.equipment ?? []);
+        setRevisions(remote.revisions ?? []);
+        pushLine({ agent: null, kind: "status", text: `☁️ Sesión MÁS RECIENTE restaurada desde la nube (${remote.plan.rooms.length} espacios, guardada ${new Date(remote.savedAt).toLocaleString()}) — el dibujo te siguió desde el otro dispositivo. Sigue editando: todo vuelve a autoguardarse.` });
+        return;
+      }
+      if (restored) return;
+      // Fallback clásico: sin sesión local ni en nube, el plan publicado en
+      // el kit del servidor vuelve como punto de partida.
       try {
         const res = await fetch(`/api/projects/${encodeURIComponent(projectSlug)}/kit`);
         if (!res.ok) return;
@@ -439,11 +482,16 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
 
   // ── 🗑️ NUEVO DIBUJO: la ÚNICA forma de perder el plano (explícita) ──────
   const nuevoDibujo = () => {
-    if (!confirm("¿Empezar un DIBUJO NUEVO?\n\nEl plano actual y su sesión se BORRAN de este navegador. Descarga DXF/IFC antes si los necesitas. (El plan publicado en el Kit del proyecto NO se toca).")) return;
+    if (!confirm("¿Empezar un DIBUJO NUEVO?\n\nEl plano actual y su sesión se BORRAN de este navegador Y de la nube (todos tus dispositivos). Descarga DXF/IFC antes si los necesitas. (El plan publicado en el Kit del proyecto NO se toca).")) return;
     try {
       localStorage.removeItem(sessionKey(projectSlug));
       localStorage.removeItem("obrahub-last-plan");
     } catch { /* */ }
+    // La nube también olvida: lo descartado no resucita en otro dispositivo.
+    if (projectSlug) {
+      void fetch(`/api/projects/${encodeURIComponent(projectSlug)}/design-session`, { method: "DELETE" }).catch(() => {});
+      setCloudSave("off");
+    }
     undoRef.current = [];
     setPlan(null); setGates(null); setStage(0); setSiteMemo(null);
     setConstructorMemo(null); setCivilMemo(null); setEquipment([]);
@@ -692,9 +740,19 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                   {saving === "saving" ? "Guardando…" : saving === "saved" ? "✓ Guardado en Documentos" : "💾 Guardar en Documentos"}
                 </button>
               )}
+              {projectSlug && (
+                <p
+                  className="text-[10px] font-medium"
+                  title="La sesión completa se autoguarda en la nube del proyecto: el dibujo te sigue a cualquier dispositivo. Gana siempre la copia más reciente."
+                >
+                  {cloudSave === "saving" && <span className="text-amber-300">☁️ Guardando en la nube…</span>}
+                  {cloudSave === "saved" && <span className="text-emerald-300">☁️ Autoguardado en la nube — te sigue a cualquier dispositivo</span>}
+                  {cloudSave === "error" && <span className="text-red-300">☁️ Nube no disponible — la copia local de este navegador sigue intacta</span>}
+                </p>
+              )}
               <button
                 type="button" onClick={nuevoDibujo}
-                title="Borra la sesión de este navegador y empieza de cero — el plano actual se pierde (el Kit del proyecto conserva lo publicado)"
+                title="Borra la sesión de este navegador Y de la nube, y empieza de cero (el Kit del proyecto conserva lo publicado)"
                 className="w-full rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 ring-1 ring-red-400/25 transition hover:bg-red-500/20"
               >
                 🗑️ Nuevo dibujo (borra esta sesión)

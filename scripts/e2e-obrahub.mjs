@@ -157,6 +157,28 @@ async function main() {
   if (ph) { const d = await j(ph); const c = (d.cards ?? []).find(x => x.slug === slug); results[results.length-1].ok = !!c && (c.tasksTotal ?? 0) > 0; }
   await call("actividad (feed)", `/api/projects/${slug}/activity`, {}, (r) => r.status === 200);
 
+  // 9b. Sesión de diseño EN LA NUBE — el dibujo cruza dispositivos:
+  // autoguardar (PUT), volver desde otro dispositivo (GET coincide), y
+  // "Nuevo dibujo" la borra de verdad (DELETE → GET null). Restaura la
+  // sesión previa si existía para no pisar el dibujo real del operador.
+  const dsGet = await call("design-session (leer previa)", `/api/projects/${slug}/design-session`, {}, () => true);
+  const prevSession = dsGet ? (await j(dsGet)).session : null;
+  const stamp = new Date().toISOString();
+  const probe = { plan: { version: 2, name: "E2E sesión nube", rooms: [{ id: "e2e" }] }, stage: 5, savedAt: stamp };
+  await call("design-session (autoguardado nube)", `/api/projects/${slug}/design-session`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(probe),
+  }, (r) => r.status === 200);
+  const dsBack = await call("design-session (cruza dispositivos)", `/api/projects/${slug}/design-session`, {}, () => true);
+  if (dsBack) { const s = (await j(dsBack)).session; results[results.length-1].ok = !!s && s.savedAt === stamp && s.plan?.name === "E2E sesión nube" && s.stage === 5; }
+  await call("design-session (nuevo dibujo borra nube)", `/api/projects/${slug}/design-session`, { method: "DELETE" }, (r) => r.status === 200);
+  const dsGone = await call("design-session (borrada de verdad)", `/api/projects/${slug}/design-session`, {}, () => true);
+  if (dsGone) results[results.length-1].ok = (await j(dsGone)).session === null;
+  if (prevSession?.savedAt) {
+    await call("design-session (restaura la del operador)", `/api/projects/${slug}/design-session`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(prevSession),
+    }, (r) => r.status === 200);
+  }
+
   // 10. Exportaciones
   const zip = await call("export ZIP (proyecto)", `/api/projects/${slug}/export`, {}, (r) => r.status === 200);
   if (zip) { const buf = await zip.arrayBuffer(); results[results.length-1].ok = buf.byteLength > 2000 && new Uint8Array(buf)[0] === 0x50 && new Uint8Array(buf)[1] === 0x4B; }
