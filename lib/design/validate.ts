@@ -219,7 +219,7 @@ export function gateAdapt(plan: FloorPlan): Gate {
     },
     ...doorChecks(plan),
   ];
-  return { stage: "adapt", title: "Puerta 2 · Diseño adaptado a expertos", checks };
+  return { stage: "adapt", title: "Puerta 2 · Estructura y retorno arquitectónico", checks };
 }
 
 /** Gate 3 — Instalaciones: puntos eléctricos e hidrosanitarios presentes. */

@@ -4,8 +4,10 @@
  * ✏️ Diseño IA — Estudio de diseño multi-agente.
  *
  * Wizard de 6 etapas (roadmap Fase 1 ampliado):
- *  0 Sitio → 1 Boceto arquitecto → 2 Expertos (∥) → 3 Adaptación
- *  → 4 Instalaciones (∥) → 5 Acabados → expediente + DXF por capas.
+ *  0 Sitio → 1 Boceto arquitecto → 2 Desarrollo constructor → 3 Acabados
+ *  → 4 Estructura (NSR-10) → 5 Retorno arquitectónico → 6 Instalaciones (∥)
+ *  → expediente + DXF por capas. El PRIMER paquete (A-00…A-07) es
+ *  puramente arquitectónico; la estructura abre el paquete S.
  * Cada etapa pasa por puertas de verificación determinísticas (validate.ts).
  * El plano se dibuja en SVG (viewBox pan/zoom, patrón dwg-preview).
  */
@@ -66,15 +68,21 @@ type CivilMemo = {
 
 type Equipment = Array<{ item: string; room?: string; note?: string }>;
 
-type Stage = 0 | 1 | 2 | 3 | 4 | 5;
+type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
+// FLUJO DE LICENCIA (secuencia de curaduría): el PRIMER paquete es
+// puramente ARQUITECTÓNICO (plantas, cortes por la escalera, fachadas,
+// cubiertas, acabados y sus detalles — láminas A-*). SÓLO entonces el
+// ingeniero diseña la ESTRUCTURA (paquete S-*), el arquitecto RETORNA y
+// adecúa el paquete A a la retícula, y por último las instalaciones.
 const STAGES: Array<{ n: Stage; title: string; agent: string; icon: string }> = [
   { n: 0, title: "Sitio", agent: "Urbanista — POT y contexto", icon: "📍" },
   { n: 1, title: "Boceto", agent: "Arquitecto", icon: "🏛️" },
-  { n: 2, title: "Expertos", agent: "Constructor ∥ Ing. Civil", icon: "👷" },
-  { n: 3, title: "Adaptación", agent: "Arquitecto + mesa técnica", icon: "📐" },
-  { n: 4, title: "Instalaciones", agent: "Eléctrico ∥ Hidrosanitario", icon: "⚡" },
-  { n: 5, title: "Acabados", agent: "Interiores", icon: "🎨" },
+  { n: 2, title: "Desarrollo Arq.", agent: "Constructor — materiales y métodos", icon: "👷" },
+  { n: 3, title: "Acabados y Detalles", agent: "Interiores — cierra el paquete A", icon: "🎨" },
+  { n: 4, title: "Estructura", agent: "Ing. Civil — NSR-10, retícula y cimentación", icon: "🏗️" },
+  { n: 5, title: "Retorno Arq.", agent: "Arquitecto adecúa a la estructura (curaduría)", icon: "📐" },
+  { n: 6, title: "Instalaciones", agent: "Eléctrico ∥ Hidrosanitario", icon: "⚡" },
 ];
 
 const EXAMPLES = [
@@ -141,7 +149,7 @@ const sessionKey = (slug?: string) => `obrahub-design-${slug ? slug.replace(/[^a
 function validSession(raw: unknown): DesignSession | null {
   const s = raw as DesignSession | null;
   if (!s?.plan || s.plan.version !== 2 || !Array.isArray(s.plan.rooms) || s.plan.rooms.length === 0) return null;
-  if (typeof s.stage !== "number" || s.stage < 0 || s.stage > 5) s.stage = 5;
+  if (typeof s.stage !== "number" || s.stage < 0 || s.stage > 6) s.stage = 6;
   return s;
 }
 function loadSession(slug?: string): DesignSession | null {
@@ -151,10 +159,13 @@ function loadSession(slug?: string): DesignSession | null {
     return validSession(JSON.parse(raw));
   } catch { return null; }
 }
-/** Etapa razonable al restaurar SOLO el plan (sin sesión local): si ya tiene
- *  estructura e instalaciones, el expediente está completo → edición libre. */
+/** Etapa razonable al restaurar SOLO el plan (sin sesión local): la más
+ *  avanzada COMPLETA del flujo de licencia (acabados→estructura→retorno→MEP). */
 function stageForPlan(p: FloorPlan): Stage {
-  return p.structure && (p.electrical || p.hydro) ? 5 : p.structure ? 4 : 2;
+  if (p.electrical || p.hydro) return 6;
+  if (p.structure) return 5;
+  if (p.finishes) return 4;
+  return 2;
 }
 
 function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string; initialPrompt?: string }) {
@@ -421,50 +432,63 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     setBusy(2); setError(null);
     try {
       const data = await callWithRetries({ stage: "experts", previousPlan: plan, siteMemo });
-      setConstructorMemo(data.constructorMemo as ConstructorMemo); setCivilMemo(data.civilMemo as CivilMemo);
-      setProviderInfo(`👷 ${String((data.providers as any).constructor)} + ${String((data.providers as any).civil)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
+      setConstructorMemo(data.constructorMemo as ConstructorMemo);
+      setProviderInfo(`👷 ${String((data.providers as any).constructor)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(3);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
   };
 
+  const runStructure = async () => {
+    if (!plan) return;
+    setBusy(4); setError(null);
+    try {
+      const data = await callWithRetries({ stage: "structure", previousPlan: plan, siteMemo, constructorMemo });
+      setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
+      setCivilMemo(data.civilMemo as CivilMemo);
+      setProviderInfo(`🏗️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
+      setStage(5);
+    } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
+    setBusy(null);
+  };
+
   const runAdapt = async () => {
-    if (!plan || !constructorMemo || !civilMemo) return;
-    setBusy(3); setError(null);
+    if (!plan || !civilMemo) return;
+    setBusy(5); setError(null);
     try {
       const data = await callWithRetries({ stage: "adapt", previousPlan: plan, constructorMemo, civilMemo });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`📐 ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
-      setStage(4);
+      setStage(6);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
   };
 
   const runInstallations = async () => {
     if (!plan) return;
-    setBusy(4); setError(null);
+    setBusy(6); setError(null);
     try {
       const data = await callWithRetries({ stage: "installations", previousPlan: plan });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`⚡ ${String((data.providers as any).electrical)} + ${String((data.providers as any).hydro)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
-      setStage(5);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
   };
 
   const runFinishes = async () => {
     if (!plan) return;
-    setBusy(5); setError(null);
+    setBusy(3); setError(null);
     try {
       const data = await callWithRetries({ stage: "finishes", previousPlan: plan, constructorMemo });
       setPlan(data.plan as FloorPlan); setEquipment((data.equipment as Equipment) ?? []); setGates(data.gates as Gate[]);
       setProviderInfo(`🎨 ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
+      setStage(4);
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
   };
 
   const runStage = (s: Stage) =>
-    ({ 0: runSite, 1: runDraft, 2: runExperts, 3: runAdapt, 4: runInstallations, 5: runFinishes })[s]();
+    ({ 0: runSite, 1: runDraft, 2: runExperts, 3: runFinishes, 4: runStructure, 5: runAdapt, 6: runInstallations })[s]!();
 
   // ── DXF (client-side, instantáneo) ────────────────────────────────────────
   // La fecha de producción la pasa la UI: planToDxf es 100% determinista.
@@ -621,7 +645,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
       {/* Stepper de etapas */}
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/[0.06] bg-[#070d1a] px-3 py-2">
         {STAGES.map((s, i) => {
-          const done = stage > s.n || (s.n === 5 && equipment.length > 0);
+          const done = stage > s.n || (s.n === 6 && (equipment.length > 0 || !!(plan?.electrical || plan?.hydro)));
           const active = stage === s.n;
           return (
             <div key={s.n} className="flex items-center">
@@ -1074,45 +1098,59 @@ function StagePanel(props: {
       {stage === 2 && (
         <>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            El constructor y el ingeniero civil analizan el boceto EN PARALELO:
-            materiales y métodos locales; sistema estructural y retícula (NSR-10).
+            El constructor desarrolla el proyecto ARQUITECTÓNICO: materiales y
+            métodos locales. El plano sigue siendo puramente arquitectónico —
+            sólo la sugerencia gráfica de los ejes (paquete A).
           </p>
-          <RunButton onClick={onRun} running={running} label="Convocar mesa de expertos" />
+          <RunButton onClick={onRun} running={running} label="Desarrollar con el constructor" />
         </>
       )}
 
       {stage === 3 && (
         <>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            El arquitecto adapta la planta a los memos: alinea muros a la retícula,
-            respeta luces del sistema estructural.
+            Acabados por espacio, equipos sugeridos y DETALLES de acabados
+            (lámina A-07) — coherentes con los materiales del constructor.
+            Con esto el PRIMER PAQUETE (A-00…A-07) queda completo.
           </p>
-          {props.civilMemo?.system && (
-            <p className="mt-2 rounded-lg bg-amber-500/[0.08] p-2 text-[10px] text-amber-200">
-              🏗️ Sistema propuesto: {STRUCTURE_LABELS[props.civilMemo.system as keyof typeof STRUCTURE_LABELS] ?? props.civilMemo.system}
-            </p>
-          )}
-          <RunButton onClick={onRun} running={running} label="Adaptar planta a expertos" />
+          <RunButton onClick={onRun} running={running} label="Proponer acabados y equipos" doneLabel={props.equipment.length > 0 ? "✓ Paquete arquitectónico completo" : undefined} />
         </>
       )}
 
       {stage === 4 && (
         <>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            El experto eléctrico (RETIE) y el hidrosanitario (RAS) diseñan sus
-            capas sobre la planta final, en paralelo.
+            Con el paquete arquitectónico aprobado, el ingeniero civil diseña
+            la ESTRUCTURA (NSR-10): sistema, retícula y cimentación — la
+            retícula pasa directa al plano y nace el paquete S.
           </p>
-          <RunButton onClick={onRun} running={running} label="Diseñar instalaciones" />
+          <RunButton onClick={onRun} running={running} label="Diseñar estructura (retícula y cimentación)" />
         </>
       )}
 
       {stage === 5 && (
         <>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            Acabados por espacio y equipos sugeridos, coherentes con los
-            materiales del constructor.
+            RETORNO: el arquitecto adecúa el paquete A a los ejes del ingeniero
+            (alinea muros a la retícula, respeta luces) — la versión que va a
+            curaduría junto al paquete estructural.
           </p>
-          <RunButton onClick={onRun} running={running} label="Proponer acabados y equipos" doneLabel={props.equipment.length > 0 ? "✓ Acabados listos" : undefined} />
+          {props.civilMemo?.system && (
+            <p className="mt-2 rounded-lg bg-amber-500/[0.08] p-2 text-[10px] text-amber-200">
+              🏗️ Sistema propuesto: {STRUCTURE_LABELS[props.civilMemo.system as keyof typeof STRUCTURE_LABELS] ?? props.civilMemo.system}
+            </p>
+          )}
+          <RunButton onClick={onRun} running={running} label="Adecuar planta a la estructura" />
+        </>
+      )}
+
+      {stage === 6 && (
+        <>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            El experto eléctrico (RETIE) y el hidrosanitario (RAS) diseñan sus
+            capas sobre la planta final, en paralelo.
+          </p>
+          <RunButton onClick={onRun} running={running} label="Diseñar instalaciones" />
         </>
       )}
     </div>

@@ -59,6 +59,39 @@ function footingAt(l: string, x: number, out: Prim[], floorY = -1.4) {
   out.push({ t: "L", l, x1: x + w / 2, y1: floorY + t, x2: x + 0.18, y2: floorY + t + 0.35 });
 }
 
+/** ── CAJA DE ESCALERA (fuente única, curaduría): local tipado ESCALERA si
+ *  el modelo lo pidió; si no, la heurística histórica (espacio más grande
+ *  del N1 pegado al muro este). Null = un solo nivel sin local de escalera.
+ *  La consumen: la planta (símbolo), las LÍNEAS DE CORTE (cutLines) y el
+ *  corte (vuelo de peldaños) — todos ven la MISMA escalera. */
+export function stairBox(plan: FloorPlan): { x: number; y: number; w: number; d: number } | null {
+  const room = plan.rooms.find((r) => r.level === 0 && r.type === "escalera" && r.width >= 0.8 && r.depth >= 1.6);
+  if (room) return { x: room.x, y: room.y, w: room.width, d: room.depth };
+  if ((plan.levels ?? 1) <= 1) return null;
+  const host = [...plan.rooms.filter((r) => r.level === 0)]
+    .sort((a, b) => b.width * b.depth - a.width * a.depth)[0];
+  if (!host) return null;
+  const w = 0.9;
+  const len = Math.min(host.depth - 0.35, plan.floorToFloor * 2.1);
+  if (len < 1.2) return null;
+  return { x: host.x + host.width - w - 0.15, y: host.y + 0.15, w, d: len };
+}
+
+/** ── LÍNEAS DE CORTE (fuente única): curaduría exige cortes POR LA
+ *  ESCALERA — el longitudinal (A-A') corta por el centro Y de la escalera
+ *  y el transversal (B-B') por su centro X. Sin escalera: centros del
+ *  rectángulo (comportamiento histórico). Planta y corte consumen ESTA
+ *  función: la marca del plano y el corte dibujado nunca se contradicen. */
+export function cutLines(plan: FloorPlan): { longY: number; transX: number } {
+  const { width: W, depth: D } = plan.outline;
+  const s = stairBox(plan);
+  if (!s) return { longY: D / 2, transX: W / 2 };
+  return {
+    longY: Math.min(Math.max(s.y + s.d / 2, 1), D - 1),
+    transX: Math.min(Math.max(s.x + s.w / 2, 1), W - 1),
+  };
+}
+
 /** ── CORTE — vertical por el eje largo (A-A') o corto (B-B') ───────────── */
 export function sectionPrimitives(plan: FloorPlan, opts: { transverse?: boolean } = {}): Prim[] {
   const out: Prim[] = [];
@@ -69,7 +102,10 @@ export function sectionPrimitives(plan: FloorPlan, opts: { transverse?: boolean 
   const D = opts.transverse ? W0 : D0;
   const fft = plan.floorToFloor;
   const levels = Math.max(1, plan.levels);
-  const cutY = D / 2;
+  // El corte pasa POR LA ESCALERA (cutLines — fuente única compartida con
+  // las marcas de la planta): longitudinal a su centro Y, transversal a su X.
+  const cuts = cutLines(plan);
+  const cutY = opts.transverse ? cuts.transX : cuts.longY;
   const totalH = fft * levels;
   const GROUND = -0.3;
 
@@ -139,6 +175,27 @@ export function sectionPrimitives(plan: FloorPlan, opts: { transverse?: boolean 
   }
   // NPT superior (cara superior de la última placa).
   levelMark(L, -1.2, totalH, out, `+${fmt(totalH)}`);
+
+  // ESCALERA EN CORTE (Ching: el corte por la escalera muestra el VUELO —
+  // peldaños como escalera diagonal + pasamanos). Sólo si la línea de corte
+  // cruza la caja de la escalera (misma fuente que la planta).
+  const st = stairBox(plan);
+  if (st && levels > 1) {
+    const along0 = opts.transverse ? st.y : st.x;
+    const acrossSt = opts.transverse ? st.x : st.y;
+    const acrossStW = opts.transverse ? st.w : st.d;
+    if (acrossSt <= cutY && acrossSt + acrossStW >= cutY) {
+      const n = Math.max(3, Math.floor(fft / 0.18));
+      const run = Math.max(1.4, Math.min(st.d, n * 0.26));
+      for (let i = 0; i < n; i++) {
+        const x0 = along0 + (i * run) / n, y0 = (i * fft) / n;
+        out.push({ t: "L", l: "MOBILIARIO", x1: x0, y1: y0, x2: x0 + run / n, y2: y0 });                          // huella
+        out.push({ t: "L", l: "MOBILIARIO", x1: x0 + run / n, y1: y0, x2: x0 + run / n, y2: y0 + fft / n });      // contrahuella
+      }
+      out.push({ t: "L", l: "MOBILIARIO", x1: along0, y1: 0.95, x2: along0 + run, y2: fft + 0.05, thin: true });  // pasamanos
+      out.push({ t: "T", l: "TEXTOS", x: along0 + run / 2 - 0.35, y: fft / 2, h: 0.14, s: "SUBE" });
+    }
+  }
 
   // Parapeto/remate superior (continúa el lenguaje de las fachadas).
   out.push({ t: "L", l: L, x1: 0, y1: totalH, x2: W, y2: totalH });
@@ -277,12 +334,17 @@ export function plantaPrimitives(plan: FloorPlan, level = 0, opts: { den?: numbe
     return bd ? bd.c : null;
   };
   // ESCALERA (punto fijo de corte — curaduría exige cortes por escalera):
-  // niveles >1 → escalera en el espacio más grande, pegada al muro este.
-  if (plan.levels > 1 && level === 0) {
-    const host = [...rooms].sort((a2, b2) => b2.width * b2.depth - a2.width * a2.depth)[0];
-    if (host) {
-      const sw = 0.9, slen = Math.min(host.depth - 0.35, plan.floorToFloor * 2.1);
-      escalera(out, host.x + host.width - sw - 0.15, host.y + 0.15, sw, slen, true);
+  // la caja viene de stairBox (fuente única: local "escalera" o heurística
+  // del local más grande pegada al muro este). N1: vuelo completo con SUBE;
+  // N2: llegada con línea de quiebre (el resto del vuelo queda por debajo).
+  const st = stairBox(plan);
+  if (st) {
+    if (level === 0) {
+      escalera(out, st.x, st.y, st.w, st.d, true);
+    } else if (level === 1) {
+      out.push({ t: "H", l: "MOBILIARIO", x: st.x, y: st.y, w: st.w, h: st.d });
+      out.push({ t: "L", l: "MOBILIARIO", x1: st.x + 0.05, y1: st.y + st.d * 0.28, x2: st.x + st.w - 0.05, y2: st.y + st.d * 0.18, dash: true, thin: true });
+      out.push({ t: "T", l: "TEXTOS", x: st.x + 0.05, y: st.y + st.d * 0.5, h: 0.13, s: "LLEGADA" });
     }
   }
   // Cajas de texto de cada espacio (nombre+área): las etiquetas de VANOS las
@@ -479,6 +541,8 @@ export function plantaPrimitives(plan: FloorPlan, level = 0, opts: { den?: numbe
     out.push({ t: "L", l: "PUERTAS", x1: tip[0], y1: tip[1], x2: o2[0], y2: o2[1], dash: true, thin: true });
   }
   // Marcas de CORTE A-A' y B-B' sobre la planta (Ching: triángulos + letras).
+  // Posición desde cutLines (fuente única): la marca y el corte dibujado en
+  // A-02 pasan por la MISMA línea — POR LA ESCALERA cuando existe.
   const cutMark = (label: [string, string], x1: number, y1: number, x2: number, y2: number) => {
     out.push({ t: "L", l: "CORTE", x1, y1, x2, y2, dash: true, thin: true });
     const mk = (lb: string, px: number, py: number, dx: number, dy: number) => {
@@ -488,9 +552,66 @@ export function plantaPrimitives(plan: FloorPlan, level = 0, opts: { den?: numbe
     mk(label[0], x1, y1, -0.1, 0);
     mk(label[1], x2, y2, 0.1, 0);
   };
-  cutMark(["A", "A'"], -0.7, D / 2, W + 0.7, D / 2);
-  cutMark(["B", "B'"], W / 2, -0.7, W / 2, D + 0.7);
+  const cutPos = cutLines(plan);
+  cutMark(["A", "A'"], -0.7, cutPos.longY, W + 0.7, cutPos.longY);
+  cutMark(["B", "B'"], cutPos.transX, -0.7, cutPos.transX, D + 0.7);
   out.push({ t: "T", l: "TEXTOS", x: 0, y: D + 2.1, h: 0.22, s: plan.levels > 1 ? `PLANTA NIVEL ${level + 1}` : "PLANTA ARQUITECTÓNICA" });
+  return out;
+}
+
+/** ── LOCALIZACIÓN DEL PROYECTO (lámina A-00 del primer paquete): el
+ *  revisor de curaduría ubica la obra en su contexto urbano antes de leer
+ *  una planta. ESQUEMA determinista — manzana, lote (envolvente del
+ *  proyecto), vías, acceso y norte; datos de la ficha de sitio cuando
+ *  existen. No es cartografía: verificación contra el amojonamiento real. */
+export function localizacionPrimitives(plan: FloorPlan): Prim[] {
+  const out: Prim[] = [];
+  const { width: W, depth: D } = plan.outline;
+  const pad = 1.5, vw = 1.4;
+  // MANZANA (contexto urbano) y VÍAS al sur y occidente (esquema).
+  // Ejes de vía (contexto urbano, NO son cotas — MOBILIARIO para no mentirle
+  // al QA de escala, que lee la cota vertical A-COTAS más larga).
+  out.push({ t: "H", l: "MOBILIARIO", x: -pad, y: -pad, w: W + pad * 2, h: D + pad * 2 });
+  out.push({ t: "H", l: "MOBILIARIO", x: -pad - vw, y: -pad - vw, w: W + pad * 2 + vw * 2, h: vw });
+  out.push({ t: "H", l: "MOBILIARIO", x: -pad - vw, y: -pad, w: vw, h: D + pad * 2 });
+  out.push({ t: "L", l: "MOBILIARIO", x1: -pad - vw, y1: -pad - vw / 2, x2: W + pad + vw, y2: -pad - vw / 2, dash: true, thin: true });
+  out.push({ t: "T", l: "TEXTOS", x: W / 2 - 0.8, y: -pad - vw / 2 + 0.08, h: 0.2, s: "VÍA" });
+  out.push({ t: "L", l: "MOBILIARIO", x1: -pad - vw / 2, y1: -pad, x2: -pad - vw / 2, y2: D + pad, dash: true, thin: true });
+  out.push({ t: "T", l: "TEXTOS", x: -pad - vw / 2 + 0.08, y: D / 2 + 0.8, h: 0.2, s: "VÍA", r: 90 });
+  // LOTE — la envolvente del proyecto al centro de la manzana.
+  out.push({ t: "H", l: "MUROS", x: 0, y: 0, w: W, h: D });
+  out.push({ t: "T", l: "TEXTOS", x: W / 2 - 2.2, y: D / 2 + 0.1, h: 0.22, s: "LOTE / PROYECTO" });
+  // ACCESO desde la vía sur al centro del lote.
+  const ax = W / 2;
+  out.push({ t: "L", l: "PUERTAS", x1: ax, y1: -pad - vw + 0.1, x2: ax, y2: -0.05 });
+  out.push({ t: "L", l: "PUERTAS", x1: ax - 0.18, y1: -0.35, x2: ax, y2: -0.05 });
+  out.push({ t: "L", l: "PUERTAS", x1: ax + 0.18, y1: -0.35, x2: ax, y2: -0.05 });
+  out.push({ t: "T", l: "TEXTOS", x: ax + 0.15, y: -pad - vw + 0.45, h: 0.16, s: "ACCESO" });
+  // NORTE (misma convención de las plantas, §2.10).
+  const nx = W + pad - 0.15, ny = D + pad - 0.15;
+  out.push({ t: "L", l: "TEXTOS", x1: nx, y1: ny - 0.95, x2: nx, y2: ny, thin: true });
+  out.push({ t: "L", l: "TEXTOS", x1: nx - 0.2, y1: ny - 0.3, x2: nx, y2: ny, thin: true });
+  out.push({ t: "L", l: "TEXTOS", x1: nx + 0.2, y1: ny - 0.3, x2: nx, y2: ny, thin: true });
+  out.push({ t: "T", l: "TEXTOS", x: nx + 0.1, y: ny - 0.45, h: 0.2, s: "N" });
+  // Cotas del lote (frente × fondo) — el revisor las coteja con el POT.
+  out.push({ t: "L", l: "COTAS", x1: 0, y1: D + 0.55, x2: W, y2: D + 0.55, thin: true });
+  out.push({ t: "T", l: "COTAS", x: W / 2 - 0.4, y: D + 0.62, h: 0.16, s: fmt(W) });
+  out.push({ t: "L", l: "COTAS", x1: W + 0.55, y1: 0, x2: W + 0.55, y2: D, thin: true });
+  out.push({ t: "T", l: "COTAS", x: W + 0.65, y: D / 2, h: 0.16, s: fmt(D), r: 90 });
+  // Datos del sitio (ficha del urbanista) — coordenadas cuando existen.
+  const s = plan.site;
+  const x0 = -pad - vw;
+  let dy = -pad - vw - 0.6;
+  out.push({ t: "T", l: "TEXTOS", x: x0, y: dy, h: 0.24, s: "LOCALIZACIÓN DEL PROYECTO" });
+  dy -= 0.4;
+  const cityLine = s?.city ? `${s.city.toUpperCase()}${s.department ? " · " + s.department.toUpperCase() : ""}` : "VERIFICAR MUNICIPIO";
+  out.push({ t: "T", l: "TEXTOS", x: x0, y: dy, h: 0.17, s: cityLine });
+  if (typeof s?.latitude === "number" && typeof s?.longitude === "number") {
+    dy -= 0.34;
+    out.push({ t: "T", l: "TEXTOS", x: x0, y: dy, h: 0.17, s: `N ${Math.abs(s.latitude).toFixed(4)} · ${s.longitude < 0 ? "O" : "E"} ${Math.abs(s.longitude).toFixed(4)}` });
+  }
+  dy -= 0.34;
+  out.push({ t: "T", l: "TEXTOS", x: x0, y: dy, h: 0.14, s: "ESQUEMA — VERIFICAR AMOJONAMIENTO EN TERRENO" });
   return out;
 }
 
@@ -1100,4 +1221,161 @@ export function roofPlanPrimitives(plan: FloorPlan): Prim[] {
   out.push({ t: "T", l: "COTAS", x: -1.17, y: D / 2, h: 0.18, s: fmt(D), r: 90 });
   out.push({ t: "T", l: L, x: 0, y: D + 1.2, h: 0.26, s: "PLANTA DE CUBIERTAS" });
   return out;
+}
+
+/** ── DETALLES DE ACABADOS (lámina A-07 del primer paquete): los detalles
+ *  que curaduría y el interventor piden sobre el cuadro de acabados.
+ *  Tres detalles deterministas con CÓDIGO (D1/D2/D3) referenciable desde
+ *  el cuadro de acabados de A-06. Coordenadas locales por detalle, cada
+ *  uno en su caja rotulada — composición 1×3 o 2×2 según lámina. */
+export function detalleD1Pisos(): Prim[] {
+  // D1 — TRANSICIÓN DE PISO cerámica ↔ madera con zócalo (sección).
+  const out: Prim[] = [];
+  const L = "ACABADOS";
+  // Placa de piso (poché macizo — corte).
+  out.push({ t: "F", l: "MUROS", x: 0, y: 0, w: 3.2, h: 0.18 });
+  // Media cara cerámica: baldosa + pegante + tick de junta.
+  for (let i = 0; i < 3; i++) {
+    const x = i * 0.6;
+    out.push({ t: "H", l: L, x, y: 0.18, w: 0.58, h: 0.04 });
+    out.push({ t: "L", l: L, x1: x + 0.29, y1: 0.18, x2: x + 0.29, y2: 0.22, thin: true });
+  }
+  // Media cara madera: tablones corridos con junta perimetral.
+  for (let i = 0; i < 4; i++) {
+    const x = 1.8 + i * 0.35;
+    out.push({ t: "H", l: L, x, y: 0.18, w: 0.33, h: 0.03 });
+  }
+  // Perfilería/junta de transición al centro.
+  out.push({ t: "F", l: L, x: 1.75, y: 0.18, w: 0.05, h: 0.06 });
+  // Zócalos en ambos extremos (h=10 cm).
+  out.push({ t: "H", l: L, x: 0, y: 0.22, w: 0.1, h: 0.1 });
+  out.push({ t: "H", l: L, x: 3.1, y: 0.22, w: 0.1, h: 0.1 });
+  // Cotas y textos del detalle.
+  out.push({ t: "T", l: "TEXTOS", x: 0.1, y: 0.75, h: 0.16, s: "CERÁMICA 30×30" });
+  out.push({ t: "T", l: "TEXTOS", x: 2.1, y: 0.75, h: 0.16, s: "LAMINADO 8 mm" });
+  out.push({ t: "T", l: "TEXTOS", x: 1.45, y: 0.5, h: 0.14, s: "JUNTA" });
+  out.push({ t: "T", l: "TEXTOS", x: 0, y: -0.35, h: 0.15, s: "PLACA E=12 cm" });
+  out.push({ t: "T", l: "TEXTOS", x: 3.1, y: 0.4, h: 0.14, s: "ZÓCALO h=10" });
+  return out;
+}
+
+export function detalleD2Sanitarios(): Prim[] {
+  // D2 — INSTALACIÓN DE APARATOS: sanitario + lavamanos (esquema AC/desagüe).
+  const out: Prim[] = [];
+  const L = "ACABADOS";
+  // Muro de fondo y piso.
+  out.push({ t: "F", l: "MUROS", x: 0, y: 0, w: 0.15, h: 2.1 });
+  out.push({ t: "L", l: "MUROS", x1: 0, y1: 0, x2: 2.9, y2: 0 });
+  // SANITARIO (perfil): tanque + taza.
+  out.push({ t: "H", l: "SANITARIOS", x: 0.15, y: 1.35, w: 0.45, h: 0.5 });
+  out.push({ t: "H", l: "SANITARIOS", x: 0.6, y: 0.95, w: 0.65, h: 0.4 });
+  out.push({ t: "H", l: "SANITARIOS", x: 0.6, y: 0.25, w: 0.5, h: 0.7 });
+  out.push({ t: "L", l: "SANITARIOS", x1: 1.1, y1: 0.25, x2: 1.1, y2: 0.95, thin: true });
+  // LAVAMANOS (perfil): muerto + batea.
+  out.push({ t: "H", l: "SANITARIOS", x: 1.8, y: 0.85, w: 0.75, h: 0.18 });
+  out.push({ t: "H", l: "SANITARIOS", x: 2.05, y: 0.2, w: 0.25, h: 0.65 });
+  // AC (fría y caliente, discontinua) desde el muro a cada aparato.
+  out.push({ t: "L", l: "HIDROSANITARIO", x1: 0.15, y1: 1.55, x2: 1.9, y2: 1.55, dash: true, thin: true });
+  out.push({ t: "L", l: "HIDROSANITARIO", x1: 0.15, y1: 1.45, x2: 1.9, y2: 1.45, dash: true, thin: true });
+  out.push({ t: "L", l: "HIDROSANITARIO", x1: 1.9, y1: 1.55, x2: 1.9, y2: 1.05, dash: true, thin: true });
+  // DESAGÜES hacia bajante (discontinua gruesa) con pendiente.
+  out.push({ t: "L", l: "HIDROSANITARIO", x1: 0.85, y1: 0.25, x2: 0.85, y2: -0.45, dash: true });
+  out.push({ t: "L", l: "HIDROSANITARIO", x1: 2.17, y1: 0.2, x2: 0.85, y2: -0.45, dash: true });
+  out.push({ t: "T", l: "TEXTOS", x: 0.35, y: 1.75, h: 0.14, s: "AC Ø1/2\"" });
+  out.push({ t: "T", l: "TEXTOS", x: 1.0, y: -0.35, h: 0.14, s: "DESAGÜE Ø3\" PEND. 2%" });
+  out.push({ t: "T", l: "TEXTOS", x: 0.15, y: 2.25, h: 0.15, s: "SANITARIO" });
+  out.push({ t: "T", l: "TEXTOS", x: 1.75, y: 1.1, h: 0.15, s: "LAVAMANOS" });
+  return out;
+}
+
+export function detalleD3Ventana(plan: FloorPlan): Prim[] {
+  // D3 — JAMBA Y DINTEL DE VENTANA con alfizar (sección vertical).
+  const out: Prim[] = [];
+  const L = "ACABADOS";
+  const te = plan.wallThickness.exterior;
+  // Muro cortado en L: jamba vertical + dintel superior (poché).
+  out.push({ t: "F", l: "MUROS", x: 0, y: 0, w: te, h: 2.3 });
+  out.push({ t: "F", l: "MUROS", x: 0, y: 1.75, w: 1.6, h: te });
+  // Hueco: marco (doble línea) + vidrio + alfizar con pendiente 5%.
+  out.push({ t: "H", l: "VENTANAS", x: te, y: 0.9, w: 0.05, h: 0.85 });
+  out.push({ t: "H", l: "VENTANAS", x: te + 0.13, y: 0.9, w: 0.05, h: 0.85 });
+  out.push({ t: "L", l: "VENTANAS", x1: te + 0.1, y1: 0.9, x2: te + 0.1, y2: 1.75, thin: true });
+  out.push({ t: "L", l: "VENTANAS", x1: te - 0.02, y1: 0.9, x2: te + 0.2, y2: 0.82, thin: true }); // alfizar 5%
+  // Dinteles y remates.
+  out.push({ t: "H", l: L, x: te, y: 1.75 - 0.12, w: 0.25, h: 0.12 });
+  out.push({ t: "T", l: "TEXTOS", x: 0.45, y: 2.15, h: 0.14, s: "DINTEL 0.15×0.20" });
+  out.push({ t: "T", l: "TEXTOS", x: 0.45, y: 0.55, h: 0.14, s: "ALFIZAR PEND. 5%" });
+  out.push({ t: "T", l: "TEXTOS", x: -0.85, y: 1.15, h: 0.14, s: "MURO", r: 90 });
+  out.push({ t: "T", l: "TEXTOS", x: 0.28, y: 1.3, h: 0.13, s: "VIDRIO", r: 90 });
+  return out;
+}
+
+/** D4 — CUADRO DE ACABADOS POR ESPACIO (texto): el complemento de los
+ *  detalles: qué acabado lleva piso/muro/techo en CADA espacio (de
+ *  plan.finishes si la etapa de acabados corrió; si no, del tipo). */
+function detalleD4Cuadro(plan: FloorPlan): Prim[] {
+  const out: Prim[] = [];
+  const L = "ACABADOS";
+  const guess = (t: string): [string, string, string] =>
+    /baño|bano|cocina|lavander/i.test(t) ? ["CERÁMICA 45×45", "CERÁMICA h=1.50", "PINTURA ESMERILADA"]
+    : /habitacion|alcoba|estudio/i.test(t) ? ["LAMINADO 8 mm", "PINTURA PLÁSTICA", "PINTURA BLANCA"]
+    : /garaje|patio/i.test(t) ? ["CONCRETO PULIDO", "GRANOLADO", "PLACA N/A"]
+    : ["PORCELANATO 60×60", "PINTURA PLÁSTICA", "PINTURA BLANCA"];
+  const rows = plan.rooms.slice(0, 10).map((r) => {
+    const f = plan.finishes?.find((x) => x.room === r.name);
+    return { name: r.name.toUpperCase().slice(0, 11), floor: (f?.floor ?? guess(r.type)[0]).slice(0, 13), wall: (f?.walls ?? guess(r.type)[1]).slice(0, 13) };
+  });
+  const cw = [1.25, 1.45, 1.45], x0 = [0, cw[0], cw[0] + cw[1]];
+  const hdr = ["ESPACIO", "PISO", "MURO/TECHO"];
+  let y = 0;
+  out.push({ t: "L", l: L, x1: 0, y1: y, x2: cw[0] + cw[1] + cw[2], y2: y });
+  hdr.forEach((h2, i) => out.push({ t: "T", l: "TEXTOS", x: x0[i], y: y - 0.22, h: 0.13, s: h2 }));
+  y -= 0.34;
+  out.push({ t: "L", l: L, x1: 0, y1: y, x2: cw[0] + cw[1] + cw[2], y2: y });
+  for (const r of rows) {
+    out.push({ t: "T", l: "TEXTOS", x: x0[0], y: y - 0.2, h: 0.12, s: r.name });
+    out.push({ t: "T", l: "TEXTOS", x: x0[1], y: y - 0.2, h: 0.12, s: r.floor });
+    out.push({ t: "T", l: "TEXTOS", x: x0[2], y: y - 0.2, h: 0.12, s: r.wall });
+    y -= 0.3;
+    out.push({ t: "L", l: L, x1: 0, y1: y, x2: cw[0] + cw[1] + cw[2], y2: y, thin: true });
+  }
+  return out;
+}
+
+/** Composición de la lámina A-07: 2×2 — D1/D2/D3 + D4 (cuadro de acabados
+ *  por espacio). Cada detalle en su caja con burbuja D# referenciable desde
+ *  el cuadro de A-06. */
+export function detallesAcabadosPrimitives(plan: FloorPlan, cols = 2): Prim[] {
+  const boxes: Array<{ code: string; title: string; prims: Prim[] }> = [
+    { code: "D1", title: "TRANSICIÓN DE PISOS — CERÁMICA / LAMINADO", prims: detalleD1Pisos() },
+    { code: "D2", title: "APARATOS SANITARIOS — AC / DESAGÜE", prims: detalleD2Sanitarios() },
+    { code: "D3", title: "JAMBA Y DINTEL DE VENTANA", prims: detalleD3Ventana(plan) },
+    { code: "D4", title: "CUADRO DE ACABADOS POR ESPACIO", prims: detalleD4Cuadro(plan) },
+  ];
+  const BW = 4.5, BH = 4.4; // caja por detalle (modelo)
+  const grid = (cols: number): Prim[] => {
+    const acc: Prim[] = [];
+    boxes.forEach((b, i) => {
+      const row = Math.floor(i / cols), col = i % cols;
+      const x0 = col * (BW + 0.8), y0 = -row * (BH + 0.9);
+      acc.push({ t: "H", l: "ACABADOS", x: x0, y: y0 - BH, w: BW, h: BH });
+      // Código D# en burbuja arriba a la izquierda de la caja.
+      acc.push({ t: "C", l: "CORTE", x: x0 + 0.35, y: y0 - 0.35, r: 0.24 });
+      acc.push({ t: "T", l: "CORTE", x: x0 + 0.35 - b.code.length * 0.07, y: y0 - 0.42, h: 0.16, s: b.code });
+      acc.push({ t: "T", l: "TEXTOS", x: x0 + 0.75, y: y0 - 0.42, h: 0.16, s: b.title });
+      // Contenido centrado y escalado a SU caja (el detalle no se deforma).
+      const bb = primsBounds(b.prims);
+      const s = Math.min((BW - 0.8) / (bb.maxX - bb.minX), (BH - 1.0) / (bb.maxY - bb.minY));
+      const dx = x0 + 0.4 + ((BW - 0.8) - (bb.maxX - bb.minX) * s) / 2;
+      const dy = y0 - 0.8 - (bb.maxY - bb.minY) * s;
+      for (const p of b.prims) {
+        if (p.t === "L") acc.push({ ...p, x1: dx + (p.x1 - bb.minX) * s, y1: dy + (p.y1 - bb.minY) * s, x2: dx + (p.x2 - bb.minX) * s, y2: dy + (p.y2 - bb.minY) * s });
+        else if (p.t === "T") acc.push({ ...p, x: dx + (p.x - bb.minX) * s, y: dy + (p.y - bb.minY) * s, h: p.h * Math.min(s, 1) });
+        else if (p.t === "C") acc.push({ ...p, x: dx + (p.x - bb.minX) * s, y: dy + (p.y - bb.minY) * s, r: p.r * s });
+        else acc.push({ ...p, x: dx + (p.x - bb.minX) * s, y: dy + (p.y - bb.minY) * s, w: p.w * s, h: p.h * s });
+      }
+    });
+    return acc;
+  };
+  return grid(cols);
 }

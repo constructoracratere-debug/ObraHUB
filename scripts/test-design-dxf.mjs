@@ -153,18 +153,18 @@ check("plotMm: interpola escalas intermedias (1:75 → cut 0.55)", (() => {
 })());
 check("370 por ENTIDAD a la escala real de la lámina (A-01 @1:50 → cut 0.60)", /8\nA-MUROS\n370\n60\n/.test(dxf));
 check("achurado EN A-MUROS con 370 de la fila achu (0.30 @1:50) — apagar muros apaga el hatch", /8\nA-MUROS\n370\n30\n/.test(dxf) && !dxf.includes("ACHU"));
-check("estructura por tipo: S-COLUMNAS/S-VIGAS/S-LOSAS en tabla", (() => {
+check("paquete A PURO: capas S-* (estructura) ausentes del arquitectónico", (() => {
   const declared = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]);
-  return ["S-COLUMNAS", "S-VIGAS", "S-LOSAS"].every((n) => declared.includes(n)) && !declared.includes("S-ELEMENTOS");
+  return declared.length >= 12 && declared.every((n) => !n.startsWith("S-"));
 })());
 check("STYLE portable OBRAHUB (txt.shx) + código 7 en TEXT", dxf.includes("2\nSTYLE") && /0\nTEXT\n8\n[^\n]+\n(?:370\n\d+\n)?7\nOBRAHUB\n10\n/.test(dxf));
 // ── Review #13: legibilidad de impresión y composición real ──────────────────
-check("colores de IDENTIDAD por capa (guía §1): ejes 1, cotas 3, eléctrico 2, hidráulico 4, estructura 8", (() => {
+check("colores de IDENTIDAD por capa (guía §1): ejes 1, cotas 3, eléctrico 2, hidráulico 4", (() => {
   const rows = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)\n70\n0\n62\n(\d+)\n/g)];
   const map = Object.fromEntries(rows.map((m) => [m[1], Number(m[2])]));
-  return rows.length >= 15
+  return rows.length >= 12
     && map["A-EJES"] === 1 && map["A-COTAS"] === 3 && map["I-ELECTRICO"] === 2
-    && map["I-HIDRAULICO"] === 4 && map["S-COLUMNAS"] === 8 && map["A-MUROS"] === 7
+    && map["I-HIDRAULICO"] === 4 && map["A-MUROS"] === 7
     && map["A-PUERTAS"] === 6 && map["A-VENTANAS"] === 5;
 })());
 check("grosores VISIBLES al abrir: $LWDISPLAY 1 en header (el plot sigue por 370)", /\$LWDISPLAY\n290\n1/.test(dxf));
@@ -301,14 +301,29 @@ check("cotas sin traslape al TAMAÑO FINAL (1:50/1:100/1:200, rotadas incluidas)
 })());
 
 // ── Lámina general 700×500 con rótulo OBRAHUB ────────────────────────────────
-check("set completo A-01…A-05", ["A-01", "A-02", "A-03", "A-04", "A-05"].every((c) => dxf.includes(c)));
+// PRIMER PAQUETE PURAMENTE ARQUITECTÓNICO: A-00…A-03, A-05…A-07 — la lámina
+// estructural viaja en el PAQUETE S (nunca dentro del arquitectónico).
+check("set arquitectónico completo y PURO (A-04 estructural fuera)", (() => {
+  const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
+  const codes = planToDxfSheets(plan, { fecha: "2026-01-15" }).map((f) => f.code);
+  return ["A-00", "A-01", "A-02", "A-03", "A-05", "A-06", "A-07"].every((c) => codes.includes(c))
+    && !codes.includes("A-04")
+    && !dxf.includes("PLANO ESTRUCTURAL");
+})());
+check("A-00 ÍNDICE + LOCALIZACIÓN DEL PROYECTO (primer paquete)", dxf.includes("ÍNDICE DEL SET") && dxf.includes("LOCALIZACIÓN DEL PROYECTO") && dxf.includes("ESQUEMA — VERIFICAR AMOJONAMIENTO"));
+check("A-07 DETALLES DE ACABADOS con códigos D1…D4", dxf.includes("DETALLES DE ACABADOS") && ["D1", "D2", "D3", "D4"].every((c) => dxf.includes(`1\n${c}\n`)) && dxf.includes("CUADRO DE ACABADOS POR ESPACIO"));
+check("cortes POR LA ESCALERA: vuelo en corte + llegada en planta 2", multiDxf.includes("SUBE") && multiDxf.includes("LLEGADA") && multiDxf.includes("CORTE A-A'"));
 check("marca OBRAHUB en rótulo", dxf.includes("OBRAHUB"));
 check("sin universidad (formato propio)", !/UNIVERSIDAD/i.test(dxf));
 check("rótulo: PROYECTO/UBICACIÓN/ESCALA/DIBUJÓ/REVISÓ/LÁMINA", ["PROYECTO", "UBICACI", "ESCALA", "DIBUJ", "REVIS", "LÁMINA"].every((s) => dxf.includes(s)));
 check("escala normalizada 1:50…1:200", /1:(50|75|100|125|150|200)/.test(dxf));
 check("BOGOTÁ del site en el rótulo", dxf.includes("BOGOT"));
-// 5 láminas de 700mm con gap 50: frames exteriores en x=0,750,1500,2250,3000
-check("marcos exteriores cada 750 mm", [0, 750, 1500, 2250, 3000].every((x) => new RegExp(`10\\n${x + 5}\\.000\\n20\\n5\\.000`).test(dxf)));
+// N láminas de 700mm con gap 50: frame exterior de cada una en x=i·750
+check("marcos exteriores cada 750 mm (una por lámina)", (() => {
+  const { sheetContents } = req(path.join(tmp, "design", "sheets.js"));
+  const n = sheetContents(plan).length;
+  return n >= 7 && Array.from({ length: n }, (_, i) => i * 750).every((x) => new RegExp(`10\\n${x + 5}\\.000\\n20\\n5\\.000`).test(dxf));
+})());
 check("marco interior a 10 mm (doble filete)", /20\n10\.000[\s\S]{0,140}10\n690\.000[\s\S]{0,60}20\n10\.000/.test(dxf));
 
 // ── Contenido del motor de vistas (Ching/Neufert) ───────────────────────────

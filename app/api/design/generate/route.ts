@@ -19,7 +19,7 @@ import { allGates, type Gate } from "@/lib/design/validate";
 
 export const maxDuration = 60;
 
-type Stage = "site" | "draft" | "experts" | "adapt" | "installations" | "finishes" | "revise";
+type Stage = "site" | "draft" | "experts" | "structure" | "adapt" | "installations" | "finishes" | "revise";
 
 type ConstructorMemo = {
   materials: Array<{ element: string; suggestion: string; reason: string; source?: string }>;
@@ -183,50 +183,72 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      // ── Etapa 2 · Expertos en paralelo ───────────────────────────────────
+      // ── Etapa 2 · Desarrollo CONSTRUCTOR (paquete A puramente
+      //    arquitectónico — el civil llega DESPUÉS, con el paquete cerrado) ─
       case "experts": {
         const plan = sanitizeFloorPlan(b.previousPlan);
         if (plan.rooms.length === 0) throw new Error("Genera primero el boceto arquitectónico");
-        say("👷 Constructor e 🏗️ ingeniero civil trabajando EN PARALELO…");
         const ficha = b.siteMemo ? JSON.stringify(b.siteMemo).slice(0, 1800) : "";
         const ctx = planContext(plan);
-        say("👷 Evaluando materiales disponibles y métodos locales (Plazola)…", "constructor");
-        say("🏗️ Calculando sistema estructural y retícula según NSR-10…", "civil");
-        const [constructor, civil] = await Promise.all([
-          llmJson<ConstructorMemo>("structure", {
-            system: AGENT_CONSTRUCTOR,
-            user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPROGRAMA: ${ctx}`,
-            maxTokens: 3200,
-            temperature: 0.4,
-            timeoutMs: 18000,
-            onEvent: live("constructor"),
-          }),
-          llmJson<CivilMemo>("structure", {
-            system: AGENT_CIVIL,
-            user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPLANTA ACTUAL: ${ctx}`,
-            maxTokens: 3000,
-            temperature: 0.3,
-            timeoutMs: 18000,
-            onEvent: live("civil"),
-          }),
-        ]);
-        say("✅ Ambos memos listos — el arquitecto los tiene en la mesa.", "mesa");
+        say("👷 Constructor desarrollando el proyecto: materiales y métodos locales (Plazola)…");
+        const constructor = await llmJson<ConstructorMemo>("structure", {
+          system: AGENT_CONSTRUCTOR,
+          user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPROGRAMA: ${ctx}`,
+          maxTokens: 3200,
+          temperature: 0.4,
+          timeoutMs: 18000,
+          onEvent: live("constructor"),
+        });
+        say("✅ Memo del constructor listo — el plano sigue siendo PURAMENTE arquitectónico.", "mesa");
         send({
           type: "done",
           constructorMemo: constructor.data,
-          civilMemo: civil.data,
-          providers: { constructor: constructor.providerLabel, civil: civil.providerLabel },
+          providers: { constructor: constructor.providerLabel },
           latencyMs: Date.now() - t0,
         });
         return;
       }
 
-      // ── Etapa 3 · Adaptación ─────────────────────────────────────────────
+      // ── Etapa 4 · ESTRUCTURA (ing. civil — NSR-10): con el paquete A
+      //    completo, el civil decide sistema y retícula. La retícula pasa
+      //    DETERMINISTA al plano (plan.structure) — sin redibujo de IA: la
+      //    geometría no cambia, sólo se fijan los ejes y nace el paquete S. ──
+      case "structure": {
+        const plan = sanitizeFloorPlan(b.previousPlan);
+        if (plan.rooms.length === 0) throw new Error("Falta el boceto");
+        say("🏗️ Ingeniero civil: sistema estructural, retícula y cimentación según NSR-10…");
+        const ficha = b.siteMemo ? JSON.stringify(b.siteMemo).slice(0, 1800) : "";
+        const ctx = planContext(plan);
+        const civil = await llmJson<CivilMemo>("structure", {
+          system: AGENT_CIVIL,
+          user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPLANTA APROBADA (PAQUETE A): ${ctx}`,
+          maxTokens: 3000,
+          temperature: 0.3,
+          timeoutMs: 18000,
+          onEvent: live("civil"),
+        });
+        // La retícula del ingeniero pasa DIRECTA al plano (los motores
+        // derivan columnas/vigas/zapatas de ella — sin redibujar el plano).
+        const withStructure = sanitizeFloorPlan({
+          ...plan,
+          structure: {
+            system: civil.data.system ?? "concreto",
+            justification: civil.data.justification ?? "Criterio NSR-10 del ingeniero civil",
+            axes: Array.isArray(civil.data.axes) ? civil.data.axes : [],
+          },
+        });
+        say("🛡️ Retícula fijada en el plano — láminas S (estructura) disponibles.", "civil");
+        send({ type: "done", plan: withStructure, civilMemo: civil.data, gates: allGates(withStructure), provider: civil.providerLabel, model: civil.model, latencyMs: Date.now() - t0 });
+        return;
+      }
+
+      // ── Etapa 5 · RETORNO arquitectónico: adecuar el paquete A a los ejes
+      //    del ingeniero — la versión que va a curaduría ──────────────────
       case "adapt": {
         const plan = sanitizeFloorPlan(b.previousPlan);
         if (plan.rooms.length === 0) throw new Error("Falta el boceto");
-        if (!b.constructorMemo || !b.civilMemo) throw new Error("Faltan los memos de los expertos");
-        say("📐 Arquitecto en mesa técnica: alineando muros a la retícula del ingeniero…", "arquitecto");
+        if (!b.civilMemo) throw new Error("Falta la estructura del ingeniero (etapa Estructura)");
+        say("📐 RETORNO del arquitecto: alineando el paquete A a la retícula del ingeniero…", "arquitecto");
         say("📏 Respetando luces máximas del sistema estructural elegido…", "arquitecto");
         const gatesText = (b.gates ?? [])
           .flatMap((g) => g.checks.filter((c) => !c.pass).map((c) => `· [${g.stage}] ${c.label}: ${c.detail}`))

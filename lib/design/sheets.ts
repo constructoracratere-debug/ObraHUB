@@ -13,9 +13,9 @@ import type { FloorPlan } from "../design/schema";
 import {
   sectionPrimitives, facadePrimitives, plantaPrimitives, acabadosPrimitives,
   areaTablePrimitives, roofPlanPrimitives, mepLegendPrimitives, mepSymbols,
-  openingSchedulePrimitives, primsBounds, floorBounds, fitSheetScale, type Prim,
+  openingSchedulePrimitives, localizacionPrimitives, detallesAcabadosPrimitives,
+  primsBounds, floorBounds, fitSheetScale, type Prim,
 } from "./views";
-import { structuralPlanPrimitives } from "../structural/plan";
 
 export type Sheet = { code: string; title: string; prims: Prim[]; level?: number };
 
@@ -112,6 +112,9 @@ function indexSheetPrimitives(plan: FloorPlan, list: Array<{ code: string; title
   const tabla = areaTablePrimitives(plan);
   const below = primsBounds(out);
   out.push(...placeAt(tabla, 0, below.minY - 1.6));
+  // LOCALIZACIÓN DEL PROYECTO bajo el cuadro (requisito del primer
+  // paquete: el revisor ubica la obra en su contexto urbano).
+  out.push(...placeAt(localizacionPrimitives(plan), 0, primsBounds(out).minY - 1.8));
   return out;
 }
 
@@ -201,8 +204,6 @@ export function sheetContents(plan: FloorPlan): Sheet[] {
     const withSched = withSchedAt(fitSheetScale(first, SHEET_AVAIL_W, SHEET_AVAIL_H));
     sheets.push({ code: "A-03", title: "FACHADAS + CUADRO DE PUERTAS Y VENTANAS", prims: bestByFill([one, two, withSched]) });
   }
-  // A-04 — PLANO ESTRUCTURAL
-  sheets.push({ code: "A-04", title: "PLANO ESTRUCTURAL — RETÍCULA, COLUMNAS Y CIMENTACIÓN", prims: structuralPlanPrimitives(plan) });
   // A-05 — CUBIERTAS (placa maciza — MPr / Decreto 1077).
   sheets.push({ code: "A-05", title: "PLANTA DE CUBIERTAS — PLACA MACIZA", prims: roofPlanPrimitives(plan) });
   // A-06 — ACABADOS por nivel: MISMO muro del plano general (bandas con
@@ -221,6 +222,13 @@ export function sheetContents(plan: FloorPlan): Sheet[] {
       level: lvl,
     });
   }
+  // A-07 — DETALLES DE ACABADOS: D1/D2/D3 + D4 (cuadro por espacio) en 2×2
+  // — el complemento del cuadro de acabados que el revisor/ interventor pide.
+  sheets.push({
+    code: "A-07",
+    title: "DETALLES DE ACABADOS",
+    prims: detallesAcabadosPrimitives(plan, 2),
+  });
   // A-00 — ÍNDICE DEL SET + SIMBOLOGÍA: la lámina introductoria de la guía
   // (§2.8) — se genera AL FINAL (necesita la lista) pero viaja PRIMERO;
   // el índice se incluye a sí mismo (set completo).
