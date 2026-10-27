@@ -207,16 +207,25 @@ const DRAW_PAD = 12; // mm de aire dentro del área de dibujo
 
 /**
  * Traduce un FloorPlan al SET DE LÁMINAS OBRAHUB 700×500 apaisado.
- * Una lámina por plano (A-01…A-05; A-01.2… por nivel), cada una con marco
- * doble, rótulo OBRAHUB y contenido a escala normalizada (1:50…1:200) que
- * SIEMPRE cabe: la escala se elige de la serie estándar — nunca se deforma.
+ * PAQUETE ARQUITECTÓNICO PURO (A-00…A-07) + bloque MODELO 1:1 en metros:
+ * el primer paquete del dibujante no mezcla estructura — las láminas S-*
+ * viajan en su propio archivo (planToDxfStructural).
  *
  * DETERMINISMO PURO: misma entrada → mismo byte, cualquier día. La fecha
  * del rótulo NO se toma del reloj aquí — la pasa quien llama (fecha de
  * producción del archivo) vía opts.fecha; sin ella, la celda queda vacía.
  */
 export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): string {
-  return emitSheets(plan, sheetContents(plan), opts, true);
+  const arch = sheetContents(plan).filter((s) => s.pkg !== "S");
+  return emitSheets(plan, arch, opts, true);
+}
+
+/** PAQUETE ESTRUCTURAL (S-00…S-05) — sólo cuando la retícula del ingeniero
+ *  existe (plan.structure.axes). Devuelve null si aún no hay estructura:
+ *  el primer paquete es PURAMENTE arquitectónico. */
+export function planToDxfStructural(plan: FloorPlan, opts: { fecha?: string } = {}): string | null {
+  const struct = sheetContents(plan).filter((s) => s.pkg === "S");
+  return struct.length ? emitSheets(plan, struct, opts) : null;
 }
 
 /** Un archivo DXF POR LÁMINA (review #11): abrir o imprimir una lámina sola

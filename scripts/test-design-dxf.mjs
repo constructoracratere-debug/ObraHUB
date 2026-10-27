@@ -240,6 +240,23 @@ check("DXF dual: modelo BYLAYER (sin 370 tras su cabecera) y láminas sueltas si
     && planToDxfSheets(plan, { fecha: "2026-01-15" }).every((f) => !f.dxf.includes("MODELO 1:1"));
 })());
 
+// ── PAQUETE ESTRUCTURAL (S-00…S-05): SOLO con retícula del ingeniero y en
+//    su PROPIO archivo — el arquitectónico puro no se contamina. ────────────
+const dxfS = (() => {
+  const { planToDxfStructural } = req(path.join(tmp, "design", "dxf.js"));
+  return planToDxfStructural(plan, { fecha: "2026-01-15" }) ?? "";
+})();
+check("paquete S: S-00…S-05 completos en archivo propio", ["S-00", "S-01", "S-02", "S-03", "S-04", "S-05"].every((c) => dxfS.includes(`${c} / `)));
+check("paquete S: memoria (justificación·combinaciones·sísmico) + despieces + banco", dxfS.includes("JUSTIFICACI") && dxfS.includes("COMBINACIONES") && dxfS.includes("PESO S") && dxfS.includes("DESPIECE DE VIGAS") && dxfS.includes("BANCO DE BARRAS"));
+check("paquete S: corte de estructura + detalles E1…E4", dxfS.includes("CORTE DE ESTRUCTURA") && ["E1", "E2", "E3", "E4"].every((c) => dxfS.includes(`1\n${c}\n`)));
+check("paquete S: capas por tipo S-* color 8 (guía §1)", (() => {
+  const rows = [...dxfS.matchAll(/0\nLAYER\n2\n([^\n]+)\n70\n0\n62\n(\d+)\n/g)];
+  const map = Object.fromEntries(rows.map((m) => [m[1], Number(m[2])]));
+  return ["S-COLUMNAS", "S-VIGAS", "S-LOSAS", "S-CIMENTACION"].every((n) => map[n] === 8);
+})());
+check("paquete A sin entidades S-* (pureza real, no sólo capas)", !/\n8\nS-/.test(dxf));
+check("paquete S limpio: sin MEP ni mobiliario", !dxfS.includes("8\nI-ELECTRICO") && !dxfS.includes("8\nA-MOBILIARIO"));
+
 check("símbolos F ≠ poché: SOLID macizo (marca de corte en A-CORTE)", /0\nSOLID\n8\nA-CORTE\n/.test(dxf));
 check("SOLID también lleva 370 de entidad (política única de grosor)", /0\nSOLID\n8\nA-CORTE\n370\n60\n/.test(dxf));
 check("plantilla de capa conserva default ISO (370=70 en tabla A-MUROS)", /LAYER\n2\nA-MUROS\n70\n0\n62\n[-\d]+\n6\nCONTINUOUS\n370\n70/.test(dxf));
@@ -319,9 +336,9 @@ check("rótulo: PROYECTO/UBICACIÓN/ESCALA/DIBUJÓ/REVISÓ/LÁMINA", ["PROYECTO"
 check("escala normalizada 1:50…1:200", /1:(50|75|100|125|150|200)/.test(dxf));
 check("BOGOTÁ del site en el rótulo", dxf.includes("BOGOT"));
 // N láminas de 700mm con gap 50: frame exterior de cada una en x=i·750
-check("marcos exteriores cada 750 mm (una por lámina)", (() => {
+check("marcos exteriores cada 750 mm (una por lámina del paquete A)", (() => {
   const { sheetContents } = req(path.join(tmp, "design", "sheets.js"));
-  const n = sheetContents(plan).length;
+  const n = sheetContents(plan).filter((s) => s.pkg !== "S").length;
   return n >= 7 && Array.from({ length: n }, (_, i) => i * 750).every((x) => new RegExp(`10\\n${x + 5}\\.000\\n20\\n5\\.000`).test(dxf));
 })());
 check("marco interior a 10 mm (doble filete)", /20\n10\.000[\s\S]{0,140}10\n690\.000[\s\S]{0,60}20\n10\.000/.test(dxf));
@@ -363,9 +380,11 @@ check("PDF del set: una página por lámina", (() => {
 check("PDF MediaBox EXACTO 700×500 mm a 1:1 (1984.25×1417.32 pt)", pdf.includes("/MediaBox[0 0 1984.25 1417.32]"));
 check("PDF Helvetica WinAnsi (sin incrustar, acentos viajan)", /BaseFont\/Helvetica\/Encoding\/WinAnsiEncoding/.test(pdf) && pdf.includes("(CUADRO DE"));
 check("PDF vectorial: trazos S y textos Tj en cantidad", ((pdf.match(/ S\n/g) ?? []).length > 800 && (pdf.match(/\) Tj/g) ?? []).length > 200));
-check("PDF paridad DXF: mismas escalas declaradas (una por lámina)", (() => {
+check("PDF paridad DXF: mismas escalas declaradas (paquete A + S)", (() => {
   const nPdf = [...pdf.matchAll(/\(1:\d+\) Tj/g)].length;
-  return nPdf >= 6 && nPdf === (dxf.match(/\n1:(50|75|100|125|150|200|250)\n/g) ?? []).length;
+  const nDxf = (dxf.match(/\n1:(50|75|100|125|150|200|250)\n/g) ?? []).length
+    + (dxfS.match(/\n1:(50|75|100|125|150|200|250)\n/g) ?? []).length;
+  return nPdf >= 6 && nPdf === nDxf;
 })());
 check("PDF plumillas reales (w pt) y patrones DASHED/CENTER de la guía", /\d+\.\d+ w/.test(pdf) && pdf.includes("[17.01 8.5] 0 d") && pdf.includes("[34.02 8.5 5.67 8.5] 0 d"));
 check("PDF determinista byte a byte", planToPdfSet(plan, { fecha: "2026-01-15" }) === pdf);

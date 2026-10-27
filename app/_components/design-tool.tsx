@@ -25,7 +25,7 @@ import {
 import type { Gate } from "@/lib/design/validate";
 import { gateFails, allGates } from "@/lib/design/validate";
 import { penWidth, plotMm, scaleBarMm, ANNOT, HATCH, PEN_BY_LAYER } from "@/lib/design/knowledge";
-import { planToDxf, planToDxfSheets } from "@/lib/design/dxf";
+import { planToDxf, planToDxfSheets, planToDxfStructural } from "@/lib/design/dxf";
 import { planToPdfSet, pdfBytes } from "@/lib/design/plot";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
@@ -613,6 +613,20 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     }
   };
 
+  /** 🏗️ PAQUETE ESTRUCTURAL (S-00…S-05): memoria, cimentación, estructura,
+   *  corte, detalles y despieces — sólo cuando el ingeniero fijó su
+   *  retícula. Archivo PROPIO: el arquitectónico puro no se contamina. */
+  const downloadDxfStructural = () => {
+    if (!plan) return;
+    const dxf = planToDxfStructural(plan, { fecha: dxfGeneratedAt.current });
+    if (!dxf) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([dxf], { type: "application/dxf" }));
+    a.download = `${slugify(plan.name)}-paquete-estructural.dxf`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const saveToDocs = async () => {
     if (!dxfBlob || !plan || !projectSlug) return;
     setSaving("saving");
@@ -729,7 +743,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
           {/* Acciones de salida */}
           {canDownload && (
             <div className="mt-1 space-y-2 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">Entregables</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">Entregables — Paquete Arquitectónico (A)</p>
               <button
                 type="button" onClick={downloadDxf}
                 className="w-full rounded-lg bg-emerald-500/20 px-3 py-2 text-xs font-semibold text-emerald-100 ring-1 ring-emerald-400/30 transition hover:bg-emerald-500/30"
@@ -738,14 +752,23 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
               </button>
               <button
                 type="button" onClick={downloadPdf}
-                title="Set completo A-00…A-06 en un PDF vectorial 700×500 mm a escala real — el mismo motor del DXF, listo para imprimir o compartir"
+                title="Set completo (paquete A + S cuando hay estructura) en PDF vectorial 700×500 mm a escala real — el mismo motor del DXF, listo para imprimir o compartir"
                 className="w-full rounded-lg bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-100 ring-1 ring-rose-400/30 transition hover:bg-rose-500/25"
               >
                 📄 Descargar PDF del set (escala real)
               </button>
+              {plan?.structure?.axes?.length ? (
+                <button
+                  type="button" onClick={downloadDxfStructural}
+                  title="Paquete ESTRUCTURAL completo (S-00…S-05): memoria gráfica NSR-10, cimentación, estructura por nivel, corte, detalles y despieces — archivo propio, el arquitectónico puro no se contamina"
+                  className="w-full rounded-lg bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-100 ring-1 ring-amber-400/30 transition hover:bg-amber-500/25"
+                >
+                  🏗️ Descargar DXF Paquete Estructural (S-00…S-05)
+                </button>
+              ) : null}
               <button
                 type="button" onClick={downloadDxfSheets}
-                title="Un archivo por lámina (A-00…A-05), 700×500 mm en origen — imprime cada una a su escala real sin reducir el set"
+                title="Un archivo por lámina (A-00…A-07 y S-00…S-05 con estructura), 700×500 mm en origen — imprime cada una a su escala real sin reducir el set"
                 className="w-full rounded-lg bg-white/[0.06] px-3 py-2 text-xs font-medium text-slate-200 ring-1 ring-white/10 transition hover:bg-white/[0.1]"
               >
                 🗂️ Descargar DXF por lámina (N archivos)

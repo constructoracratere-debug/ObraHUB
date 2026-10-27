@@ -153,6 +153,13 @@ for (const [slug, plan] of fixtures) {
     writeFileSync(path.join(outDir, name), s.dxf, "utf8");
     files.push(name);
   }
+  // PAQUETE ESTRUCTURAL (S-00…S-05) — archivo propio cuando hay retícula.
+  const { planToDxfStructural } = req(path.join(tmp, "design", "dxf.js"));
+  const dxfS = planToDxfStructural(plan, { fecha: "2026-10-13" });
+  if (dxfS) {
+    writeFileSync(path.join(outDir, `${slug}-paquete-estructural.dxf`), dxfS, "utf8");
+    files.push(`${slug}-paquete-estructural.dxf`);
+  }
   writeFileSync(path.join(outDir, `${slug}.ifc`), planToIfc(plan), "utf8");
   files.push(`${slug}.ifc`);
   writeFileSync(path.join(outDir, `${slug}-set.pdf`), pdfBytes(planToPdfSet(plan, { fecha: "2026-10-13" })));

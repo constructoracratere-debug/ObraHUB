@@ -193,7 +193,7 @@ export function sectionPrimitives(plan: FloorPlan, opts: { transverse?: boolean 
         out.push({ t: "L", l: "MOBILIARIO", x1: x0 + run / n, y1: y0, x2: x0 + run / n, y2: y0 + fft / n });      // contrahuella
       }
       out.push({ t: "L", l: "MOBILIARIO", x1: along0, y1: 0.95, x2: along0 + run, y2: fft + 0.05, thin: true });  // pasamanos
-      out.push({ t: "T", l: "TEXTOS", x: along0 + run / 2 - 0.35, y: fft / 2, h: 0.14, s: "SUBE" });
+      out.push({ t: "T", l: "TEXTOS", x: along0 + run + 0.2, y: fft / 2, h: 0.14, s: "SUBE" });
     }
   }
 

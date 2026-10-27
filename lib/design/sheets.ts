@@ -16,8 +16,12 @@ import {
   openingSchedulePrimitives, localizacionPrimitives, detallesAcabadosPrimitives,
   primsBounds, floorBounds, fitSheetScale, type Prim,
 } from "./views";
+import {
+  memoriaPrimitives, cimentacionPrimitives, plantaEstructuralPrimitives,
+  seccionEstructuralPrimitives, detallesEstructuralesPrimitives, despiecesPrimitives,
+} from "../structural/sheets";
 
-export type Sheet = { code: string; title: string; prims: Prim[]; level?: number };
+export type Sheet = { code: string; title: string; prims: Prim[]; level?: number; pkg?: "A" | "S" };
 
 const GAP = 2.4; // separación entre dibujos (m de modelo)
 
@@ -229,6 +233,27 @@ export function sheetContents(plan: FloorPlan): Sheet[] {
     title: "DETALLES DE ACABADOS",
     prims: detallesAcabadosPrimitives(plan, 2),
   });
+  // ── PAQUETE ESTRUCTURAL (S-*) — SÓLO cuando el ingeniero fijó su retícula:
+  //    con el paquete A cerrado nace el paquete S completo de licencia
+  //    (memoria, cimentación, estructura por nivel, cortes, detalles y
+  //    despieces — lib/structural/sheets.ts).
+  if ((plan.structure?.axes?.length ?? 0) >= 2) {
+    sheets.push({ code: "S-00", title: "MEMORIA GRÁFICA ESTRUCTURAL — NSR-10", prims: memoriaPrimitives(plan), pkg: "S" });
+    sheets.push({ code: "S-01", title: "PLANTA DE CIMENTACIÓN — ZAPATAS AISLADAS", prims: cimentacionPrimitives(plan), pkg: "S" });
+    for (let lvl = 0; lvl < levels; lvl++) {
+      if (!plan.rooms.some((r) => r.level === lvl)) continue;
+      sheets.push({
+        code: lvl === 0 ? "S-02" : `S-02.${lvl + 1}`,
+        title: levels > 1 ? `PLANTA ESTRUCTURAL NIVEL ${lvl + 1}` : "PLANTA ESTRUCTURAL",
+        prims: plantaEstructuralPrimitives(plan, lvl),
+        level: lvl,
+        pkg: "S",
+      });
+    }
+    sheets.push({ code: "S-03", title: "CORTE DE ESTRUCTURA — POR LA ESCALERA", prims: seccionEstructuralPrimitives(plan), pkg: "S" });
+    sheets.push({ code: "S-04", title: "DETALLES ESTRUCTURALES — COLUMNA · VIGA · NUDA · ZAPATA", prims: detallesEstructuralesPrimitives(), pkg: "S" });
+    sheets.push({ code: "S-05", title: "DESPIECES — VIGAS · COLUMNAS · ZAPATAS", prims: despiecesPrimitives(plan), pkg: "S" });
+  }
   // A-00 — ÍNDICE DEL SET + SIMBOLOGÍA: la lámina introductoria de la guía
   // (§2.8) — se genera AL FINAL (necesita la lista) pero viaja PRIMERO;
   // el índice se incluye a sí mismo (set completo).
