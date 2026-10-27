@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
 const tmp = path.join(root, ".tmp-design-test");
-execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/structural/plan.ts lib/structural/loads.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
+execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/validate.ts lib/structural/plan.ts lib/structural/loads.ts lib/structural/sheets.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
 
 const { createRequire } = await import("node:module");
 const req = createRequire(import.meta.url);
@@ -329,7 +329,25 @@ check("set arquitectónico completo y PURO (A-04 estructural fuera)", (() => {
 })());
 check("A-00 ÍNDICE + LOCALIZACIÓN DEL PROYECTO (primer paquete)", dxf.includes("ÍNDICE DEL SET") && dxf.includes("LOCALIZACIÓN DEL PROYECTO") && dxf.includes("ESQUEMA — VERIFICAR AMOJONAMIENTO"));
 check("A-07 DETALLES DE ACABADOS con códigos D1…D4", dxf.includes("DETALLES DE ACABADOS") && ["D1", "D2", "D3", "D4"].every((c) => dxf.includes(`1\n${c}\n`)) && dxf.includes("CUADRO DE ACABADOS POR ESPACIO"));
-check("cortes POR LA ESCALERA: vuelo en corte + llegada en planta 2", multiDxf.includes("SUBE") && multiDxf.includes("LLEGADA") && multiDxf.includes("CORTE A-A'"));
+check("cortes POR LA ESCALERA: vuelo en corte + llegada en planta 2", multiDxf.includes("SUBE") && multiDxf.includes("LLEGADA") && multiDxf.includes("BAJA") && multiDxf.includes("CORTE A-A'"));
+// ── INSTRUCCIÓN DE DIBUJO (primer caso de uso: vivienda 1-2 pisos Título E) ──
+check("acceso principal marcado: flecha + texto ACCESO en planta baja", dxf.includes("ACCESO"));
+check("escalera legible: SUBE en N1 y LLEGADA+BAJA en N2 (multiLevel)", (() => {
+  const { planToDxfSheets } = req(path.join(tmp, "design", "dxf.js"));
+  const files = planToDxfSheets(multiLevelPlan, { fecha: "2026-01-15" });
+  const p1 = files.find((f) => f.code === "A-01");
+  const p2 = files.find((f) => f.code === "A-01.2");
+  return !!p1 && !!p2 && p1.dxf.includes("SUBE") && p2.dxf.includes("LLEGADA") && p2.dxf.includes("BAJA");
+})());
+check("gate: 2 niveles sin local de escalera ⇒ observación de verificación", (() => {
+  const { allGates } = req(path.join(tmp, "design", "validate.js"));
+  const { sanitizeFloorPlan } = req(path.join(tmp, "design", "schema.js"));
+  const two = sanitizeFloorPlan({ ...rawPlan, levels: 2, rooms: [...rawPlan.rooms, { name: "Sala N2", type: "sala", x: 0.15, y: 0.15, width: 3.6, depth: 3.4, level: 1 }] });
+  const draft = allGates(two).find((g) => g.stage === "draft");
+  const esc = draft?.checks.find((c) => c.id === "escalera");
+  const acc = draft?.checks.find((c) => c.id === "acceso");
+  return !!esc && !esc.pass && !!acc && typeof acc.pass === "boolean";
+})());
 check("marca OBRAHUB en rótulo", dxf.includes("OBRAHUB"));
 check("sin universidad (formato propio)", !/UNIVERSIDAD/i.test(dxf));
 check("rótulo: PROYECTO/UBICACIÓN/ESCALA/DIBUJÓ/REVISÓ/LÁMINA", ["PROYECTO", "UBICACI", "ESCALA", "DIBUJ", "REVIS", "LÁMINA"].every((s) => dxf.includes(s)));

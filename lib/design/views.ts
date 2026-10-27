@@ -65,7 +65,10 @@ function footingAt(l: string, x: number, out: Prim[], floorY = -1.4) {
  *  La consumen: la planta (símbolo), las LÍNEAS DE CORTE (cutLines) y el
  *  corte (vuelo de peldaños) — todos ven la MISMA escalera. */
 export function stairBox(plan: FloorPlan): { x: number; y: number; w: number; d: number } | null {
-  const room = plan.rooms.find((r) => r.level === 0 && r.type === "escalera" && r.width >= 0.8 && r.depth >= 1.6);
+  const room = plan.rooms.find((r) => r.level === 0 && r.type === "escalera" && r.width >= 0.8 && r.depth >= 1.6)
+    // El local puede estar trazado sólo en el N2 (llegada): la huella es la
+    // MISMA caja apilada — la escalera vive en los dos pisos.
+    ?? plan.rooms.find((r) => r.level === 1 && r.type === "escalera" && r.width >= 0.8 && r.depth >= 1.6);
   if (room) return { x: room.x, y: room.y, w: room.width, d: room.depth };
   if ((plan.levels ?? 1) <= 1) return null;
   const host = [...plan.rooms.filter((r) => r.level === 0)]
@@ -335,16 +338,61 @@ export function plantaPrimitives(plan: FloorPlan, level = 0, opts: { den?: numbe
   };
   // ESCALERA (punto fijo de corte — curaduría exige cortes por escalera):
   // la caja viene de stairBox (fuente única: local "escalera" o heurística
-  // del local más grande pegada al muro este). N1: vuelo completo con SUBE;
-  // N2: llegada con línea de quiebre (el resto del vuelo queda por debajo).
+  // del local más grande pegada al muro este). N1: vuelo completo con SUBE
+  // + N° de peldaños; N2: LLEGADA + PROYECCIÓN DISCONTINUA del vuelo
+  // inferior con BAJA (Ching: así se lee cómo se sube desde la planta 1).
   const st = stairBox(plan);
   if (st) {
     if (level === 0) {
       escalera(out, st.x, st.y, st.w, st.d, true);
+      out.push({ t: "T", l: "TEXTOS", x: st.x + 0.06, y: st.y + 0.56, h: 0.13, s: "SUBE" });
     } else if (level === 1) {
       out.push({ t: "H", l: "MOBILIARIO", x: st.x, y: st.y, w: st.w, h: st.d });
-      out.push({ t: "L", l: "MOBILIARIO", x1: st.x + 0.05, y1: st.y + st.d * 0.28, x2: st.x + st.w - 0.05, y2: st.y + st.d * 0.18, dash: true, thin: true });
-      out.push({ t: "T", l: "TEXTOS", x: st.x + 0.05, y: st.y + st.d * 0.5, h: 0.13, s: "LLEGADA" });
+      // Proyección del vuelo INFERIOR en discontinua (solo la parte que
+      // queda por debajo del rellano — el 60% bajo de la caja).
+      const n = Math.max(3, Math.floor((st.d * 0.6) / 0.28));
+      for (let i = 0; i <= n; i++) {
+        const yy = st.y + (i * st.d * 0.6) / n;
+        out.push({ t: "L", l: "MOBILIARIO", x1: st.x + 0.05, y1: yy, x2: st.x + st.w - 0.05, y2: yy, dash: true, thin: true });
+      }
+      // Línea de quiebre diagonal sobre la proyección (convención Ching).
+      out.push({ t: "L", l: "MOBILIARIO", x1: st.x + 0.05, y1: st.y + st.d * 0.55, x2: st.x + st.w - 0.05, y2: st.y + st.d * 0.42, thin: true });
+      // Flecha de bajada + textos.
+      const cx = st.x + st.w / 2;
+      out.push({ t: "L", l: "MOBILIARIO", x1: cx, y1: st.y + st.d * 0.5, x2: cx, y2: st.y + st.d * 0.08, dash: true, thin: true });
+      out.push({ t: "L", l: "MOBILIARIO", x1: cx - 0.1, y1: st.y + 0.22, x2: cx, y2: st.y + st.d * 0.08, thin: true });
+      out.push({ t: "L", l: "MOBILIARIO", x1: cx + 0.1, y1: st.y + 0.22, x2: cx, y2: st.y + st.d * 0.08, thin: true });
+      out.push({ t: "T", l: "TEXTOS", x: st.x + 0.06, y: st.y + 0.12, h: 0.12, s: "BAJA" });
+      out.push({ t: "T", l: "TEXTOS", x: st.x + 0.06, y: st.y + st.d * 0.78, h: 0.13, s: "LLEGADA" });
+    }
+  }
+  // ACCESO PRINCIPAL marcado en la planta baja: flecha de ingreso desde el
+  // exterior + texto (el revisor identifica la entrada SIN buscarla).
+  if (level === 0) {
+    const ext = plan.doors.filter((d) => d.level === 0 && (d.from === "exterior" || d.to === "exterior"));
+    const roomOf = (d: typeof ext[number]) => plan.rooms.find((r) => r.level === 0 && r.name === (d.from === "exterior" ? d.to : d.from));
+    const score = (d: typeof ext[number]) => {
+      const r = roomOf(d);
+      return r && /sala|estar|comedor|recib/i.test(r.type) ? 100 + r.width * r.depth : d.width;
+    };
+    const main = [...ext].sort((a, b) => score(b) - score(a))[0];
+    if (main) {
+      const mx = main.x, my = main.y;
+      if (main.axis === "x") {
+        const south = my < plan.outline.depth / 2;
+        const yOut = south ? my - 1.0 : my + 1.0, yTip = south ? my - 0.12 : my + 0.12, s = south ? 1 : -1;
+        out.push({ t: "L", l: "PUERTAS", x1: mx, y1: yOut, x2: mx, y2: yTip });
+        out.push({ t: "L", l: "PUERTAS", x1: mx - 0.14, y1: yTip - 0.22 * s, x2: mx, y2: yTip });
+        out.push({ t: "L", l: "PUERTAS", x1: mx + 0.14, y1: yTip - 0.22 * s, x2: mx, y2: yTip });
+        out.push({ t: "T", l: "TEXTOS", x: mx - 0.62, y: yOut + 0.02, h: 0.13, s: "ACCESO" });
+      } else {
+        const west = mx < plan.outline.width / 2;
+        const xOut = west ? mx - 1.0 : mx + 1.0, xTip = west ? mx - 0.12 : mx + 0.12, s = west ? 1 : -1;
+        out.push({ t: "L", l: "PUERTAS", x1: xOut, y1: my, x2: xTip, y2: my });
+        out.push({ t: "L", l: "PUERTAS", x1: xTip - 0.22 * s, y1: my - 0.14, x2: xTip, y2: my });
+        out.push({ t: "L", l: "PUERTAS", x1: xTip - 0.22 * s, y1: my + 0.14, x2: xTip, y2: my });
+        out.push({ t: "T", l: "TEXTOS", x: xOut + 0.1, y: my - 0.28, h: 0.13, s: "ACCESO", r: 90 });
+      }
     }
   }
   // Cajas de texto de cada espacio (nombre+área): las etiquetas de VANOS las

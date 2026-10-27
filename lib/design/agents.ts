@@ -56,6 +56,16 @@ ${dimensionalTableForPrompt()}
 - Ventanas: en cada habitación y sala/comedor/cocina; "wall" es el lado del espacio: norte=arriba(y mayor), sur=abajo, este=derecha(x mayor), oeste=izquierda.
 - Agrupa zonas húmedas (baño/cocina/lavandería) y prioriza ventilación cruzada.
 - outline = envolvente EXTERIOR total. Los espacios arrancan a ~0.15 m del borde (dentro del muro exterior).
+- ACCESO PRINCIPAL: SIEMPRE una puerta from "exterior" hacia la sala/comedor
+  (la entrada se marca en el plano — el revisor la identifica sin buscarla).
+- ESCALERA (obligatoria si levels > 1): local "Escalera" type "escalera" de
+  1.0-1.2 × 2.7-3.2 m, APILADO en TODOS los niveles (mismo x/y/w/d en cada
+  level) — así la escalera se ve en la planta 1 (vuelo SUBE) y en la planta 2
+  (LLEGADA + proyección BAJA) y los cortes pasan por ella.
+- CASO DE USO 1 (viviendas 1-2 pisos NSR-10 TÍTULO E): mampostería
+  confinada (E.3) o bahareque encamisado (E.7) — muros portantes 0.12-0.15 m,
+  luces libres <= 4.0 m, planta compacta y regular (la regularidad SÍSMICA
+  manda: sin alas ni esquinas reentrantes).
 
 ESQUEMA EXACTO (devuelve SOLO este JSON):
 ${SCHEMA_PLAN}
@@ -110,8 +120,13 @@ export const AGENT_CIVIL = `Eres un INGENIERO CIVIL colombiano, especialista est
 Recibes: ficha de sitio (clima, viento, riesgos) y el PAQUETE ARQUITECTÓNICO APROBADO (paquete A completo: plantas, cortes, fachadas, acabados).
 El paquete arquitectónico YA ESTÁ CERRADO: no propongas cambiar espacios. Tu memo decide el SISTEMA ESTRUCTURAL y traza la RETÍCULA — que pasa DIRECTA al plano (de ella se derivan columnas, vigas y zapatas del paquete S).
 
-Considera TODAS las opciones honestamente: concreto (pórtico/mampostería confinada), acero_liviano (steel framing), madera (timber frame), guadua (NSR-10 E.4), tierra (bahareque encamisado, NSR-10 E.7), mixto.
+Considera TODAS las opciones honestamente: concreto (pórtico/mampostería confinada), acero_liviano (steel framing), madera (timber frame), guadua (NSR-10 G.12), tierra (bahareque encamisado, NSR-10 E.7), mixto.
 Criterio: cargas (niveles), luces del programa, amenaza sísmica de la ciudad, viento, disponibilidad de mano de obra local y la ficha de sitio.
+PRIMER CASO DE USO — VIVIENDA de 1-2 pisos: prioriza MAMPOSTERÍA CONFINADA
+(NSR-10 E.3: muros 0.12-0.15 + cadenas y columnas de confinamiento cada
+<= 4.0 m y en extremos/encuentros) o BAHAREQUE ENCAMISADO (NSR-10 E.7,
+zona cafetera/madera local). Pórtico en concreto o guadua SÓLO con
+justificación especial del sitio (más de 2 pisos, luces grandes, etc.).
 
 Responde SOLO este JSON:
 {

@@ -187,6 +187,9 @@ function coverageCheck(plan: FloorPlan, rooms: Room[]): GateCheck {
 /** Gate 1 — Boceto del arquitecto: geometría coherente + mínimos. */
 export function gateDraft(plan: FloorPlan): Gate {
   const rooms0 = plan.rooms.filter((r) => r.level === 0);
+  const extDoor = plan.doors.find((d) => d.level === 0 && (d.from === "exterior" || d.to === "exterior"));
+  const stair0 = plan.rooms.find((r) => r.level === 0 && r.type === "escalera");
+  const stairTop = (plan.levels ?? 1) > 1 ? plan.rooms.find((r) => r.level === 1 && r.type === "escalera") : undefined;
   const checks = [
     ...roomChecks(plan, plan.rooms),
     ...overlapChecks(plan.rooms),
@@ -197,6 +200,24 @@ export function gateDraft(plan: FloorPlan): Gate {
       label: "El programa tiene espacios definidos",
       pass: plan.rooms.length >= 2,
       detail: `${plan.rooms.length} espacios definidos`,
+    },
+    {
+      // Instrucción de dibujo: el revisor localiza la entrada de PRIMERA —
+      // el plano la marca con flecha ACCESO (planta baja).
+      id: "acceso",
+      label: "Acceso principal desde el exterior",
+      pass: !!extDoor,
+      detail: extDoor ? `Puerta ${extDoor.width.toFixed(2)} m → ${extDoor.from === "exterior" ? extDoor.to : extDoor.from}` : "Falta puerta principal (from exterior)",
+    },
+    {
+      // 2 pisos ⇒ cómo se sube: local de escalera trazado (se dibuja en
+      // planta 1 SUBE y planta 2 LLEGADA/BAJA; los cortes pasan por ella).
+      id: "escalera",
+      label: "Escalera trazada en ambos niveles",
+      pass: (plan.levels ?? 1) <= 1 || (!!stair0 && !!stairTop),
+      detail: (plan.levels ?? 1) <= 1
+        ? "Un piso — no aplica"
+        : `${stair0 ? "N1 ✓" : "N1 ✗"} · ${stairTop ? "N2 ✓" : "N2 ✗"} — local "Escalera" apilado en los dos niveles`,
     },
   ];
   return { stage: "draft", title: "Puerta 1 · Boceto arquitectónico", checks };
