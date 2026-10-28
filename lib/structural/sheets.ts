@@ -19,6 +19,7 @@ import type { FloorPlan } from "../design/schema";
 import type { Prim } from "../design/views";
 import { deadLoads, liveLoads, seismicWeight, combos, columnCheck } from "./loads";
 import { CONCRETE } from "../design/materials";
+import { STRUCTURE_LABELS } from "../design/schema";
 
 /** Ejes (vertical/horizontal) con fallback de retícula razonable. */
 export function axesOf(plan: FloorPlan): { vX: number[]; hY: number[]; labelsX: string[]; labelsY: string[] } {
@@ -94,7 +95,8 @@ export function memoriaPrimitives(plan: FloorPlan): Prim[] {
   const sys = plan.structure?.system ?? "concreto";
   // Encabezado.
   out.push({ t: "T", l: "TEXTOS", x: 0, y: 0, h: 0.3, s: "MEMORIA GRÁFICA ESTRUCTURAL — NSR-10" });
-  out.push({ t: "T", l: "TEXTOS", x: 0, y: -0.45, h: 0.17, s: `SISTEMA: ${sys.toUpperCase()} · ${plan.levels} NIVEL(ES) · PISO A PISO ${plan.floorToFloor.toFixed(2)} m · ${plan.outline.width.toFixed(1)}×${plan.outline.depth.toFixed(1)} m` });
+  const sysLabel = STRUCTURE_LABELS[sys as keyof typeof STRUCTURE_LABELS] ?? sys;
+  out.push({ t: "T", l: "TEXTOS", x: 0, y: -0.45, h: 0.17, s: `SISTEMA: ${sysLabel.toUpperCase()} · ${plan.levels} NIVEL(ES) · PISO A PISO ${plan.floorToFloor.toFixed(2)} m · ${plan.outline.width.toFixed(1)}×${plan.outline.depth.toFixed(1)} m` });
 
   // ── COLUMNA IZQUIERDA (x=0, ancho 4.6): justificación + cargas + criterios.
   let y = -1.0;
@@ -187,6 +189,13 @@ export function memoriaPrimitives(plan: FloorPlan): Prim[] {
   y2 -= 0.1;
   out.push({ t: "T", l: "TEXTOS", x: 5.2, y: y2, h: 0.13, s: "ESQUEMA DETERMINISTA — la numeración definitiva de" });
   out.push({ t: "T", l: "TEXTOS", x: 5.2, y: y2 - 0.24, h: 0.13, s: "refuerzo la diseña y FIRMA el ingeniero matriculado." });
+  // Honestidad de alcance: los detalles S-04/S-05 están calibrados para
+  // mampostería confinada. Otro sistema se DECLARA y su paquete propio
+  // llega con su skill (timberframe/guadua, VIS C/F).
+  if (sys !== "mamposteria_confinada" && sys !== "concreto") {
+    out.push({ t: "T", l: "TEXTOS", x: 5.2, y: y2 - 0.52, h: 0.12, s: `NOTA: detalles S-04/S-05 esquemáticos de confinada — el` });
+    out.push({ t: "T", l: "TEXTOS", x: 5.2, y: y2 - 0.76, h: 0.12, s: "despiece propio de este sistema llega en su skill." });
+  }
   return out;
 }
 

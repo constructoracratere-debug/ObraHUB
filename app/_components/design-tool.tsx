@@ -656,6 +656,13 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      {/* ALCANCE DEL SKILL ACTIVO — declarado desde el inicio */}
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-400/15 bg-emerald-500/[0.05] px-3 py-1.5">
+        <p className="truncate text-[10px] font-semibold tracking-wide text-emerald-300">
+          🎯 SKILL 1 · CASAS DE 1–2 PISOS · NSR-10 TÍTULO E — MAMPOSTERÍA CONFINADA (E.3) · BAHAREQUE ENCAMISADO EN CEMENTO (E.7)
+        </p>
+        <p className="hidden shrink-0 text-[9px] text-emerald-200/60 md:block">Skills 2–4 (VIS · Centros educativos · Timberframe/Guadua): fase de proyección</p>
+      </div>
       {/* Stepper de etapas */}
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/[0.06] bg-[#070d1a] px-3 py-2">
         {STAGES.map((s, i) => {

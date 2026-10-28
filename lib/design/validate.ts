@@ -202,6 +202,14 @@ export function gateDraft(plan: FloorPlan): Gate {
       detail: `${plan.rooms.length} espacios definidos`,
     },
     {
+      // SKILL 1 = viviendas 1-2 pisos (Título E). 3+ pisos pertenece a la
+      // Skill 2 (VIS, Títulos C/F) — se declara, no se improvisa.
+      id: "niveles-skill1",
+      label: "Vivienda de 1-2 pisos (Skill 1 · Título E)",
+      pass: (plan.levels ?? 1) <= 2,
+      detail: (plan.levels ?? 1) <= 2 ? `${plan.levels} nivel(es)` : "3+ pisos = Skill 2 (VIS · Títulos C/F) — fase de proyección",
+    },
+    {
       // Instrucción de dibujo: el revisor localiza la entrada de PRIMERA —
       // el plano la marca con flecha ACCESO (planta baja).
       id: "acceso",

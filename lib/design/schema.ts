@@ -29,6 +29,8 @@ export type RoomType =
 export type WallSide = "norte" | "sur" | "este" | "oeste";
 
 export type StructuralSystem =
+  | "mamposteria_confinada" // SKILL 1 · NSR-10 E.3 (viviendas 1-2 pisos)
+  | "bahareque_encamisado"  // SKILL 1 · NSR-10 E.7 (viviendas 1-2 pisos)
   | "concreto"
   | "acero_liviano"
   | "madera"
@@ -241,6 +243,7 @@ const ELEC_KINDS: ElectricalDevice[] = [
 ];
 
 const SYSTEMS: StructuralSystem[] = [
+  "mamposteria_confinada", "bahareque_encamisado",
   "concreto", "acero_liviano", "madera", "guadua", "tierra", "mixto",
 ];
 
@@ -636,6 +639,8 @@ export const ROOM_COLORS: Record<RoomType, string> = {
 };
 
 export const STRUCTURE_LABELS: Record<StructuralSystem, string> = {
+  mamposteria_confinada: "Mampostería confinada (NSR-10 E.3)",
+  bahareque_encamisado: "Bahareque encamisado (NSR-10 E.7)",
   concreto: "Concreto estructural",
   acero_liviano: "Acero liviano (steel framing)",
   madera: "Timber frame (madera)",

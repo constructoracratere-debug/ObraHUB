@@ -339,6 +339,20 @@ check("escalera legible: SUBE en N1 y LLEGADA+BAJA en N2 (multiLevel)", (() => {
   const p2 = files.find((f) => f.code === "A-01.2");
   return !!p1 && !!p2 && p1.dxf.includes("SUBE") && p2.dxf.includes("LLEGADA") && p2.dxf.includes("BAJA");
 })());
+// ── SKILL 1 declarado: sistemas explícitos Título E + gate de niveles ──────
+check("Skill 1: sistemas mamposteria_confinada y bahareque_encamisado válidos y rotulados", (() => {
+  const { planToDxfStructural } = req(path.join(tmp, "design", "dxf.js"));
+  const conf = planToDxfStructural(sanitizeFloorPlan({ ...rawPlan, structure: { system: "mamposteria_confinada", justification: "E.3", axes: [{ id: "A", orientation: "vertical", at: 3 }, { id: "1", orientation: "horizontal", at: 3 }] } }), { fecha: "2026-01-15" }) ?? "";
+  const bah = planToDxfStructural(sanitizeFloorPlan({ ...rawPlan, structure: { system: "bahareque_encamisado", justification: "E.7", axes: [{ id: "A", orientation: "vertical", at: 3 }, { id: "1", orientation: "horizontal", at: 3 }] } }), { fecha: "2026-01-15" }) ?? "";
+  return conf.includes("MAMPOSTER") && conf.includes("E.3") && bah.includes("BAHAREQUE") && bah.includes("E.7") && bah.includes("despiece propio de este sistema llega en su skill");
+})());
+check("Skill 1: gate rechaza 3+ niveles (debe declarar Skill 2, no improvisar)", (() => {
+  const { allGates } = req(path.join(tmp, "design", "validate.js"));
+  const three = sanitizeFloorPlan({ ...rawPlan, levels: 3 });
+  const draft = allGates(three).find((g) => g.stage === "draft");
+  const niv = draft?.checks.find((c) => c.id === "niveles-skill1");
+  return !!niv && !niv.pass && niv.detail.includes("VIS");
+})());
 check("gate: 2 niveles sin local de escalera ⇒ observación de verificación", (() => {
   const { allGates } = req(path.join(tmp, "design", "validate.js"));
   const { sanitizeFloorPlan } = req(path.join(tmp, "design", "schema.js"));

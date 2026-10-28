@@ -32,6 +32,10 @@ const LADRILLO_INT: WallAssembly = {
 };
 
 export const WALL_ASSEMBLIES: Record<StructuralSystem, { ext: WallAssembly; int: WallAssembly }> = {
+  // SKILL 1 (NSR-10 Título E): confinada = mampostería con cadenas y
+  // columnas de confinamiento; bahareque encamisado = estructura de madera
+  // + malla + repello (E.7) — mismos ensambles de tierra.
+  mamposteria_confinada: { ext: LADRILLO_EXT, int: LADRILLO_INT },
   concreto: { ext: LADRILLO_EXT, int: LADRILLO_INT },
   mixto: { ext: LADRILLO_EXT, int: LADRILLO_INT },
   acero_liviano: {
@@ -80,6 +84,19 @@ export const WALL_ASSEMBLIES: Record<StructuralSystem, { ext: WallAssembly; int:
       ],
     },
     int: { label: "División tierra", layers: [{ name: "Estructura + tierra", thickness: 0.08 }] },
+  },
+  // SKILL 1 · NSR-10 E.7: bahareque ENCAMISADO EN CEMENTO (repello con
+  // malla sobre estructura de madera — el sistema admisible en E.7).
+  bahareque_encamisado: {
+    ext: {
+      label: "Bahareque encamisado en cemento (E.7)",
+      layers: [
+        { name: "Repello cemento-arena + malla 3cm", thickness: 0.03 },
+        { name: "Estructura madera: montantes 0.10", thickness: 0.10 },
+        { name: "Repello interior 3cm", thickness: 0.03 },
+      ],
+    },
+    int: { label: "División bahareque", layers: [{ name: "Estructura madera + esterilla", thickness: 0.08 }] },
   },
 };
 

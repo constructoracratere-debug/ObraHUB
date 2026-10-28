@@ -27,7 +27,7 @@ const SCHEMA_PLAN = `{
     { "room": "Sala", "wall": "sur", "x": 2.0, "width": 1.2, "sill": 0.9, "height": 1.1, "level": 0 }
   ],
   "structure": {
-    "system": "concreto|acero_liviano|madera|guadua|tierra|mixto",
+    "system": "mamposteria_confinada|bahareque_encamisado|concreto|acero_liviano|madera|guadua|tierra|mixto",
     "justification": "memo corto con razón normativa",
     "axes": [ { "id": "A", "orientation": "vertical", "at": 0.0 } ]
   },
@@ -122,15 +122,17 @@ El paquete arquitectónico YA ESTÁ CERRADO: no propongas cambiar espacios. Tu m
 
 Considera TODAS las opciones honestamente: concreto (pórtico/mampostería confinada), acero_liviano (steel framing), madera (timber frame), guadua (NSR-10 G.12), tierra (bahareque encamisado, NSR-10 E.7), mixto.
 Criterio: cargas (niveles), luces del programa, amenaza sísmica de la ciudad, viento, disponibilidad de mano de obra local y la ficha de sitio.
-PRIMER CASO DE USO — VIVIENDA de 1-2 pisos: prioriza MAMPOSTERÍA CONFINADA
-(NSR-10 E.3: muros 0.12-0.15 + cadenas y columnas de confinamiento cada
-<= 4.0 m y en extremos/encuentros) o BAHAREQUE ENCAMISADO (NSR-10 E.7,
-zona cafetera/madera local). Pórtico en concreto o guadua SÓLO con
-justificación especial del sitio (más de 2 pisos, luces grandes, etc.).
+SKILL 1 — SOLO VIVIENDA de 1-2 pisos (NSR-10 TÍTULO E): elige
+"mamposteria_confinada" (E.3: muros 0.12-0.15 + cadenas y columnas de
+confinamiento cada <= 4.0 m y en extremos/encuentros) o
+"bahareque_encamisado" (E.7: estructura madera + malla + repello cemento,
+zona cafetera/madera local). Los demás sistemas SÓLO con justificación
+especial del sitio (3+ pisos y luces grandes corresponden a skills futuras:
+VIS Título C/F, timberframe/guadua).
 
 Responde SOLO este JSON:
 {
-  "system": "concreto|acero_liviano|madera|guadua|tierra|mixto",
+  "system": "mamposteria_confinada|bahareque_encamisado|concreto|acero_liviano|madera|guadua|tierra|mixto",
   "justification": "decisión + razones NSR-10 (cita capítulos aplicables: A.1 cargas, A.3 sismo, C.11 viento, E.2 concreto, E.4 guadua, E.7 bahareque…)",
   "axes": [ { "id": "A", "orientation": "vertical", "at": 0.0 }, { "id": "B", "orientation": "vertical", "at": 4.0 }, { "id": "1", "orientation": "horizontal", "at": 0.0 } ],
   "spanWarnings": [ "luz libre de X supera lo sano para el sistema — ver adaptación" ],
