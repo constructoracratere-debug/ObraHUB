@@ -22,7 +22,7 @@ import { primsBounds, fitSheetScale, mepSymbols, type Prim } from "./views";
 /** Plumilla que sabe dibujar una lámina en mm (Y hacia arriba, origen 0,0). */
 export type PlotPen = {
   line(layer: string, x1: number, y1: number, x2: number, y2: number, opts?: { thin?: boolean; dash?: boolean; cls?: string }): void;
-  polyline(layer: string, pts: Array<[number, number]>, closed?: boolean): void;
+  polyline(layer: string, pts: Array<[number, number]>, closed?: boolean, opts?: { cls?: string }): void;
   circle(layer: string, cx: number, cy: number, r: number): void;
   text(layer: string, x: number, y: number, height: number, value: string, rotationDeg?: number): void;
   solid(layer: string, x0: number, y0: number, x1: number, y1: number): void;
@@ -79,18 +79,21 @@ function drawScaleBar(pen: PlotPen, x: number, y: number, escala: string) {
   pen.text("ROTULO-TXT", cx + 2, y - 1, 2.2, "m");
 }
 
-/** Rótulo OBRAHUB (franja vertical 185 mm) — LA MISMA para DXF y PDF. */
+/** Rótulo OBRAHUB (franja vertical 185 mm) — LA MISMA para DXF y PDF.
+ *  Jerarquía de plumilla ISO 5457: marco exterior = cut (el más pesado de
+ *  la lámina), marco interior = cubt, divisor = profile, filas del cajetín
+ *  = finas — el rótulo también LEE por pesos, no todo a 0.2 plano. */
 export function drawRotulo(pen: PlotPen, ox: number, oy: number, fields: RotuloFields) {
   const W = 700, H = 500;
   const mOut = 5, mIn = 10;
   const R = "ROTULO", RT = "ROTULO-TXT";
-  pen.polyline(R, [[ox + mOut, oy + mOut], [ox + W - mOut, oy + mOut], [ox + W - mOut, oy + H - mOut], [ox + mOut, oy + H - mOut]], true);
-  pen.polyline(R, [[ox + mIn, oy + mIn], [ox + W - mIn, oy + mIn], [ox + W - mIn, oy + H - mIn], [ox + mIn, oy + H - mIn]], true);
+  pen.polyline(R, [[ox + mOut, oy + mOut], [ox + W - mOut, oy + mOut], [ox + W - mOut, oy + H - mOut], [ox + mOut, oy + H - mOut]], true, { cls: "cut" });
+  pen.polyline(R, [[ox + mIn, oy + mIn], [ox + W - mIn, oy + mIn], [ox + W - mIn, oy + H - mIn], [ox + mIn, oy + H - mIn]], true, { cls: "cubt" });
   const rx0 = ox + W - mIn - 185, rx1 = ox + W - mIn;
-  pen.line(R, rx0, oy + mIn, rx0, oy + H - mIn);
+  pen.line(R, rx0, oy + mIn, rx0, oy + H - mIn, { cls: "profile" });
 
   let y = oy + H - mIn;
-  const row = (h: number) => { if (h <= 0.1) return y; y -= h; pen.line(R, rx0, y, rx1, y); return y; };
+  const row = (h: number) => { if (h <= 0.1) return y; y -= h; pen.line(R, rx0, y, rx1, y, { thin: true }); return y; };
   row(30);
   pen.text(RT, rx0 + 8, y + 14, 10, "OBRAHUB");
   pen.text(RT, rx0 + 8, y + 3, 2.6, "CONSTRUCTION OS · CRATERE S.A.S.");
@@ -248,9 +251,9 @@ class PdfPen implements PlotPen {
     );
   }
 
-  polyline(layer: string, pts: Array<[number, number]>, closed = false) {
+  polyline(layer: string, pts: Array<[number, number]>, closed = false, opts: { cls?: string } = {}) {
     if (pts.length < 2) return;
-    let s = `${this.lw(layer, false)} 0 G ${fmt(pts[0][0] * PT)} ${fmt(pts[0][1] * PT)} m `;
+    let s = `${this.lw(layer, false, opts.cls)} 0 G ${fmt(pts[0][0] * PT)} ${fmt(pts[0][1] * PT)} m `;
     for (let i = 1; i < pts.length; i++) s += `${fmt(pts[i][0] * PT)} ${fmt(pts[i][1] * PT)} l `;
     this.ops.push(s + (closed ? "h S" : "S"));
   }

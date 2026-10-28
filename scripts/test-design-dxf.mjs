@@ -152,7 +152,7 @@ check("plotMm: interpola escalas intermedias (1:75 → cut 0.55)", (() => {
   return plotMm("cut", 75) === 0.55 && plotMm("elec", 75) === 0.14;
 })());
 check("370 por ENTIDAD a la escala real de la lámina (A-01 @1:50 → cut 0.60)", /8\nA-MUROS\n370\n60\n/.test(dxf));
-check("achurado EN A-MUROS con 370 de la fila achu (0.30 @1:50) — apagar muros apaga el hatch", /8\nA-MUROS\n370\n30\n/.test(dxf) && !dxf.includes("ACHU"));
+check("achurado EN A-MUROS con 370 de la fila achu (0.13 @1:50 — la MÁS fina: el poché no compite con el corte) — apagar muros apaga el hatch", /8\nA-MUROS\n370\n13\n/.test(dxf) && !dxf.includes("ACHU"));
 check("paquete A PURO: capas S-* (estructura) ausentes del arquitectónico", (() => {
   const declared = [...dxf.matchAll(/0\nLAYER\n2\n([^\n]+)/g)].map((m) => m[1]);
   return declared.length >= 12 && declared.every((n) => !n.startsWith("S-"));
@@ -419,6 +419,17 @@ check("PDF paridad DXF: mismas escalas declaradas (paquete A + S)", (() => {
   return nPdf >= 6 && nPdf === nDxf;
 })());
 check("PDF plumillas reales (w pt) y patrones DASHED/CENTER de la guía", /\d+\.\d+ w/.test(pdf) && pdf.includes("[17.01 8.5] 0 d") && pdf.includes("[34.02 8.5 5.67 8.5] 0 d"));
+check("PDF jerarquía de grosores (ISO 128): corte pesado (≥1.4 pt) en volumen y la clase DOMINANTE es fina (≤0.6 pt) — el poché no sepulta el dibujo", (() => {
+  const hist = {};
+  for (const m of pdf.matchAll(/([\d.]+) w/g)) hist[m[1]] = (hist[m[1]] ?? 0) + 1;
+  const heavy = Object.entries(hist).filter(([w]) => parseFloat(w) >= 1.4).reduce((a, [, c]) => a + c, 0);
+  const top = Object.entries(hist).sort((a, b) => b[1] - a[1])[0];
+  return heavy > 30 && parseFloat(top[0]) <= 0.6;
+})());
+check("rótulo con jerarquía: marco exterior 370=cut e interior 370=cubt (DXF, misma emisión)", (() => {
+  const rot = dxfS ? dxf + "\n" + dxfS : dxf;
+  return /8\nA-ROTULO\n370\n\d+/.test(rot) && /LWPOLYLINE\n100\nAcDbEntity\n8\nA-ROTULO\n370\n(60|55|50)\n/.test(rot);
+})());
 check("PDF determinista byte a byte", planToPdfSet(plan, { fecha: "2026-01-15" }) === pdf);
 check("PDF xref/trailer bien formado", /xref\n0 \d+\n0000000000 65535 f/.test(pdf) && pdf.trimEnd().endsWith("%%EOF"));
 check(`PDF tamaño razonable (${(pdf.length / 1024).toFixed(0)} KB)`, pdf.length > 50_000 && pdf.length < 3_000_000);

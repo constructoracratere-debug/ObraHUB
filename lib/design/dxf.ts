@@ -113,10 +113,10 @@ class DxfBuilder {
    *  visores web y CAD actuales la renderizan SIEMPRE (la POLYLINE clásica
    *  con VERTEX/SEQEND se pierde en algunos viewers: "el DXF llega sin
    *  muros" era eso). Grosor 370 por entidad como toda línea. */
-  polyline(rawLayer: string, pts: Array<[number, number]>, closed = false) {
+  polyline(rawLayer: string, pts: Array<[number, number]>, closed = false, opts: { cls?: string } = {}) {
     if (pts.length < 2) return;
     const l = this.layerOf(rawLayer);
-    const lw = this.lw370(l);
+    const lw = this.lw370(l, opts.cls);
     // Subclass markers (100) obligatorios en AC1021: ezdxf/AutoCAD los
     // exigen para LWPOLYLINE ("missing AcDbPolyline subclass" sin ellos).
     let s = `0\nLWPOLYLINE\n100\nAcDbEntity\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n100\nAcDbPolyline\n90\n${pts.length}\n70\n${closed ? 1 : 0}\n`;

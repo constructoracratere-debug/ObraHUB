@@ -272,6 +272,10 @@ export async function POST(req: NextRequest) {
       }
 
       // ── Etapa 4 · Instalaciones en paralelo ─────────────────────────────
+      // RESILIENTE por agente (fix "me quedé pegado en instalaciones"): un
+      // experto que falla (timeout/proveedor) JAMÁS tumba la etapa — se
+      // reintenta una vez y, si sigue fallando, el otro paquete sí viaja
+      // y el aviso queda visible en la mesa. El cliente nunca se cuelga.
       case "installations": {
         const plan = sanitizeFloorPlan(b.previousPlan);
         if (plan.rooms.length === 0) throw new Error("Falta la planta adaptada");
@@ -279,35 +283,57 @@ export async function POST(req: NextRequest) {
         const ctx = planContext(plan);
         say("⚡ Diseñando circuitos, tablero y puntos (RETIE/NTC 2050)…", "electrico");
         say("💧 Ubicando aparatos y puntos húmedos (RAS)…", "hidro");
+
+        type MepResult = { points: unknown[]; notes?: string } | null;
+        const runAgent = async (
+          who: "electrico" | "hidro",
+          system: string,
+          maxTokens: number,
+        ): Promise<MepResult> => {
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              const r = await llmJson<{ points: unknown[]; notes?: string }>("structure", {
+                system,
+                user: `PLANTA FINAL: ${ctx}`,
+                maxTokens,
+                temperature: 0.3,
+                timeoutMs: 25000,
+                onEvent: live(who),
+              });
+              if (Array.isArray(r.data.points) && r.data.points.length > 0) return r.data;
+              say(`⚠️ ${who === "hidro" ? "💧" : "⚡"} devolvió 0 puntos — reintento ${attempt}…`, who);
+            } catch (e) {
+              say(`⚠️ ${who === "hidro" ? "💧 Hidrosanitario" : "⚡ Eléctrico"} falló (${e instanceof Error ? e.message.slice(0, 90) : "error"}) — ${attempt === 1 ? "reintentando…" : "sin reintento"}`, who);
+            }
+          }
+          return null;
+        };
+
         const [electrical, hydro] = await Promise.all([
-          llmJson<{ points: unknown[]; notes?: string }>("structure", {
-            system: AGENT_ELECTRICAL,
-            user: `PLANTA FINAL: ${ctx}`,
-            maxTokens: 2500,
-            temperature: 0.3,
-            timeoutMs: 18000,
-            onEvent: live("electrico"),
-          }),
-          llmJson<{ points: unknown[]; notes?: string }>("structure", {
-            system: AGENT_HYDRO,
-            user: `PLANTA FINAL: ${ctx}`,
-            maxTokens: 1800,
-            temperature: 0.3,
-            timeoutMs: 18000,
-            onEvent: live("hidro"),
-          }),
+          runAgent("electrico", AGENT_ELECTRICAL, 2500),
+          runAgent("hidro", AGENT_HYDRO, 2600),
         ]);
+        if (!electrical) say("❌ El paquete ELÉCTRICO no pudo generarse — vuelve a lanzar Instalaciones (el resto del plano está intacto).", "mesa");
+        if (!hydro) say("❌ El paquete HIDROSANITARIO no pudo generarse — vuelve a lanzar Instalaciones (el resto del plano está intacto).", "mesa");
+        if (!electrical && !hydro) throw new Error("Ningún experto de instalaciones respondió — intenta de nuevo");
+
         const merged = sanitizeFloorPlan({
           ...plan,
-          electrical: { points: electrical.data.points ?? [], notes: electrical.data.notes ?? "" },
-          hydro: { points: hydro.data.points ?? [], notes: hydro.data.notes ?? "" },
+          ...(electrical ? { electrical: { points: electrical.points, notes: electrical.notes ?? "" } } : {}),
+          ...(hydro ? { hydro: { points: hydro.points, notes: hydro.notes ?? "" } } : {}),
         });
-        say("🔌 Capas ELÉCTRICO e HIDROSANITARIO fusionadas al plano.", "mesa");
+        say(
+          `🔌 Capas fusionadas: ⚡ ${merged.electrical?.points.length ?? 0} puntos eléctricos · 💧 ${merged.hydro?.points.length ?? 0} puntos hidrosanitarios.`,
+          "mesa",
+        );
         send({
           type: "done",
           plan: merged,
           gates: allGates(merged),
-          providers: { electrical: electrical.providerLabel, hydro: hydro.providerLabel },
+          providers: {
+            electrical: electrical ? "⚡ OK" : "⚡ falló",
+            hydro: hydro ? "💧 OK" : "💧 falló",
+          },
           latencyMs: Date.now() - t0,
         });
         return;

@@ -128,7 +128,7 @@ export const LINE_HIERARCHY: Record<string, { weight: "thick" | "medium" | "thin
  *  plantilla de capas DXF cuando no hay escala de lámina.) */
 export const GUIDE_PRINT_TABLE: Record<string, Record<number, number>> = {
   cut:    { 20: 0.70, 50: 0.60, 100: 0.50, 200: 0.25, 500: 0.15 }, // A-MURO/-EXT/-DINT, A-COLS
-  achu:   { 20: 0.40, 50: 0.30, 100: 0.20, 200: 0.25, 500: 0.15 }, // A-MURO-ACHU (literal guía)
+  achu:   { 20: 0.18, 50: 0.13, 100: 0.13, 200: 0.13, 500: 0.13 }, // rayado de poché — LA MÁS FINA del plano (ISO 128): el muro cortado lo lee su CONTORNO (cut), no su achurado. La fila literal de la guía (0.30 @1:50) entintaba la banda al 31-53% y los muros leían como masa gris, no como corte.
   cubt:   { 20: 0.50, 50: 0.40, 100: 0.40, 200: 0.30, 500: 0.20 }, // A-CUBT (fachadas/cubiertas)
   profile:{ 20: 0.25, 50: 0.18, 100: 0.18, 200: 0.15, 500: 0.13 }, // A-CARP, A-MUEB, A-PUER, A-VENT
   elec:   { 20: 0.18, 50: 0.18, 100: 0.10, 200: 0.10, 500: 0.10 }, // A-ELEC
@@ -187,7 +187,10 @@ export const ANNOT = { minTextMm: 2.5, symbolTextMm: 2.2 } as const;
 
 /** Rayado del poché: espaciado CONSTANTE en papel (no en modelo — a 1:200 un
  *  paso de modelo vuelve el rayado un manchón) y banda delgada → SÓLIDO. */
-export const HATCH = { spacingMm: 1.4, solidBelowMm: 1.6 } as const;
+/** Pitch perpendicular ≈ spacing/√2: con 2.0 mm y pluma 0.13 la banda de
+ *  muro imprime ~9% de tinta — poché GRIS CLARO legible (medido en raster:
+ *  1.4/0.30 daba 31-53% y leía como mancha). Banda delgada → SÓLIDO. */
+export const HATCH = { spacingMm: 2.0, solidBelowMm: 1.6 } as const;
 
 /** ── Serie ISO 128 (default de plantilla DXF sin escala de lámina) ───────── */
 export const PENS = {

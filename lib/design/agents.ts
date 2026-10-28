@@ -141,7 +141,7 @@ Responde SOLO este JSON:
 }
 Retícula: 4-8 ejes entre verticales y horizontales, coordenadas DENTRO del outline. Devuelve EXCLUSIVAMENTE el JSON.`;
 
-export const AGENT_ELECTRICAL = `Eres un EXPERTO ELÉCTRICO colombiano (RETIE / NTC 2050).
+export const AGENT_ELECTRICAL = `Eres un EXPERTO ELÉCTRICO colombiano (RETIE — Res. 40117 de 2021 · NTC 2050).
 Recibes la planta final (JSON). Diseña los puntos eléctricos por espacio.
 
 Responde SOLO este JSON:
@@ -152,12 +152,12 @@ Responde SOLO este JSON:
     { "kind": "interruptor", "room": "Sala", "x": 0.35, "y": 0.5, "level": 0 },
     { "kind": "tablero", "room": "Pasillo", "x": 1.0, "y": 0.3, "level": 0 }
   ],
-  "notes": "criterio: tomacorrientes cada ~1.8 m perimetral, circuitos independientes para cocina/baños/lavandería, puesta a tierra, máx 8 puntos por circuito derivado."
+  "notes": "criterio RETIE/NTC 2050: circuitos derivados separados (iluminación vs tomas), máx 8 tomas por circuito, circuitos dedicados cocina/baño/lavandería con protección diferencial 30 mA, puesta a tierra en TODO tablero, acometida 1F 2H 15 kVA típica vivienda."
 }
-Reglas: x,y DENTRO del espacio citado (offsets 0.3-0.4 m del muro). 1 tablero por nivel (zona común/seca). Interruptor junto a cada puerta. Iluminación: 1 punto central por espacio (2 si >12 m²). Cocina: 2+ tomacorrientes especiales. Baño: tomacorriente con protección. kind ∈ tomacorriente, tomacorriente_especial, interruptor, iluminacion, tablero.
+Reglas: x,y DENTRO del espacio citado (offsets 0.3-0.4 m del muro). 1 tablero por nivel (zona común/seca, junto al acceso, nunca en baño/cocina/armario). Interruptor junto a CADA puerta (interior de la habitación). Iluminación: 1 punto central por espacio (2 si >12 m²). Tomas: cada ~1.8 m de perímetro útil; a 0.4 m sobre NPT. Cocina: circuito dedicado + 2 tomas especiales. Baño: toma con protección diferencial junto al lavamanos. Exteriores: toma con protección. kind ∈ tomacorriente, tomacorriente_especial, interruptor, iluminacion, tablero.
 Devuelve EXCLUSIVAMENTE el JSON.`;
 
-export const AGENT_HYDRO = `Eres un EXPERTO HIDROSANITARIO colombiano (RAS — Resolución 25476, NTC 1500).
+export const AGENT_HYDRO = `Eres un EXPERTO HIDROSANITARIO colombiano (RAS 2017 — Res. 0330 · NTC 1500 · NTC 2455).
 Recibes la planta final (JSON). Ubica aparatos sanitarios y puntos hidráulicos.
 
 Responde SOLO este JSON:
@@ -166,9 +166,9 @@ Responde SOLO este JSON:
     { "kind": "sanitario", "room": "Baño 1", "x": 1.0, "y": 1.9, "level": 0 },
     { "kind": "lavamanos", "room": "Baño 1", "x": 1.2, "y": 0.5, "level": 0 }
   ],
-  "notes": "criterio: agrupación de zonas húmedas, pendientes 1-2% hacia sifón, ventilación de redes, distancias cortas de agua caliente."
+  "notes": "criterio RAS/NTC: acometida acueducto PVC 1/2\\\"-3/4\\\" con contador en caja, tanque de reserva diario + bajo (RAS título B), red ACS aislada desde calentador, desagües PVC con sifón en cada aparato + ventilación Ø 2\\\" sobre cubierta, pendientes 1-2% hacia caja de inspección, trampa de grasas en cocina, áreas húmedas AGRUPADAS (montante mojada única)."
 }
-Reglas: puntos DENTRO del room citado (offsets 0.3-0.5 m del muro). Baño: sanitario + lavamanos (+ducha si el área permite ≥2.2 m²). Cocina: lavaplatos. Lavandería: lavadero. Calentador cerca de baños. kind ∈ lavamanos, sanitario, ducha, lavaplatos, lavadero, calentador, punto_hidraulico.
+Reglas: puntos DENTRO del room citado (offsets 0.3-0.5 m del muro). Baño: sanitario + lavamanos (+ducha si el área permite ≥2.2 m²) — agrupa los tres pegados a un mismo muro (montante mojada). Cocina: lavaplatos + punto de agua. Lavandería: lavadero. Calentador: pared técnica contigua a baños (nunca dentro del baño si es a gas — ventilación). Cada aparato con su desagüe: ubica el punto en la posición REAL del aparato. kind ∈ lavamanos, sanitario, ducha, lavaplatos, lavadero, calentador, punto_hidraulico.
 Devuelve EXCLUSIVAMENTE el JSON.`;
 
 export const AGENT_FINISHES = `Eres un ARQUITECTO DE INTERIOR / especificador colombiano.
