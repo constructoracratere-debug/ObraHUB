@@ -83,3 +83,26 @@
 1. **Fase 3 — MEP profesional** (I-01/I-02): circuitos C1..Cn con cuadro de tablero RETIE, tuberías AC/desagüe con pendientes, sub-capas ISO (cada línea ordenada y clasificada).
 2. Checklist de licencia digital (F.U.N., CTL, suelos — ya es lista en el expediente).
 3. Presupuesto/gantt alimentados por el MISMO modelo (5D) — cerrar el círculo con la estadística que presentará Cynthia: productividad medida, no prometida.
+
+---
+
+## 🎬 DEMO DE RESPALDO — ACTUALIZADA (2026-10-28, día de la ponencia)
+
+**Corrida REAL en producción (build 8dc401c), sin cortes** — 15 capturas + GIF:
+
+- `C:\ObraHub\demo-shots\demo-ponencia.gif` — 17 fotogramas con tarjetas de título (2.5 MB, abre en cualquier navegador).
+- `C:\ObraHub\demo-shots\01…15-*.png` — capturas 1600×1000 de cada etapa (login → portafolio → skill → encargo → ficha de sitio → boceto → desarrollo → acabados → estructura → retorno → instalaciones → plantas P1/P2 → lámina).
+- Láminas para proyectar: `lamina-A-01-planta.png`, `lamina-I-01-electrico.png` (NUEVA — circuitos + cuadro de cargas RETIE), `lamina-I-02-hidrosanitario.png` (NUEVA — redes + pendientes + cuadro RAS), `set-laminas-ejemplo.pdf` (set completo a escala real).
+
+**Guión de 60 segundos con el GIF** (si falla internet): portada → 4/5 (skill + encargo en español) → 7 (boceto: "la IA piensa, los motores dibujan") → 10/11 (civil + retorno: paquetes A/S separados) → 12/16/17 (instalaciones RETIE+RAS en paralelo — NUEVO de esta semana) → 15 (lámina 700×500 a escala real).
+
+### ⚠️ Contingencia de login (Resend free-tier)
+El envío de correo puede fallar por límite horario. El código se genera IGUAL en la BD. 10 min antes:
+1. Pedir código en la app (aunque el correo falle).
+2. Leerlo: `curl "https://choftjgjvcdnorbnpcmu.supabase.co/rest/v1/login_codes?email=eq.sofyarquitectura@gmail.com&select=code" -H "apikey: $SRV" -H "Authorization: Bearer $SRV"` (SRV del .env.local).
+3. Escribirlo en la app — funciona aunque el correo nunca llegó.
+
+### Lo NUEVO que puedo presumir hoy (ante las preguntas de los pares)
+- Paquete de INSTALACIONES completo (I-01/I-02): circuitos derivados, cuadro de cargas con diferenciales 30 mA (RETIE Res. 40117/2021), redes AC/ACS/desagües con pendientes y ventilación Ø2" (RAS 2017 Res. 0330) — todo determinista desde los puntos de los expertos.
+- Plumilla de impresión ISO 128 corregida: jerarquía 0.60/0.40/0.18/0.13 mm medida en raster (el poché ya no satura los muros) y rótulo con marco jerárquico.
+- Etapa de instalaciones RESILIENTE: cada experto reintenta solo; uno que cae no tumba la etapa.
