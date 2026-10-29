@@ -17,7 +17,7 @@
 import type { FloorPlan } from "./schema";
 import { plotMm, ANNOT, HATCH, PEN_BY_LAYER } from "./knowledge";
 import { SHEET_AVAIL_W, SHEET_AVAIL_H, sheetContents, type Sheet } from "./sheets";
-import { primsBounds, fitSheetScale, mepSymbols, type Prim } from "./views";
+import { primsBounds, fitSheetScale, type Prim } from "./views";
 
 /** Plumilla que sabe dibujar una lámina en mm (Y hacia arriba, origen 0,0). */
 export type PlotPen = {
@@ -200,15 +200,9 @@ export function emitSheet(
       pen.polyline(p.l, [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
     }
   }
-
-  if (sheet.code.startsWith("A-01")) {
-    for (const s of mepSymbols(plan, lvl)) {
-      const l = s.disc === "E" ? "ELECTRICO" : "HIDROSANITARIO";
-      pen.circle(l, X(s.x), Y(s.y), Math.max(s.r * k, 1.3));
-      const h = ANNOT.symbolTextMm;
-      pen.text(l, X(s.x) - (s.letter.length * h * 0.7) / 2, Y(s.y) - h * 0.5, h, s.letter);
-    }
-  }
+  // Los SÍMBOLOS MEP ya NO viajan en A-01: el paquete arquitectónico sale
+  // PURO a curaduría y las instalaciones viven en sus láminas I-01/I-02
+  // (mep.ts las dibuja con mepSymbols — mismo solver anti-amontonamiento).
 }
 
 // ── Plumilla PDF ─────────────────────────────────────────────────────────────

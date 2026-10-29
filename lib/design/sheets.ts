@@ -20,8 +20,9 @@ import {
   memoriaPrimitives, cimentacionPrimitives, plantaEstructuralPrimitives,
   seccionEstructuralPrimitives, detallesEstructuralesPrimitives, despiecesPrimitives,
 } from "../structural/sheets";
+import { electricalSheetPrimitives, hydroSheetPrimitives } from "./mep";
 
-export type Sheet = { code: string; title: string; prims: Prim[]; level?: number; pkg?: "A" | "S" };
+export type Sheet = { code: string; title: string; prims: Prim[]; level?: number; pkg?: "A" | "S" | "I" };
 
 const GAP = 2.4; // separación entre dibujos (m de modelo)
 
@@ -253,6 +254,31 @@ export function sheetContents(plan: FloorPlan): Sheet[] {
     sheets.push({ code: "S-03", title: "CORTE DE ESTRUCTURA — POR LA ESCALERA", prims: seccionEstructuralPrimitives(plan), pkg: "S" });
     sheets.push({ code: "S-04", title: "DETALLES ESTRUCTURALES — COLUMNA · VIGA · NUDA · ZAPATA", prims: detallesEstructuralesPrimitives(), pkg: "S" });
     sheets.push({ code: "S-05", title: "DESPIECES — VIGAS · COLUMNAS · ZAPATAS", prims: despiecesPrimitives(plan), pkg: "S" });
+  }
+  // ── PAQUETE DE INSTALACIONES (I-*) — SÓLO cuando los expertos dejaron
+  //    puntos: el plano arquitectónico viaja PURO a curaduría y las redes
+  //    viven en sus láminas propias (lib/design/mep.ts). I-01 eléctrico con
+  //    circuitos + cuadro de cargas RETIE; I-02 hidrosanitario con redes
+  //    AC/ACS/desagüe + ventilación + cuadro RAS.
+  for (let lvl = 0; lvl < levels; lvl++) {
+    if (!(plan.electrical?.points ?? []).some((p) => p.level === lvl)) continue;
+    sheets.push({
+      code: lvl === 0 ? "I-01" : `I-01.${lvl + 1}`,
+      title: levels > 1 ? `INSTALACIÓN ELÉCTRICA NIVEL ${lvl + 1} — RETIE` : "INSTALACIÓN ELÉCTRICA — RETIE · CIRCUITOS",
+      prims: electricalSheetPrimitives(plan, lvl),
+      level: lvl,
+      pkg: "I",
+    });
+  }
+  for (let lvl = 0; lvl < levels; lvl++) {
+    if (!(plan.hydro?.points ?? []).some((p) => p.level === lvl)) continue;
+    sheets.push({
+      code: lvl === 0 ? "I-02" : `I-02.${lvl + 1}`,
+      title: levels > 1 ? `INSTALACIÓN HIDROSANITARIA NIVEL ${lvl + 1} — RAS` : "INSTALACIÓN HIDROSANITARIA — RAS · REDES",
+      prims: hydroSheetPrimitives(plan, lvl),
+      level: lvl,
+      pkg: "I",
+    });
   }
   // A-00 — ÍNDICE DEL SET + SIMBOLOGÍA: la lámina introductoria de la guía
   // (§2.8) — se genera AL FINAL (necesita la lista) pero viaja PRIMERO;

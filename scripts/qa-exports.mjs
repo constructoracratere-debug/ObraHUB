@@ -24,7 +24,7 @@ mkdirSync(outDir, { recursive: true });
 
 const tmp = path.join(root, ".tmp-design-test");
 execSync(
-  `npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/ifc.ts lib/structural/plan.ts lib/structural/loads.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`,
+  `npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/mep.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/ifc.ts lib/structural/plan.ts lib/structural/loads.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`,
   { cwd: root, stdio: "pipe" },
 );
 
@@ -154,11 +154,17 @@ for (const [slug, plan] of fixtures) {
     files.push(name);
   }
   // PAQUETE ESTRUCTURAL (S-00…S-05) — archivo propio cuando hay retícula.
-  const { planToDxfStructural } = req(path.join(tmp, "design", "dxf.js"));
+  const { planToDxfStructural, planToDxfInstalaciones } = req(path.join(tmp, "design", "dxf.js"));
   const dxfS = planToDxfStructural(plan, { fecha: "2026-10-13" });
   if (dxfS) {
     writeFileSync(path.join(outDir, `${slug}-paquete-estructural.dxf`), dxfS, "utf8");
     files.push(`${slug}-paquete-estructural.dxf`);
+  }
+  // PAQUETE DE INSTALACIONES (I-01/I-02) — archivo propio cuando hay MEP.
+  const dxfI = planToDxfInstalaciones(plan, { fecha: "2026-10-13" });
+  if (dxfI) {
+    writeFileSync(path.join(outDir, `${slug}-paquete-instalaciones.dxf`), dxfI, "utf8");
+    files.push(`${slug}-paquete-instalaciones.dxf`);
   }
   writeFileSync(path.join(outDir, `${slug}.ifc`), planToIfc(plan), "utf8");
   files.push(`${slug}.ifc`);

@@ -25,7 +25,7 @@ import {
 import type { Gate } from "@/lib/design/validate";
 import { gateFails, allGates } from "@/lib/design/validate";
 import { penWidth, plotMm, scaleBarMm, ANNOT, HATCH, PEN_BY_LAYER } from "@/lib/design/knowledge";
-import { planToDxf, planToDxfSheets, planToDxfStructural } from "@/lib/design/dxf";
+import { planToDxf, planToDxfSheets, planToDxfStructural, planToDxfInstalaciones } from "@/lib/design/dxf";
 import { planToPdfSet, pdfBytes } from "@/lib/design/plot";
 import { planToIfc } from "@/lib/design/ifc";
 import { buildLicenseExpediente } from "@/lib/design/expediente";
@@ -627,6 +627,20 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     URL.revokeObjectURL(a.href);
   };
 
+  /** 📟 PAQUETE DE INSTALACIONES (I-01/I-02): circuitos + cuadro de cargas
+   *  RETIE y redes AC/ACS/desagüe + cuadro RAS — sólo cuando los expertos
+   *  dejaron puntos. Archivo PROPIO: el paquete A viaja puro. */
+  const downloadDxfInstalaciones = () => {
+    if (!plan) return;
+    const dxf = planToDxfInstalaciones(plan, { fecha: dxfGeneratedAt.current });
+    if (!dxf) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([dxf], { type: "application/dxf" }));
+    a.download = `${slugify(plan.name)}-paquete-instalaciones.dxf`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const saveToDocs = async () => {
     if (!dxfBlob || !plan || !projectSlug) return;
     setSaving("saving");
@@ -771,6 +785,15 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
                   className="w-full rounded-lg bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-100 ring-1 ring-amber-400/30 transition hover:bg-amber-500/25"
                 >
                   🏗️ Descargar DXF Paquete Estructural (S-00…S-05)
+                </button>
+              ) : null}
+              {(plan?.electrical?.points?.length ?? 0) + (plan?.hydro?.points?.length ?? 0) > 0 ? (
+                <button
+                  type="button" onClick={downloadDxfInstalaciones}
+                  title="Paquete de INSTALACIONES (I-01/I-02): circuitos dibujados + cuadro de cargas RETIE y redes AC/ACS/desagües con pendientes + cuadro de aparatos RAS — archivo propio, el arquitectónico viaja puro"
+                  className="w-full rounded-lg bg-cyan-500/15 px-3 py-2 text-xs font-semibold text-cyan-100 ring-1 ring-cyan-400/30 transition hover:bg-cyan-500/25"
+                >
+                  ⚡💧 Descargar DXF Paquete Instalaciones (I-01/I-02)
                 </button>
               ) : null}
               <button

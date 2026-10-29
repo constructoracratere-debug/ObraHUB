@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
 const tmp = path.join(root, ".tmp-design-test");
-execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/validate.ts lib/structural/plan.ts lib/structural/loads.ts lib/structural/sheets.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
+execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/mep.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/validate.ts lib/structural/plan.ts lib/structural/loads.ts lib/structural/sheets.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
 
 const { createRequire } = await import("node:module");
 const req = createRequire(import.meta.url);
@@ -257,6 +257,22 @@ check("paquete S: capas por tipo S-* color 8 (guía §1)", (() => {
 check("paquete A sin entidades S-* (pureza real, no sólo capas)", !/\n8\nS-/.test(dxf));
 check("paquete S limpio: sin MEP ni mobiliario", !dxfS.includes("8\nI-ELECTRICO") && !dxfS.includes("8\nA-MOBILIARIO"));
 
+// ── PAQUETE DE INSTALACIONES (I-01/I-02): SOLO con puntos de los expertos
+//    y en su PROPIO archivo — el arquitectónico viaja PURO a curaduría. ────
+const dxfI = (() => {
+  const { planToDxfInstalaciones } = req(path.join(tmp, "design", "dxf.js"));
+  return planToDxfInstalaciones(plan, { fecha: "2026-01-15" }) ?? "";
+})();
+check("paquete I: I-01 + I-02 en archivo propio", dxfI.includes("I-01 / ") && dxfI.includes("I-02 / "));
+check("paquete I: circuitos dibujados (C1) + cuadro de cargas RETIE con diferenciales 30 mA", dxfI.includes("\n1\nC1\n") && dxfI.includes("CUADRO DE CARGAS") && dxfI.includes("30 mA") && dxfI.includes("Res. 40117"));
+check("paquete I: redes RAS — pendiente 1.5% + ventilación Ø2\" + acometida con contador", dxfI.includes("1.5%") && dxfI.includes('Ø2" VENT') && dxfI.includes("ACUEDUCTO") && dxfI.includes("DOTACIÓN"));
+check("paquete I: capas eléctrico/hidro con DASHED (ACS/ventilación discontinuas)", dxfI.includes("8\nI-HIDRAULICO\n6\nDASHED"));
+check("paquete A PURO: sin cuadro de cargas ni redes (viven en I)", !dxf.includes("CUADRO DE CARGAS") && !dxf.includes("1.5%"));
+check("paquete I solo nace con MEP (sin puntos → null)", (() => {
+  const { planToDxfInstalaciones } = req(path.join(tmp, "design", "dxf.js"));
+  return planToDxfInstalaciones(sanitizeFloorPlan({ ...rawPlan, electrical: undefined, hydro: undefined }), { fecha: "2026-01-15" }) === null;
+})());
+
 check("símbolos F ≠ poché: SOLID macizo (marca de corte en A-CORTE)", /0\nSOLID\n8\nA-CORTE\n/.test(dxf));
 check("SOLID también lleva 370 de entidad (política única de grosor)", /0\nSOLID\n8\nA-CORTE\n370\n60\n/.test(dxf));
 check("plantilla de capa conserva default ISO (370=70 en tabla A-MUROS)", /LAYER\n2\nA-MUROS\n70\n0\n62\n[-\d]+\n6\nCONTINUOUS\n370\n70/.test(dxf));
@@ -370,7 +386,7 @@ check("BOGOTÁ del site en el rótulo", dxf.includes("BOGOT"));
 // N láminas de 700mm con gap 50: frame exterior de cada una en x=i·750
 check("marcos exteriores cada 750 mm (una por lámina del paquete A)", (() => {
   const { sheetContents } = req(path.join(tmp, "design", "sheets.js"));
-  const n = sheetContents(plan).filter((s) => s.pkg !== "S").length;
+  const n = sheetContents(plan).filter((s) => s.pkg !== "S" && s.pkg !== "I").length;
   return n >= 7 && Array.from({ length: n }, (_, i) => i * 750).every((x) => new RegExp(`10\\n${x + 5}\\.000\\n20\\n5\\.000`).test(dxf));
 })());
 check("marco interior a 10 mm (doble filete)", /20\n10\.000[\s\S]{0,140}10\n690\.000[\s\S]{0,60}20\n10\.000/.test(dxf));
@@ -412,10 +428,11 @@ check("PDF del set: una página por lámina", (() => {
 check("PDF MediaBox EXACTO 700×500 mm a 1:1 (1984.25×1417.32 pt)", pdf.includes("/MediaBox[0 0 1984.25 1417.32]"));
 check("PDF Helvetica WinAnsi (sin incrustar, acentos viajan)", /BaseFont\/Helvetica\/Encoding\/WinAnsiEncoding/.test(pdf) && pdf.includes("(CUADRO DE"));
 check("PDF vectorial: trazos S y textos Tj en cantidad", ((pdf.match(/ S\n/g) ?? []).length > 800 && (pdf.match(/\) Tj/g) ?? []).length > 200));
-check("PDF paridad DXF: mismas escalas declaradas (paquete A + S)", (() => {
+check("PDF paridad DXF: mismas escalas declaradas (paquetes A + S + I)", (() => {
   const nPdf = [...pdf.matchAll(/\(1:\d+\) Tj/g)].length;
   const nDxf = (dxf.match(/\n1:(50|75|100|125|150|200|250)\n/g) ?? []).length
-    + (dxfS.match(/\n1:(50|75|100|125|150|200|250)\n/g) ?? []).length;
+    + (dxfS.match(/\n1:(50|75|100|125|150|200|250)\n/g) ?? []).length
+    + (dxfI.match(/\n1:(50|75|100|125|150|200|250)\n/g) ?? []).length;
   return nPdf >= 6 && nPdf === nDxf;
 })());
 check("PDF plumillas reales (w pt) y patrones DASHED/CENTER de la guía", /\d+\.\d+ w/.test(pdf) && pdf.includes("[17.01 8.5] 0 d") && pdf.includes("[34.02 8.5 5.67 8.5] 0 d"));

@@ -154,7 +154,10 @@ class DxfBuilder {
   text(rawLayer: string, x: number, y: number, height: number, value: string, rotationDeg = 0) {
     const l = this.layerOf(rawLayer);
     const lw = this.lw370(l);
-    const safe = value.replace(/[\n\r]/g, " ").replace(/[^\x20-\x7EáéíóúñÁÉÍÓÚÑüÜ°²×–—]/g, "");
+    // WinAnsi ampliado: Ø/ø y fracciones ½¼¾ viven en TODA lámina de
+    // instalaciones (diámetros Ø1/2", Ø3"... ) — sin ellos el cuadro pierde
+    // su unidad delante del revisor.
+    const safe = value.replace(/[\n\r]/g, " ").replace(/[^\x20-\x7EáéíóúñÁÉÍÓÚÑüÜ°²×–—Øø½¼¾]/g, "");
     if (!safe.trim()) return; // lámina LIMPIA: nada de TEXT vacío (sin geometría)
     this.entities.push(`0\nTEXT\n8\n${l}${lw > 0 ? `\n370\n${lw}` : ""}\n7\nOBRAHUB\n10\n${f(x)}\n20\n${f(y)}\n40\n${f(height)}\n1\n${safe}\n50\n${f(rotationDeg)}\n`);
   }
@@ -216,7 +219,7 @@ const DRAW_PAD = 12; // mm de aire dentro del área de dibujo
  * producción del archivo) vía opts.fecha; sin ella, la celda queda vacía.
  */
 export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): string {
-  const arch = sheetContents(plan).filter((s) => s.pkg !== "S");
+  const arch = sheetContents(plan).filter((s) => s.pkg !== "S" && s.pkg !== "I");
   return emitSheets(plan, arch, opts, true);
 }
 
@@ -226,6 +229,14 @@ export function planToDxf(plan: FloorPlan, opts: { fecha?: string } = {}): strin
 export function planToDxfStructural(plan: FloorPlan, opts: { fecha?: string } = {}): string | null {
   const struct = sheetContents(plan).filter((s) => s.pkg === "S");
   return struct.length ? emitSheets(plan, struct, opts) : null;
+}
+
+/** PAQUETE DE INSTALACIONES (I-01/I-02) — sólo cuando los expertos dejaron
+ *  puntos (plan.electrical / plan.hydro). Devuelve null si aún no hay MEP:
+ *  el paquete A viaja puro y las redes nacen con su etapa. */
+export function planToDxfInstalaciones(plan: FloorPlan, opts: { fecha?: string } = {}): string | null {
+  const inst = sheetContents(plan).filter((s) => s.pkg === "I");
+  return inst.length ? emitSheets(plan, inst, opts) : null;
 }
 
 /** Un archivo DXF POR LÁMINA (review #11): abrir o imprimir una lámina sola
