@@ -372,9 +372,9 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     // MADERA (E.7) — antes "mamposteria_confinada" caía en madera.
     const colMatName =
       system === "acero_liviano" ? MATERIALS.acero
-      : system === "guadua" ? MATERIALS.guaduaMat
-      : system === "madera" || system === "tierra" || system === "bahareque_encamisado" ? MATERIALS.maderaMat
-      : MATERIALS.concreto; // concreto · mixto · mamposteria_confinada
+      : system === "guadua" || system === "bahareque_encamisado" ? MATERIALS.guaduaMat
+      : system === "madera" || system === "tierra" ? MATERIALS.maderaMat
+      : MATERIALS.concreto; // concreto · mixto · mamposteria_confinada (E.3: confinamiento RC)
     const colMat = material(colMatName);
 
     const columnAt = (x: number, y: number) => {

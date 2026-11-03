@@ -85,18 +85,22 @@ export const WALL_ASSEMBLIES: Record<StructuralSystem, { ext: WallAssembly; int:
     },
     int: { label: "División tierra", layers: [{ name: "Estructura + tierra", thickness: 0.08 }] },
   },
-  // SKILL 1 · NSR-10 E.7: bahareque ENCAMISADO EN CEMENTO (repello con
-  // malla sobre estructura de madera — el sistema admisible en E.7).
+  // SKILL 1 · NSR-10 E.7: bahareque ENCAMISADO — DIAFRAGMA estructural de
+  // GUADUA angustifolia (montantes y riostras, G.12) + esterilla de guadua +
+  // relleno de arcilla, encamisado con mortero cemento-arena y malla en
+  // ambas caras. Sin pórticos de concreto: los nodos van sobre pedestales.
   bahareque_encamisado: {
     ext: {
-      label: "Bahareque encamisado en cemento (E.7)",
+      label: "Bahareque encamisado en cemento (E.7) — diafragma de guadua",
       layers: [
-        { name: "Repello cemento-arena + malla 3cm", thickness: 0.03 },
-        { name: "Estructura madera: montantes 0.10", thickness: 0.10 },
-        { name: "Repello interior 3cm", thickness: 0.03 },
+        { name: "Encamisado exterior: mortero cemento-arena e=3cm + malla", thickness: 0.03 },
+        { name: "Esterilla de guadua angustifolia", thickness: 0.02 },
+        { name: "Guadua angustifolia tratada: montantes y riostras", thickness: 0.10 },
+        { name: "Relleno arcilla/barro + esterilla interior", thickness: 0.02 },
+        { name: "Encamisado interior: mortero cemento-arena e=2cm", thickness: 0.02 },
       ],
     },
-    int: { label: "División bahareque", layers: [{ name: "Estructura madera + esterilla", thickness: 0.08 }] },
+    int: { label: "División bahareque de guadua", layers: [{ name: "Esterilla de guadua + montantes 0.08", thickness: 0.08 }] },
   },
 };
 

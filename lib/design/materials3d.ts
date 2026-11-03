@@ -38,12 +38,15 @@ export const MAT3D: Record<string, Mat3D> = {
   [MATERIALS.panete]: { hex: 0xcdc8ba, roughness: 0.9, metalness: 0.02, label: "Mortero de pañete" },
   "Repello cemento-arena + malla 3cm": { hex: 0xc9c4b5, roughness: 0.9, metalness: 0.02, label: "Repello cemento (encamisado E.7)" },
   "Repello interior 3cm": { hex: 0xd3cec1, roughness: 0.9, metalness: 0.02, label: "Repello interior" },
-  // ── Título E · bahareque encamisado ──────────────────────────────────
-  [MATERIALS.tierraMat]: { hex: 0x9c7a4d, roughness: 0.95, metalness: 0.0, label: "Tierra estabilizada (bahareque E.7)" },
+  // ── Título E · bahareque encamisado (E.7 — diafragma de guadua) ─────
+  [MATERIALS.tierraMat]: { hex: 0x9c7a4d, roughness: 0.95, metalness: 0.0, label: "Arcilla/tierra (bahareque E.7)" },
   [MATERIALS.maderaMat]: { hex: 0x9a6a3f, roughness: 0.72, metalness: 0.0, label: "Madera aserrada" },
-  [MATERIALS.guaduaMat]: { hex: 0xc8a44a, roughness: 0.6, metalness: 0.05, label: "Guadua angustifolia" },
-  "Estructura madera: montantes 0.10": { hex: 0x9a6a3f, roughness: 0.72, metalness: 0.0, label: "Montantes de madera" },
-  "Estructura madera + esterilla": { hex: 0xb08a52, roughness: 0.8, metalness: 0.0, label: "Bahareque de esterilla" },
+  [MATERIALS.guaduaMat]: { hex: 0xc8a44a, roughness: 0.6, metalness: 0.05, label: "Guadua angustifolia (G.12)" },
+  "Esterilla de guadua angustifolia": { hex: 0xd0b062, roughness: 0.7, metalness: 0.03, label: "Esterilla de guadua" },
+  "Esterilla de guadua + montantes 0.08": { hex: 0xd0b062, roughness: 0.7, metalness: 0.03, label: "Esterilla de guadua (división)" },
+  "Relleno arcilla/barro + esterilla interior": { hex: 0x8d6a40, roughness: 0.95, metalness: 0.0, label: "Arcilla + esterilla" },
+  "Encamisado exterior: mortero cemento-arena e=3cm + malla": { hex: 0xc9c4b5, roughness: 0.9, metalness: 0.02, label: "Encamisado cemento (E.7)" },
+  "Encamisado interior: mortero cemento-arena e=2cm": { hex: 0xd3cec1, roughness: 0.9, metalness: 0.02, label: "Encamisado interior" },
   // ── Estructura (confinamiento) ───────────────────────────────────────
   [MATERIALS.concreto]: { hex: 0xb6b3a8, roughness: 0.88, metalness: 0.0, label: "Concreto 3000 PSI" },
   [MATERIALS.losa]: { hex: 0xc4c1b6, roughness: 0.85, metalness: 0.0, label: "Losa de concreto" },
@@ -72,8 +75,9 @@ export const MAT3D: Record<string, Mat3D> = {
 
 const byKeyword: Array<[RegExp, Mat3D]> = [
   [/ladrillo|mamposter/i, MAT3D[MATERIALS.ladrillo]],
-  [/bahareque|tierra|esterilla|guadua/i, MAT3D[MATERIALS.tierraMat]],
-  [/madera|montante|contrachap|madera/i, MAT3D[MATERIALS.maderaMat]],
+  [/guadua|bambu/i, MAT3D[MATERIALS.guaduaMat]],
+  [/bahareque|tierra|arcilla|barro|esterilla/i, MAT3D[MATERIALS.tierraMat]],
+  [/madera|montante|contrachap/i, MAT3D[MATERIALS.maderaMat]],
   [/concreto|losa|cemento|repello|pañete|mortero/i, MAT3D[MATERIALS.concreto]],
   [/vidrio/i, MAT3D[MATERIALS.vidrio]],
   [/acero|met[aá]lic|galvaniz|perfil/i, MAT3D[MATERIALS.acero]],
@@ -107,7 +111,8 @@ export function mat3d(name?: string): Mat3D {
 export function wallMatOf(system: string, face: "ext" | "int" = "ext"): string {
   switch (system) {
     case "bahareque_encamisado":
-      return face === "ext" ? MATERIALS.tierraMat : "Estructura madera + esterilla";
+      // El muro LEE como bahareque: guadua a la vista del diafragma.
+      return face === "ext" ? MATERIALS.guaduaMat : "Esterilla de guadua + montantes 0.08";
     case "acero_liviano":
       return "Tablero fibrocemento 8mm";
     case "mamposteria_confinada":

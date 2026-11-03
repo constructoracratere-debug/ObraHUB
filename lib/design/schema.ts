@@ -247,6 +247,32 @@ const SYSTEMS: StructuralSystem[] = [
   "concreto", "acero_liviano", "madera", "guadua", "tierra", "mixto",
 ];
 
+/** NORMALIZA el nombre de un sistema estructural por INTENCIÓN — el LLM y
+ *  el usuario escriben "bahareque encementado", "Bahareque Encamisado",
+ *  "guadua", "mampostería confinada", "pórtico en concreto"… y un enum
+ *  estricto los mandaba al fallback "concreto" (¡pórticos donde pedían
+ *  bahareque!). Esta función es la FUENTE ÚNICA anti-alucinación: acentos,
+ *  mayúsculas, espacios y sinónimos → el StructuralSystem canónico.
+ *  null si el texto NO nombra ningún sistema. */
+export function normalizeSystem(raw: unknown): StructuralSystem | null {
+  const s = String(raw ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")   // sin acentos
+    .replace(/[_\s-]+/g, " ")
+    .trim();
+  if (!s) return null;
+  if (/bahareque|encamis|encement|encementado|barro y cemento|quincha/.test(s)) return "bahareque_encamisado";
+  if (/guadua|bamboo|bambu/.test(s)) return "guadua";
+  if (/confin|mamposter|ladrillo/.test(s)) return "mamposteria_confinada";
+  if (/timber|frame de madera|madera/.test(s)) return "madera";
+  if (/steel|acero|metalico/.test(s)) return "acero_liviano";
+  if (/tierra|tapia|adobe|cted|earth/.test(s)) return "tierra";
+  if (/portico|concreto|concret|cemento|rc\b/.test(s)) return "concreto";
+  if (/mixto|hibrido/.test(s)) return "mixto";
+  return SYSTEMS.includes(s as StructuralSystem) ? (s as StructuralSystem) : null;
+}
+
 const MIN_DIM = 0.9;      // m — ninguna habitación más pequeña que esto
 const MAX_DIM = 30;       // m — tampoco más grande que esto (sanity)
 const MAX_ROOMS = 40;
@@ -494,7 +520,10 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
   const structureRaw = o.structure as Record<string, unknown> | undefined;
   const structure = structureRaw
     ? {
-        system: enumOf(structureRaw.system, SYSTEMS, "concreto"),
+        // Anti-alucinación: "bahareque encementado"/"guadua"/"mampostería
+        // confinada"… → sistema canónico. Default Skill 1 = mampostería
+        // confinada (Título E), NUNCA concreto/pórticos por accidente.
+        system: normalizeSystem(structureRaw.system) ?? "mamposteria_confinada",
         justification: str(structureRaw.justification, "", 600),
         axes: (Array.isArray(structureRaw.axes) ? structureRaw.axes.slice(0, 20) : []).map((a0) => {
           const a = (a0 ?? {}) as Record<string, unknown>;

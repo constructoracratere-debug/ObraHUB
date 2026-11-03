@@ -14,7 +14,7 @@ import {
   AGENT_SITE,
   planContext,
 } from "@/lib/design/agents";
-import { sanitizeFloorPlan, sanitizerFixes, type SiteFicha, type RevisionLog } from "@/lib/design/schema";
+import { sanitizeFloorPlan, sanitizerFixes, normalizeSystem, STRUCTURE_LABELS, type SiteFicha, type RevisionLog } from "@/lib/design/schema";
 import { allGates, type Gate } from "@/lib/design/validate";
 
 export const maxDuration = 60;
@@ -210,34 +210,51 @@ export async function POST(req: NextRequest) {
       }
 
       // ── Etapa 4 · ESTRUCTURA (ing. civil — NSR-10): con el paquete A
-      //    completo, el civil decide sistema y retícula. La retícula pasa
+      //    completo, el civil fija sistema y retícula. La retícula pasa
       //    DETERMINISTA al plano (plan.structure) — sin redibujo de IA: la
       //    geometría no cambia, sólo se fijan los ejes y nace el paquete S. ──
+      //    CANDEDO ANTI-ALUCINACIÓN: el ENCARGO ORIGINAL viaja al civil y,
+      //    si nombra un sistema, el MOTOR lo impone por encima de la
+      //    respuesta del LLM — "bahareque" ES bahareque, siempre.
       case "structure": {
         const plan = sanitizeFloorPlan(b.previousPlan);
         if (plan.rooms.length === 0) throw new Error("Falta el boceto");
         say("🏗️ Ingeniero civil: sistema estructural, retícula y cimentación según NSR-10…");
         const ficha = b.siteMemo ? JSON.stringify(b.siteMemo).slice(0, 1800) : "";
+        const encargo = String(b.prompt ?? "").slice(0, 800);
         const ctx = planContext(plan);
         const civil = await llmJson<CivilMemo>("structure", {
           system: AGENT_CIVIL,
-          user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPLANTA APROBADA (PAQUETE A): ${ctx}`,
+          user:
+            `ENCARGO ORIGINAL DEL CLIENTE (VINCULANTE en el sistema si nombra uno): ${encargo || "no disponible"}\n` +
+            `FICHA DE SITIO: ${ficha || "no disponible"}\nPLANTA APROBADA (PAQUETE A): ${ctx}`,
           maxTokens: 3000,
           temperature: 0.3,
           timeoutMs: 18000,
           onEvent: live("civil"),
         });
+        // FIDELIDAD al encargo: lo que el cliente pidió (si pidió algo) gana
+        // al criterio del modelo — determinista, no negociable.
+        const requested = normalizeSystem(encargo);
+        const chosen = normalizeSystem(civil.data.system) ?? requested ?? "mamposteria_confinada";
+        if (requested && chosen !== requested) {
+          say(`🛡️ FIDELIDAD AL ENCARGO: pediste ${STRUCTURE_LABELS[requested]} — se impone sobre la propuesta del modelo (${civil.data.system}). El memo registra la discrepancia.`, "mesa");
+        }
         // La retícula del ingeniero pasa DIRECTA al plano (los motores
         // derivan columnas/vigas/zapatas de ella — sin redibujar el plano).
         const withStructure = sanitizeFloorPlan({
           ...plan,
           structure: {
-            system: civil.data.system ?? "concreto",
-            justification: civil.data.justification ?? "Criterio NSR-10 del ingeniero civil",
+            system: chosen,
+            justification: civil.data.justification
+              ? (requested && chosen !== requested
+                  ? civil.data.justification + ` — [sistema impuesto por el encargo del cliente: ${STRUCTURE_LABELS[requested]}]`
+                  : civil.data.justification)
+              : `Criterio NSR-10 Título E — ${STRUCTURE_LABELS[chosen]}`,
             axes: Array.isArray(civil.data.axes) ? civil.data.axes : [],
           },
         });
-        say("🛡️ Retícula fijada en el plano — láminas S (estructura) disponibles.", "civil");
+        say(`🏗️ Sistema fijado: ${STRUCTURE_LABELS[chosen]} — retícula en el plano, láminas S disponibles.`, "civil");
         send({ type: "done", plan: withStructure, civilMemo: civil.data, gates: allGates(withStructure), provider: civil.providerLabel, model: civil.model, latencyMs: Date.now() - t0 });
         return;
       }

@@ -98,8 +98,33 @@ export function memoriaPrimitives(plan: FloorPlan): Prim[] {
   const sysLabel = STRUCTURE_LABELS[sys as keyof typeof STRUCTURE_LABELS] ?? sys;
   out.push({ t: "T", l: "TEXTOS", x: 0, y: -0.45, h: 0.17, s: `SISTEMA: ${sysLabel.toUpperCase()} · ${plan.levels} NIVEL(ES) · PISO A PISO ${plan.floorToFloor.toFixed(2)} m · ${plan.outline.width.toFixed(1)}×${plan.outline.depth.toFixed(1)} m` });
 
+  // COMPOSICIÓN del sistema (Título E — cada sistema ES lo que es): el
+  // revisor lee aquí de qué está HECHO el edificio, sin mezclas.
+  const COMPOSICION: Record<string, string[]> = {
+    mamposteria_confinada: [
+      "E.3 · MAMPOSTERÍA CONFINADA: el mampuesto (ladrillo H-10)",
+      "carga en pared; lo CONFINAN columnas y vigas (cadenas) de",
+      "concreto en extremos, encuentros y cada ≤ 4.0 m (E.3.3).",
+    ],
+    bahareque_encamisado: [
+      "E.7 · BAHAREQUE ENCAMISADO: DIAFRAGMA de guadua angustifolia",
+      "(montantes/riostras G.12) + esterilla + relleno de arcilla,",
+      "encamisado cemento-arena + malla ambas caras. SIN pórticos",
+      "RC: nodos de guadua sobre pedestales/zapatas menores.",
+    ],
+  };
+  const comp = COMPOSICION[sys];
+  if (comp) {
+    let yc = -0.78;
+    for (const ln of comp) {
+      out.push({ t: "T", l: "TEXTOS", x: 0, y: yc, h: 0.115, s: ln });
+      yc -= 0.24;
+    }
+  }
+
   // ── COLUMNA IZQUIERDA (x=0, ancho 4.6): justificación + cargas + criterios.
-  let y = -1.0;
+  // (la justificación arranca DEBAJO de la composición del sistema)
+  let y = comp ? -0.78 - comp.length * 0.24 - 0.32 : -1.0;
   out.push({ t: "T", l: "TEXTOS", x: 0, y, h: 0.18, s: "1 · JUSTIFICACIÓN (ING. CIVIL)" });
   y -= 0.32;
   const just = plan.structure?.justification ?? "Criterio del ingeniero civil según NSR-10.";

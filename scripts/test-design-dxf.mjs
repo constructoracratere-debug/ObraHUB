@@ -280,7 +280,31 @@ const planToIfcFn = req(path.join(tmp, "design", "ifc.js")).planToIfc;
 const ifcMam = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } }));
 const ifcBah = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "bahareque_encamisado" } }));
 check("IFC materiales E.3: mampostería confinada → muros LADRILLO + cubierta TEJA + confinamiento CONCRETO", ifcMam.includes("IFCSURFACESTYLE('Ladrillo cerámico H-10'") && ifcMam.includes("IFCSURFACESTYLE('Teja de barro'") && !/Columna eje[^\n]*Madera/.test(ifcMam) && ifcMam.includes("IFCSURFACESTYLE('Concreto estructural 3000 PSI'"));
-check("IFC materiales E.7: bahareque encamisado → TIERRA + esterilla de MADERA (sin ladrillo)", ifcBah.includes("IFCSURFACESTYLE('Tierra estabilizada (bahareque)'") && ifcBah.includes("Estructura madera + esterilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo"));
+check("IFC materiales E.7: bahareque encamisado → diafragma de GUADUA + esterilla + arcilla (sin ladrillo ni madera aserrada)", ifcBah.includes("IFCSURFACESTYLE('Guadua angustifolia tratada'") && ifcBah.includes("Esterilla de guadua") && ifcBah.includes("arcilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo") && !/Columna eje[^\n]*Madera aserrada/.test(ifcBah));
+check("IFC capas E.7 reales (encamisado cemento + esterilla + guadua + arcilla)", /IFCMATERIALLAYER\(#[0-9]+,0\.1[0-9]?,\$,'Guadua angustifolia tratada: montantes y riostras'/.test(ifcBah) && ifcBah.includes("Encamisado exterior: mortero cemento-arena"));
+check("anti-alucinación: normalizeSystem lleva CUALQUIER forma de pedirlo al sistema canónico", (() => {
+  const norm = req(path.join(tmp, "design", "schema.js")).normalizeSystem;
+  return norm("bahareque encementado") === "bahareque_encamisado"
+    && norm("Bahareque Encamisado en Cemento") === "bahareque_encamisado"
+    && norm("bahareque") === "bahareque_encamisado"
+    && norm("guadua") === "guadua"
+    && norm("MAMPOSTERÍA CONFINADA") === "mamposteria_confinada"
+    && norm("ladrillo confinado") === "mamposteria_confinada"
+    && norm("pórtico en concreto") === "concreto"
+    && norm("steel framing") === "acero_liviano"
+    && norm("casa de dos pisos con 3 alcobas") === null; // sin sistema → el civil decide
+})());
+check("anti-alucinación: sin enum exacto YA NO cae a concreto/pórticos (fallback Skill 1 = mampostería confinada)", (() => {
+  const p = sanitizeFloorPlan({ ...rawPlan, structure: { system: "bahareque encementado", justification: "x", axes: rawPlan.structure.axes } });
+  return p.structure.system === "bahareque_encamisado";
+})());
+check("memoria S-00 declara la COMPOSICIÓN por sistema (E.3 confinamiento RC · E.7 diafragma guadua)", (() => {
+  const { memoriaPrimitives } = req(path.join(tmp, "structural", "sheets.js"));
+  const txt = (p) => memoriaPrimitives(p).filter((x) => x.t === "T").map((x) => x.s).join(" | ");
+  const m = txt(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } }));
+  const b = txt(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "bahareque_encemisado" } }));
+  return m.includes("CONFINAN columnas y vigas") && b.includes("DIAFRAGMA de guadua") && b.includes("SIN pórticos");
+})());
 check("IFC vidrio translúcido real (transparencia 0.68 en el estilo)", /IFCSURFACESTYLESHADING\(#[0-9]+,0\.68\)/.test(ifcMam));
 check("IFC cada sólido estilizado (≥40 IFCSTYLEDITEM — archivos con color completo)", ((ifcMam.match(/IFCSTYLEDITEM/g) ?? []).length) >= 40 && ((ifcBah.match(/IFCSTYLEDITEM/g) ?? []).length) >= 40);
 check("IFC capas de muro por sistema (LayerSet E.3: ladrillo H-10 tableado e=0.15 — la 'capa del material')", /IFCMATERIALLAYER\(#[0-9]+,0\.15,\$,'Ladrillo H-10 tableado'/.test(ifcMam));

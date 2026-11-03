@@ -443,7 +443,9 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     if (!plan) return;
     setBusy(4); setError(null);
     try {
-      const data = await callWithRetries({ stage: "structure", previousPlan: plan, siteMemo, constructorMemo });
+      // El ENCARGO ORIGINAL viaja al civil: si pidió un sistema (bahareque,
+      // mampostería confinada…) el motor lo impone (anti-alucinación).
+      const data = await callWithRetries({ stage: "structure", previousPlan: plan, siteMemo, constructorMemo, prompt });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setCivilMemo(data.civilMemo as CivilMemo);
       setProviderInfo(`🏗️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
