@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
 const tmp = path.join(root, ".tmp-design-test");
-execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/mep.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/validate.ts lib/structural/plan.ts lib/structural/loads.ts lib/structural/sheets.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
+execSync(`npx tsc lib/design/schema.ts lib/design/dxf.ts lib/design/plot.ts lib/design/views.ts lib/design/mep.ts lib/design/knowledge.ts lib/design/symbols.ts lib/design/sheets.ts lib/design/materials.ts lib/design/materials3d.ts lib/design/ifc.ts lib/design/validate.ts lib/structural/plan.ts lib/structural/loads.ts lib/structural/sheets.ts --outDir "${tmp}" --module commonjs --target es2022 --skipLibCheck --esModuleInterop`, { cwd: root, stdio: "pipe" });
 
 const { createRequire } = await import("node:module");
 const req = createRequire(import.meta.url);
@@ -272,6 +272,18 @@ check("paquete I solo nace con MEP (sin puntos → null)", (() => {
   const { planToDxfInstalaciones } = req(path.join(tmp, "design", "dxf.js"));
   return planToDxfInstalaciones(sanitizeFloorPlan({ ...rawPlan, electrical: undefined, hydro: undefined }), { fecha: "2026-01-15" }) === null;
 })());
+
+// ── IFC con MATERIALES Título E — el color viaja DENTRO del archivo ────────
+// (IFCSURFACESTYLE + IFCSTYLEDITEM por sólido: cualquier visor externo muestra
+// ladrillo/concreto/vidrio/teja/tierra/madera sin configurar nada).
+const planToIfcFn = req(path.join(tmp, "design", "ifc.js")).planToIfc;
+const ifcMam = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } }));
+const ifcBah = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "bahareque_encamisado" } }));
+check("IFC materiales E.3: mampostería confinada → muros LADRILLO + cubierta TEJA + confinamiento CONCRETO", ifcMam.includes("IFCSURFACESTYLE('Ladrillo cerámico H-10'") && ifcMam.includes("IFCSURFACESTYLE('Teja de barro'") && !/Columna eje[^\n]*Madera/.test(ifcMam) && ifcMam.includes("IFCSURFACESTYLE('Concreto estructural 3000 PSI'"));
+check("IFC materiales E.7: bahareque encamisado → TIERRA + esterilla de MADERA (sin ladrillo)", ifcBah.includes("IFCSURFACESTYLE('Tierra estabilizada (bahareque)'") && ifcBah.includes("Estructura madera + esterilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo"));
+check("IFC vidrio translúcido real (transparencia 0.68 en el estilo)", /IFCSURFACESTYLESHADING\(#[0-9]+,0\.68\)/.test(ifcMam));
+check("IFC cada sólido estilizado (≥40 IFCSTYLEDITEM — archivos con color completo)", ((ifcMam.match(/IFCSTYLEDITEM/g) ?? []).length) >= 40 && ((ifcBah.match(/IFCSTYLEDITEM/g) ?? []).length) >= 40);
+check("IFC capas de muro por sistema (LayerSet E.3: ladrillo H-10 tableado e=0.15 — la 'capa del material')", /IFCMATERIALLAYER\(#[0-9]+,0\.15,\$,'Ladrillo H-10 tableado'/.test(ifcMam));
 
 check("símbolos F ≠ poché: SOLID macizo (marca de corte en A-CORTE)", /0\nSOLID\n8\nA-CORTE\n/.test(dxf));
 check("SOLID también lleva 370 de entidad (política única de grosor)", /0\nSOLID\n8\nA-CORTE\n370\n60\n/.test(dxf));

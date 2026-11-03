@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import * as THREE from "three";
 import { IfcAPI } from "web-ifc";
+import { mat3dResolved } from "@/lib/design/materials3d";
 import {
   extractQuantities,
   enrichWithGeometryFallback,
@@ -356,12 +357,28 @@ export function IfcViewer({
           if (cancelled) return;
           const geom = ifcApi.GetGeometry(modelID, mesh.geometries.get(0).geometryExpressID);
           const threeGeom = ifcGeometryToThree(ifcApi, geom, mesh.geometries.get(0).flatTransformation);
-          const material = new THREE.MeshStandardMaterial({
-            color: colorForClass(classNameForTypeId(ifcApi.GetLineType(modelID, mesh.expressID)) ?? ""),
-            roughness: 0.8,
-            metalness: 0.1,
-            side: THREE.DoubleSide,
-          });
+          // COLOR POR MATERIAL (paleta Título E compartida con el 3D vivo y el
+          // archivo): si el nombre del elemento trae su material (ladrillo,
+          // concreto, vidrio, madera…) se pinta con él; archivos ajenos caen
+          // en el color por clase de siempre.
+          let elName = "";
+          try {
+            const ln = ifcApi.GetLine(modelID, mesh.expressID, false);
+            elName = typeof ln?.Name?.value === "string" ? ln.Name.value : "";
+          } catch { /* */ }
+          const look = mat3dResolved(elName);
+          const material = look
+            ? new THREE.MeshStandardMaterial({
+                color: look.hex, roughness: look.roughness, metalness: look.metalness,
+                transparent: look.opacity != null, opacity: look.opacity ?? 1,
+                emissive: look.emissive ?? 0x000000, side: THREE.DoubleSide,
+              })
+            : new THREE.MeshStandardMaterial({
+                color: colorForClass(classNameForTypeId(ifcApi.GetLineType(modelID, mesh.expressID)) ?? ""),
+                roughness: 0.8,
+                metalness: 0.1,
+                side: THREE.DoubleSide,
+              });
           const threeMesh = new THREE.Mesh(threeGeom, material);
           sceneRef.current?.add(threeMesh);
           meshesRef.current.push(threeMesh);

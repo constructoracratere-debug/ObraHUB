@@ -15,6 +15,7 @@
 
 import type { FloorPlan, Room } from "./schema";
 import { WALL_ASSEMBLIES, CONCRETE, MEP_BLOCKS, MATERIALS } from "./materials";
+import { mat3d, wallMatOf, roofMatOf, furnitureMatOf } from "./materials3d";
 import { furniture3D } from "./symbols";
 
 type Line = string;
@@ -127,6 +128,35 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
   };
   const layer = (occurrKey: string, name: string, t: number) => ent(`LY:${occurrKey}:${name}:${t}`, (n) => `#${n}= IFCMATERIALLAYER(#${material(name)},${f(t)},$,'${esc(name)}',$,$,$);`);
 
+  // ── COLOR DE MATERIAL (IFCSURFACESTYLE por sólido) ─────────────────────
+  // El IFC descargado muestra LADRILLO/CONCRETO/ACERO/VIDRIO/LOSETA/TIERRA/
+  // MADERA en CUALQUIER visor (BIMvision, usBIM, Revit, ifc.js): cada
+  // IFCEXTRUDEDAREASOLID lleva su IFCSTYLEDITEM. Paleta = materials3d (la
+  // MISMA del 3D vivo — archivo y pantalla nunca divergen). Transparencia
+  // IFC = 1−opacity (vidrio 0.32 → 0.68).
+  const styleAssign = (matName: string): number => {
+    const m = mat3d(matName);
+    // REAL de STEP: SIEMPRE con punto decimal ("0.00", no "0") — el
+    // validador EXPRESS de ifcopenshell rechaza enteros donde va REAL.
+    const r2 = (((m.hex >> 16) & 255) / 255).toFixed(2);
+    const g2 = (((m.hex >> 8) & 255) / 255).toFixed(2);
+    const b2 = ((m.hex & 255) / 255).toFixed(2);
+    const tr = (m.opacity != null ? 1 - m.opacity : 0).toFixed(2);
+    const col = ent(`COL:${matName}`, (n) => `#${n}= IFCCOLOURRGB($,${r2},${g2},${b2});`);
+    const shade = ent(`SSHADE:${matName}`, (n) => `#${n}= IFCSURFACESTYLESHADING(#${col},${tr});`);
+    const sty = ent(`SSTY:${matName}`, (n) => `#${n}= IFCSURFACESTYLE('${esc(matName)}',.BOTH.,(#${shade}));`);
+    return ent(`SPSA:${matName}`, (n) => `#${n}= IFCPRESENTATIONSTYLEASSIGNMENT((#${sty}));`);
+  };
+  // Un IFCSTYLEDITEM por SÓLIDO (inverso StyledByItem [0:1] del schema):
+  // cajas idénticas comparten el IFCEXTRUDEDAREASOLID (ent() dedupe) — el
+  // primer material en declararlo lo pinta, el segundo NO repite estilo.
+  const styledSolids = new Set<number>();
+  const styled = (solid: number, matName: string) => {
+    if (styledSolids.has(solid)) return;
+    styledSolids.add(solid);
+    ent(`STI:${solid}:${matName}`, (n) => `#${n}= IFCSTYLEDITEM(#${solid},(#${styleAssign(matName)}),$);`);
+  };
+
   /** Pset 5D/6D: carbono y clasificación por elemento. Números como
    *  IFCREAL (legibles por máquina — no IFCLABEL), textos como IFCLABEL.
    *  Fuentes de los factores: EPD LATAM versionado en la KB del pasaporte
@@ -159,6 +189,10 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
 
   const extSet = layerSet(asm.ext.label, asm.ext.layers);
   const intSet = layerSet(asm.int.label, asm.int.layers);
+  // Material DOMINANTE a la vista por cara (Título E) — alimenta el color
+  // del IFC (styled) y del visor vivo.
+  const wallMatExtName = wallMatOf(system, "ext");
+  const wallMatIntName = wallMatOf(system, "int");
   const relAssoc = (product: number, matOrSet: number, tag: string, isSet = false) =>
     ent(`RA:${tag}:${product}:${matOrSet}`, (n) =>
       isSet
@@ -204,6 +238,9 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       // (antes todo muro nacía en z=0 a altura completa — los antepechos y
       // dinteles quedaban como muros duplicados de piso a techo).
       const solid = solidBox(x, y, zBot, w, d, h, along);
+      // COLOR por sistema Título E: exterior = ladrillo (E.3) o tierra/
+      // bahareque (E.7); divisiones = ladrillo/esterilla de madera.
+      styled(solid, setName === extSet ? wallMatExtName : wallMatIntName);
       const prd = shapeRep(solid, `W${x},${y},${z0},${zBot},${h},${w},${d},${along}`);
       const pl = ent(`WPL:${x},${y},${z0},${zBot}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
@@ -330,14 +367,23 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     const vs = axes.filter((a) => a.orientation === "vertical").map((a) => a.at);
     const hs = axes.filter((a) => a.orientation === "horizontal").map((a) => a.at);
     const colDim = system === "acero_liviano" ? CONCRETE.columnLigero : CONCRETE.column;
-    const colMat = material(system === "concreto" || system === "mixto" ? MATERIALS.concreto : system === "acero_liviano" ? MATERIALS.acero : MATERIALS.maderaMat);
+    // Esqueleto por sistema (Título E): la mampostería CONFINADA lleva
+    // columnas/vigas de CONCRETO (E.3), el bahareque encamisado va sobre
+    // MADERA (E.7) — antes "mamposteria_confinada" caía en madera.
+    const colMatName =
+      system === "acero_liviano" ? MATERIALS.acero
+      : system === "guadua" ? MATERIALS.guaduaMat
+      : system === "madera" || system === "tierra" || system === "bahareque_encamisado" ? MATERIALS.maderaMat
+      : MATERIALS.concreto; // concreto · mixto · mamposteria_confinada
+    const colMat = material(colMatName);
 
     const columnAt = (x: number, y: number) => {
       const solid = solidBox(x, y, 0, colDim.w, colDim.d, fft, "x");
+      styled(solid, colMatName); // esqueleto de confinamiento a la vista
       const prd = shapeRep(solid, `C${x},${y},${z0}`);
       const pl = ent(`CPL:${x},${y},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
-      lines.push(`#${prod}= IFCCOLUMN('${guid(`C${x},${y},${lvl}`)}',#${owner},'Columna eje (${f(x)},${f(y)}) N${lvl + 1} — ${system === "acero_liviano" ? "poste metálico" : "concreto 3000 PSI"}',$,$,#${pl},#${prd},$,.COLUMN.);`);
+      lines.push(`#${prod}= IFCCOLUMN('${guid(`C${x},${y},${lvl}`)}',#${owner},'Columna eje (${f(x)},${f(y)}) N${lvl + 1} — ${colMatName}',$,$,#${pl},#${prd},$,.COLUMN.);`);
       relAssoc(prod, colMat, `CM${x},${y},${lvl}`);
       const colVol = colDim.w * colDim.d * fft;
       pset(prod, "Pset_ObraHub_5D6D", [["Fase", "Estructura"], ["Codigo", "S-COLUMNA"], ["CO2e_kg", Math.round(colVol * (CO2_CONCRETO + 100 * CO2_ACERO))], ["Fuente_CO2", "EPD LATAM · acero 100 kg/m3"]], `P5C:${x},${y},${lvl}`);
@@ -362,10 +408,11 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     for (const y of hs.length ? hs : []) {
       if (y < 0.05 || y > D - 0.05) continue;
       const solid = solidBox(W / 2, y, fft - CONCRETE.beam.d, W - 2 * te, CONCRETE.beam.w, CONCRETE.beam.d, "x");
+      styled(solid, colMatName);
       const prd = shapeRep(solid, `BMx${y},${z0}`);
       const pl = ent(`BMPLx:${y},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
-      lines.push(`#${prod}= IFCBEAM('${guid(`BMx${y},${lvl}`)}',#${owner},'Viga eje y=${f(y)} N${lvl + 1} — concreto 3000 PSI',$,$,#${pl},#${prd},$,.BEAM.);`);
+      lines.push(`#${prod}= IFCBEAM('${guid(`BMx${y},${lvl}`)}',#${owner},'Viga eje y=${f(y)} N${lvl + 1} — ${colMatName}',$,$,#${pl},#${prd},$,.BEAM.);`);
       relAssoc(prod, beamMat, `BMx${y},${lvl}`);
 
       // Volumen = (longitud LIBRE) × sección — primero el producto, luego el
@@ -378,10 +425,11 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     for (const x of vs.length ? vs : []) {
       if (x < 0.05 || x > W - 0.05) continue;
       const solid = solidBox(x, D / 2, fft - CONCRETE.beam.d, CONCRETE.beam.w, D - 2 * te, CONCRETE.beam.d, "y");
+      styled(solid, colMatName);
       const prd = shapeRep(solid, `BMy${x},${z0}`);
       const pl = ent(`BMPLy:${x},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const prod = id();
-      lines.push(`#${prod}= IFCBEAM('${guid(`BMy${x},${lvl}`)}',#${owner},'Viga eje x=${f(x)} N${lvl + 1} — concreto 3000 PSI',$,$,#${pl},#${prd},$,.BEAM.);`);
+      lines.push(`#${prod}= IFCBEAM('${guid(`BMy${x},${lvl}`)}',#${owner},'Viga eje x=${f(x)} N${lvl + 1} — ${colMatName}',$,$,#${pl},#${prd},$,.BEAM.);`);
       relAssoc(prod, beamMat, `BMy${x},${lvl}`);
 
       const bv = (D - 2 * te) * CONCRETE.beam.w * CONCRETE.beam.d;
@@ -393,6 +441,9 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     // Losa de pisotecho (encima del nivel).
     const slabT = system === "acero_liviano" ? CONCRETE.slabLigera.thickness : CONCRETE.slab.thickness;
     const slabSolid = solidBox(W / 2, D / 2, fft, W, D, slabT, "x");
+    // La losa del ÚLTIMO nivel se ve como CUBIERTA (teja de barro cafetera /
+    // fibrocemento en steel framing) — realismo del paquete a la vista.
+    styled(slabSolid, lvl === levels - 1 ? roofMatOf(system) : slabT === 0.1 ? "Losa ligera steel deck" : MATERIALS.losa);
     const slabPrd = shapeRep(slabSolid, `SL${z0}`);
     const slabPl = ent(`SLPL:${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
     const slab = id();
@@ -406,6 +457,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     // Placa de piso nivel 0.
     if (lvl === 0 && FOUND) {
       const fs = solidBox(W / 2, D / 2, -0.1, W, D, 0.1, "x");
+      styled(fs, MATERIALS.concreto);
       const fp = shapeRep(fs, "FS0");
       const fpl = ent("FSPL0", (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const contrapiso = id();
@@ -419,6 +471,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
         for (const y of hs.length ? hs : [te, D - te]) {
           if (y < 0.05 || y > D - 0.05) continue;
           const s2 = solidBox(x, y, -CONCRETE.footing.pad * 0.0 - 1.4, CONCRETE.footing.pad, CONCRETE.footing.pad, CONCRETE.footing.thickness, "x");
+          styled(s2, MATERIALS.concreto);
           const p2 = shapeRep(s2, `FT${x},${y}`);
           const pl2 = ent(`FTPL:${x},${y}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
           const ft = id();
@@ -440,6 +493,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     for (const d of plan.doors.filter((x) => x.level === lvl)) {
       const alongD = d.axis === "y";
       const s3 = solidBox(d.x, d.y, 0, alongD ? 0.06 : Math.max(d.width - 0.04, 0.3), alongD ? Math.max(d.width - 0.04, 0.3) : 0.06, 2.1, "x");
+      styled(s3, MATERIALS.hojaPuerta);
       const pr3 = shapeRep(s3, `DR${d.x},${d.y},${z0}`);
       const host3 = openingRegistry.find((o) => o.kind === "door" && o.along === (alongD ? "y" : "x") && Math.abs(o.at - (alongD ? d.y : d.x)) < 0.05 && Math.abs(o.w - d.width) < 0.02);
       const pl3 = ent(`DRPL:${d.x},${d.y},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${host3 ? host3.openingPl : storeyPlace},#${axisZ});`);
@@ -457,6 +511,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       const x2 = w.wall === "este" ? room.x + room.width : w.wall === "oeste" ? room.x : w.x;
       const along = w.wall === "norte" || w.wall === "sur" ? "x" : "y";
       const s4 = solidBox(x2, y2, w.sill, along === "x" ? w.width : 0.06, along === "x" ? 0.06 : w.width, w.height, along);
+      styled(s4, MATERIALS.vidrio);
       const pr4 = shapeRep(s4, `WN${x2},${y2},${z0}`);
       const host4 = openingRegistry.find((o) => o.kind === "window" && o.along === along && Math.abs(o.at - w.x) < 0.05 && Math.abs(o.sill - w.sill) < 0.02);
       const pl4 = ent(`WNPL:${x2},${y2},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${host4 ? host4.openingPl : storeyPlace},#${axisZ});`);
@@ -483,6 +538,14 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     };
     const mep = (x: number, y: number, z: number, w: number, d: number, h: number, name: string, mat: number, tag: string, kind: string, along: "x" | "y" = "x") => {
       const s5 = solidBox(x, y, z, w, d, h, along);
+      // Look MEP a la vista: sanitarios = porcelana, equipos = metal, y los
+      // puntos de red VIVOS (ámbar RETIE / azul RAS) con emisión suave.
+      const MEP_LOOK: Record<string, string> = {
+        sanitario: "Porcelana sanitaria", lavamanos: "Porcelana sanitaria",
+        ducha: "Porcelana sanitaria", lavaplatos: "Porcelana sanitaria",
+        lavadero: "Metal electrodoméstico", calentador: "Metal electrodoméstico",
+      };
+      styled(s5, MEP_LOOK[kind] ?? (name.includes("ELÉCTRICO") ? "MEP eléctrico" : "MEP hidrosanitario"));
       const pr5 = shapeRep(s5, tag);
       const pl5 = ent(`PXPL:${tag}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
       const px = id();
@@ -513,6 +576,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     for (const r of plan.rooms.filter((r) => r.level === lvl)) {
       for (const fu of furniture3D(r, plan.doors.filter((d) => d.level === lvl), r.name.toLowerCase().includes("principal"))) {
         const s6 = solidBox(fu.x, fu.y, 0, fu.w, fu.d, fu.h, "x");
+        styled(s6, furnitureMatOf(fu.name));
         const pr6 = shapeRep(s6, `FU${fu.x},${fu.y},${lvl}`);
         const pl6 = ent(`FUPL:${fu.x},${fu.y},${lvl}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
         const fu6 = id();
