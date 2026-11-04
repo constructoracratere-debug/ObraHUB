@@ -271,8 +271,10 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           </p>
         </div>
       )}
-      {/* Modos de visión — realismo Título E · rayos X · plot B/N */}
-      <div className="absolute right-2 top-2 flex gap-1 rounded-lg bg-[#070d1a]/85 p-1 backdrop-blur">
+      {/* Modos de visión — realismo Título E · rayos X · plot B/N.
+          Abajo-derecha: arriba-derecha lo ocupan los botones flotantes
+          ⚙️ Estudio / 📋 Expediente (z-40) y tapaban el selector. */}
+      <div className="absolute bottom-2 right-2 z-20 flex gap-1 rounded-lg bg-[#070d1a]/85 p-1 backdrop-blur">
         {([["realista", "🎨 Realista"], ["xray", "🩻 Rayos X"], ["bn", "⬛ Plot B/N"]] as const).map(([m, label]) => (
           <button
             key={m} type="button" onClick={() => setView(m)}
