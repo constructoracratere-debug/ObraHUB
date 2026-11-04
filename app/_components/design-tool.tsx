@@ -1089,7 +1089,7 @@ function StagePanel(props: {
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-300">
-        {s.icon} Etapa {stage + 1}/{STAGES.length - 1} · {s.agent}
+        {s.icon} Etapa {stage + 1}/{STAGES.length} · {s.agent}
       </p>
 
       {stage === 0 && (
@@ -1303,6 +1303,7 @@ function StagePanel(props: {
                     <p className="text-sm font-bold tracking-wide text-emerald-200">📋 BORRADOR OFICIAL V1</p>
                     <p className="mt-0.5 text-[10px] text-emerald-300/80">
                       {props.plan?.name} · {props.official} · registrado en el expediente
+                      {r.failed.length ? ` · ⚠ ${r.failed.length} observación(es) de verificación abierta(s)` : " · verificación completa ✓"}
                     </p>
                     <p className="mt-1 text-[9.5px] text-slate-400">
                       Pendiente: revisión y firma de profesionales matriculados (curaduría).
@@ -1310,8 +1311,8 @@ function StagePanel(props: {
                   </div>
                 ) : (
                   <button
-                    type="button" onClick={props.onOfficial} disabled={r.failed.length > 0 || pend.length > 0}
-                    title={pend.length ? `Completa primero: ${pend.join(", ")}` : r.failed.length ? "Hay puertas de verificación sin pasar" : "Declara esta versión como el borrador oficial del proyecto"}
+                    type="button" onClick={props.onOfficial} disabled={pend.length > 0}
+                    title={pend.length ? `Completa primero: ${pend.join(", ")}` : r.failed.length ? `Declara con ${r.failed.length} observación(es) abierta(s) — quedan registradas en el borrador` : "Declara esta versión como el borrador oficial del proyecto"}
                     className="mt-2.5 w-full rounded-lg bg-emerald-500/25 px-3 py-2.5 text-sm font-bold text-emerald-100 ring-1 ring-emerald-400/50 transition hover:bg-emerald-500/35 disabled:opacity-40"
                   >
                     📋 Declarar BORRADOR OFICIAL (V1)
