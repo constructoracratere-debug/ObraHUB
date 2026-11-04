@@ -3,11 +3,12 @@
 /**
  * ✏️ Diseño IA — Estudio de diseño multi-agente.
  *
- * Wizard de 6 etapas (roadmap Fase 1 ampliado):
+ * Wizard de 8 etapas (0..7 — la 7 es la REVISIÓN FINAL que declara el
  *  0 Sitio → 1 Boceto arquitecto → 2 Desarrollo constructor → 3 Acabados
  *  → 4 Estructura (NSR-10) → 5 Retorno arquitectónico → 6 Instalaciones (∥)
  *  → expediente + DXF por capas. El PRIMER paquete (A-00…A-07) es
  *  puramente arquitectónico; la estructura abre el paquete S.
+ * borrador oficial tras verificar cantidades, precios, IFC y láminas).
  * Cada etapa pasa por puertas de verificación determinísticas (validate.ts).
  * El plano se dibuja en SVG (viewBox pan/zoom, patrón dwg-preview).
  */
@@ -68,7 +69,7 @@ type CivilMemo = {
 
 type Equipment = Array<{ item: string; room?: string; note?: string }>;
 
-type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type Stage = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 // FLUJO DE LICENCIA (secuencia de curaduría): el PRIMER paquete es
 // puramente ARQUITECTÓNICO (plantas, cortes por la escalera, fachadas,
@@ -83,6 +84,7 @@ const STAGES: Array<{ n: Stage; title: string; agent: string; icon: string }> = 
   { n: 4, title: "Estructura", agent: "Ing. Civil — NSR-10, retícula y cimentación", icon: "🏗️" },
   { n: 5, title: "Retorno Arq.", agent: "Arquitecto adecúa a la estructura (curaduría)", icon: "📐" },
   { n: 6, title: "Instalaciones", agent: "Eléctrico ∥ Hidrosanitario", icon: "⚡" },
+  { n: 7, title: "Revisión Final", agent: "Mesa — verificación y BORRADOR OFICIAL", icon: "📋" },
 ];
 
 const EXAMPLES = [
@@ -149,7 +151,7 @@ const sessionKey = (slug?: string) => `obrahub-design-${slug ? slug.replace(/[^a
 function validSession(raw: unknown): DesignSession | null {
   const s = raw as DesignSession | null;
   if (!s?.plan || s.plan.version !== 2 || !Array.isArray(s.plan.rooms) || s.plan.rooms.length === 0) return null;
-  if (typeof s.stage !== "number" || s.stage < 0 || s.stage > 6) s.stage = 6;
+  if (typeof s.stage !== "number" || s.stage < 0 || s.stage > 7) s.stage = 7;
   return s;
 }
 function loadSession(slug?: string): DesignSession | null {
@@ -392,6 +394,44 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
 
   /** Envuelve una etapa: reintentos automáticos con narrativa ante errores de
    *  proveedores saturados — el usuario no debe apretar "intentar de nuevo". */
+  // ── ETAPA 7 · REVISIÓN FINAL — determinista, sin LLM: lo que el motor puede
+  // garantizar se verifica aquí (láminas, IFC, cantidades/precios, gates) y la
+  // mesa declara el BORRADOR OFICIAL V1 cuando todo cierra.
+  const [official, setOfficial] = useState<string | null>(null);
+  const review = useMemo(() => {
+    if (!plan) return null;
+    const sheets = sheetContents(plan);
+    const pkgA = sheets.filter((x) => x.pkg !== "S" && x.pkg !== "I");
+    const pkgS = sheets.filter((x) => x.pkg === "S");
+    const pkgI = sheets.filter((x) => x.pkg === "I");
+    const ifc = planToIfc(plan);
+    const to = takeoff(plan);
+    const val = valueTakeoff(to);
+    const checks = gates ?? [];
+    const failed = checks.flatMap((g) => g.checks.filter((c) => !c.pass));
+    return {
+      a: pkgA.map((x) => x.code), s: pkgS.map((x) => x.code), i: pkgI.map((x) => x.code),
+      muros: (ifc.match(/IFCWALLSTANDARDCASE/g) ?? []).length,
+      vanos: (ifc.match(/IFCOPENINGELEMENT/g) ?? []).length,
+      styled: (ifc.match(/IFCSTYLEDITEM/g) ?? []).length,
+      ifcKB: Math.round(ifc.length / 1024),
+      partidas: to.length,
+      copM: val.totalCOP / 1e6,
+      co2t: val.co2eTotal / 1000,
+      top: [...to].sort((a, b) => b.qty - a.qty).slice(0, 4),
+      failed, gatesN: checks.reduce((n, g) => n + g.checks.length, 0),
+    };
+  }, [plan, gates]);
+
+  const declareOfficial = () => {
+    if (!plan || official) return;
+    setOfficial(new Date().toISOString().slice(0, 10));
+    setRevisions((prev) => [...prev, {
+      feedback: "BORRADOR OFICIAL V1 declarado en la Revisión Final",
+      changes: [], at: new Date().toISOString(),
+    }]);
+  };
+
   const callWithRetries = useCallback(async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
     for (let attempt = 1; ; attempt++) {
       try {
@@ -473,6 +513,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
       const data = await callWithRetries({ stage: "installations", previousPlan: plan });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`⚡ ${String((data.providers as any).electrical)} + ${String((data.providers as any).hydro)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
+      setStage(7); // la secuencia CIERRA: revisión final + borrador oficial
     } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
     setBusy(null);
   };
@@ -490,7 +531,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   };
 
   const runStage = (s: Stage) =>
-    ({ 0: runSite, 1: runDraft, 2: runExperts, 3: runFinishes, 4: runStructure, 5: runAdapt, 6: runInstallations })[s]!();
+    ({ 0: runSite, 1: runDraft, 2: runExperts, 3: runFinishes, 4: runStructure, 5: runAdapt, 6: runInstallations, 7: () => {} })[s]!();
 
   // ── DXF (client-side, instantáneo) ────────────────────────────────────────
   // La fecha de producción la pasa la UI: planToDxf es 100% determinista.
@@ -733,6 +774,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             civilMemo={civilMemo} equipment={equipment}
             busy={busy} onRun={() => runStage(stage)}
             referenceImages={referenceImages} setReferenceImages={setReferenceImages}
+            review={review} official={official} onOfficial={declareOfficial}
           />
           {providerInfo && <p className="text-[10px] text-slate-500">⚡ {providerInfo}</p>}
           {error && (
@@ -1022,6 +1064,15 @@ export function DesignTool(props: { projectSlug?: string; initialPrompt?: string
 }
 
 // ── Panel de la etapa activa ─────────────────────────────────────────────────
+/** Resumen determinista de la Revisión Final (calculado en el padre). */
+type Review = {
+  a: string[]; s: string[]; i: string[];
+  muros: number; vanos: number; styled: number; ifcKB: number;
+  partidas: number; copM: number; co2t: number;
+  top: Array<{ material: string; unit: string; qty: number }>;
+  failed: Array<{ label: string; detail: string }>; gatesN: number;
+} | null;
+
 function StagePanel(props: {
   stage: Stage; prompt: string; setPrompt: (v: string) => void;
   location: string; setLocation: (v: string) => void;
@@ -1029,6 +1080,7 @@ function StagePanel(props: {
   constructorMemo: ConstructorMemo | null; civilMemo: CivilMemo | null;
   equipment: Equipment; busy: Stage | null; onRun: () => void;
   referenceImages: string[]; setReferenceImages: (v: string[]) => void;
+  review: Review; official: string | null; onOfficial: () => void;
 }) {
   const { stage, busy, onRun } = props;
   const running = busy === stage;
@@ -1037,7 +1089,7 @@ function StagePanel(props: {
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-300">
-        {s.icon} Etapa {stage + 1}/6 · {s.agent}
+        {s.icon} Etapa {stage + 1}/{STAGES.length - 1} · {s.agent}
       </p>
 
       {stage === 0 && (
@@ -1203,9 +1255,71 @@ function StagePanel(props: {
         <>
           <p className="mt-2 text-xs leading-relaxed text-slate-400">
             El experto eléctrico (RETIE) y el hidrosanitario (RAS) diseñan sus
-            capas sobre la planta final, en paralelo.
+            capas sobre la planta final, en paralelo. Al cerrar, el estudio pasa
+            a la <span className="font-semibold text-emerald-300">Revisión Final</span>.
           </p>
-          <RunButton onClick={onRun} running={running} label="Diseñar instalaciones" />
+          <RunButton onClick={onRun} running={running} label="Diseñar instalaciones" doneLabel="⚡ Instalaciones — ir a Revisión Final" />
+        </>
+      )}
+
+      {stage === 7 && props.review && (
+        <>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            Verificación determinista del paquete completo — sin LLM: lo que el
+            motor garantiza, se comprueba. Cantidades, precios, IFC, láminas y
+            puertas de verificación antes de declarar el borrador.
+          </p>
+          {(() => {
+            const r = props.review!;
+            const pend = [
+              !props.plan?.structure && "Paquete S (etapa Estructura)",
+              !props.plan?.electrical && !props.plan?.hydro ? "Paquete I (etapa Instalaciones)" : null,
+            ].filter(Boolean) as string[];
+            const fila = (ok: boolean, neutral: boolean, label: string, detail: string) => (
+              <li className="flex items-start gap-2">
+                <span className={neutral ? "text-slate-500" : ok ? "text-emerald-400" : "text-amber-400"}>
+                  {neutral ? "○" : ok ? "✓" : "△"}
+                </span>
+                <span className="flex-1 text-[11px] leading-snug text-slate-300">
+                  {label} <span className="text-slate-500">· {detail}</span>
+                </span>
+              </li>
+            );
+            return (
+              <>
+                <ul className="mt-2 space-y-1.5 rounded-lg border border-white/[0.07] bg-white/[0.02] p-2.5">
+                  {fila(r.a.length >= 8, false, "Paquete ARQUITECTÓNICO completo", `${r.a.length} láminas (${r.a.join(" · ")})`)}
+                  {fila(r.s.length > 0, r.s.length === 0, "Paquete ESTRUCTURAL (S)", r.s.length ? `${r.s.length} láminas (${r.s.join(" · ")})` : "pendiente etapa Estructura")}
+                  {fila(r.i.length > 0, r.i.length === 0, "Paquete INSTALACIONES (I)", r.i.length ? `${r.i.length} láminas (${r.i.join(" · ")})` : "pendiente etapa Instalaciones")}
+                  {fila(r.styled >= 40 && r.muros > 0, false, "Modelo IFC4 BIM con materiales", `${r.muros} muros · ${r.vanos} vanos · ${r.styled} estilos de material · ${r.ifcKB} KB`)}
+                  {fila(r.partidas > 0 && r.copM > 0, false, "Cantidades y precios (pasaporte)", `${r.partidas} partidas · $${r.copM.toFixed(1)}M · ${r.co2t.toFixed(1)} t CO₂e`)}
+                  {fila(r.failed.length === 0, r.gatesN === 0, "Puertas de verificación", r.gatesN ? `${r.gatesN - r.failed.length}/${r.gatesN} pasan${r.failed.length ? ` — ${r.failed[0].label}` : ""}` : "corre una etapa para activarlas")}
+                </ul>
+                <p className="mt-1.5 text-[9.5px] text-slate-500">
+                  Mayores partidas: {r.top.map((t) => `${t.material.split("(")[0].trim()} ${t.qty.toFixed(t.qty < 10 ? 1 : 0)} ${t.unit}`).join(" · ")}
+                </p>
+                {props.official ? (
+                  <div className="mt-2.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-center">
+                    <p className="text-sm font-bold tracking-wide text-emerald-200">📋 BORRADOR OFICIAL V1</p>
+                    <p className="mt-0.5 text-[10px] text-emerald-300/80">
+                      {props.plan?.name} · {props.official} · registrado en el expediente
+                    </p>
+                    <p className="mt-1 text-[9.5px] text-slate-400">
+                      Pendiente: revisión y firma de profesionales matriculados (curaduría).
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button" onClick={props.onOfficial} disabled={r.failed.length > 0 || pend.length > 0}
+                    title={pend.length ? `Completa primero: ${pend.join(", ")}` : r.failed.length ? "Hay puertas de verificación sin pasar" : "Declara esta versión como el borrador oficial del proyecto"}
+                    className="mt-2.5 w-full rounded-lg bg-emerald-500/25 px-3 py-2.5 text-sm font-bold text-emerald-100 ring-1 ring-emerald-400/50 transition hover:bg-emerald-500/35 disabled:opacity-40"
+                  >
+                    📋 Declarar BORRADOR OFICIAL (V1)
+                  </button>
+                )}
+              </>
+            );
+          })()}
         </>
       )}
     </div>
