@@ -210,7 +210,14 @@ export function sheetContents(plan: FloorPlan): Sheet[] {
     sheets.push({ code: "A-03", title: "FACHADAS + CUADRO DE PUERTAS Y VENTANAS", prims: bestByFill([one, two, withSched]) });
   }
   // A-05 — CUBIERTAS (placa maciza — MPr / Decreto 1077).
-  sheets.push({ code: "A-05", title: "PLANTA DE CUBIERTAS — PLACA MACIZA", prims: roofPlanPrimitives(plan) });
+  // Título de A-05 según sistema: los Título E van a DOS AGUAS CERCHADAS
+  // (norma E.3/E.6); la placa maciza queda para pórticos/pisotechos.
+  const CERCHADA = ["mamposteria_confinada", "bahareque_encamisado", "madera", "guadua", "tierra", "acero_liviano"].includes(plan.structure?.system ?? "");
+  sheets.push({
+    code: "A-05",
+    title: CERCHADA ? "CUBIERTA INCLINADA — DOS AGUAS · CERCHADA" : "PLANTA DE CUBIERTAS — PLACA MACIZA",
+    prims: roofPlanPrimitives(plan),
+  });
   // A-06 — ACABADOS por nivel: MISMO muro del plano general (bandas con
   // jambas) + trama de piso por espacio en A-ACABADOS + cuadro de acabados
   // (debajo o al lado — el que mejor llene la lámina). El plano

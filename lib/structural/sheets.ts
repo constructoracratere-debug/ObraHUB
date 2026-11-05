@@ -105,6 +105,7 @@ export function memoriaPrimitives(plan: FloorPlan): Prim[] {
       "E.3 · MAMPOSTERÍA CONFINADA: el mampuesto (ladrillo H-10)",
       "carga en pared; lo CONFINAN columnas y vigas (cadenas) de",
       "concreto en extremos, encuentros y cada ≤ 4.0 m (E.3.3).",
+      "CUBIERTA: liviana cerchada 2 aguas 30% s/cadenas (no diafragma).",
     ],
     bahareque_encamisado: [
       "E.7 · BAHAREQUE ENCAMISADO: DIAFRAGMA de guadua angustifolia",

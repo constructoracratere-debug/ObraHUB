@@ -282,6 +282,17 @@ const ifcBah = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPl
 check("IFC materiales E.3: mampostería confinada → muros LADRILLO + cubierta TEJA + confinamiento CONCRETO", ifcMam.includes("IFCSURFACESTYLE('Ladrillo cerámico H-10'") && ifcMam.includes("IFCSURFACESTYLE('Teja de barro'") && !/Columna eje[^\n]*Madera/.test(ifcMam) && ifcMam.includes("IFCSURFACESTYLE('Concreto estructural 3000 PSI'"));
 check("IFC materiales E.7: bahareque encamisado → diafragma de GUADUA + esterilla + arcilla (sin ladrillo ni madera aserrada)", ifcBah.includes("IFCSURFACESTYLE('Guadua angustifolia tratada'") && ifcBah.includes("Esterilla de guadua") && ifcBah.includes("arcilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo") && !/Columna eje[^\n]*Madera aserrada/.test(ifcBah));
 check("IFC capas E.7 reales (encamisado cemento + esterilla + guadua + arcilla)", /IFCMATERIALLAYER\(#[0-9]+,0\.1[0-9]?,\$,'Guadua angustifolia tratada: montantes y riostras'/.test(ifcBah) && ifcBah.includes("Encamisado exterior: mortero cemento-arena"));
+check("CUBIERTA CERCHADA (norma E.3/E.6): A-05 a dos aguas con cumbrera, cerchas @1.20, pendiente 30% y alero — y SIN placa maciza en Título E", (() => {
+  const cerchada = sanitizeFloorPlan({ ...rawPlan, levels: 1, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } });
+  const dxfR = planToDxf(cerchada);
+  return dxfR.includes("CUMBRERA") && /CERCHA MADERA 2×6/.test(dxfR) && dxfR.includes("30%") && dxfR.includes("ALERO 0.40") && !dxfR.includes("PLACA MACIZA e=12");
+})());
+check("IFC cubierta cerchada: faldones .ROOF. inclinados + cerchas IFCBEAM + cumbrera — sin losa plana en la corona", (() => {
+  const cerchada = sanitizeFloorPlan({ ...rawPlan, levels: 1, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } });
+  const ifcR = planToIfcFn(cerchada);
+  return ((ifcR.match(/\.ROOF\./g) ?? []).length === 2) && /Cercha Madera aserrada tratada — (tirante|par)/.test(ifcR) && ifcR.includes("Cumbrera —") && !/Losa N1 — concreto/.test(ifcR);
+})());
+
 check("anti-alucinación: normalizeSystem lleva CUALQUIER forma de pedirlo al sistema canónico", (() => {
   const norm = req(path.join(tmp, "design", "schema.js")).normalizeSystem;
   return norm("bahareque encementado") === "bahareque_encamisado"

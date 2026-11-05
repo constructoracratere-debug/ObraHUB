@@ -6,9 +6,9 @@ import { IfcAPI, IFCCOLUMN, IFCBEAM, IFCSLAB, IFCFOOTING, IFCWALLSTANDARDCASE, I
 import type { FloorPlan } from "@/lib/design/schema";
 import { planToIfc } from "@/lib/design/ifc";
 import { mat3d, wallMatOf, roofMatOf, furnitureMatOf, type Mat3D } from "@/lib/design/materials3d";
-import { MATERIALS } from "@/lib/design/materials";
+import { MATERIALS, WALL_ASSEMBLIES } from "@/lib/design/materials";
 
-type ViewMode = "realista" | "xray" | "bn";
+type ViewMode = "realista" | "xray" | "bn" | "capas";
 
 /**
  * 3D VIVO — el ambiente simultáneo 2D+3D: el IFC se regenera EN MEMORIA desde
@@ -51,7 +51,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   };
 
   /** Material three según MODO — realista usa la paleta completa. */
-  const materialFor = (look: Mat3D, ghost: boolean, m: ViewMode): THREE.MeshStandardMaterial => {
+  const materialFor = (look: Mat3D, ghost: boolean, m: Exclude<ViewMode, "capas">): THREE.MeshStandardMaterial => {
     if (m === "xray" && ghost) {
       // Rayos X: envolvente translúcida — estructura, MEP y vidrio sólidos.
       return new THREE.MeshStandardMaterial({ color: 0x8fb7d8, transparent: true, opacity: 0.07, roughness: 1, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
@@ -72,8 +72,168 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
     });
   };
 
+  // ── 🧱 MAQUETA ESTRUCTURAL POR CAPAS (modo "capas") ────────────────────
+  // Muestra de muro EXPLOTADA del sistema del plan (WALL_ASSEMBLIES, fuente
+  // única): cada capa con SU material y espesor real rotulado, más la pieza
+  // estructural característica — mampostería E.3: columna de confinamiento
+  // con ACERO (4Ø + estribos) y viga cadena · bahareque E.7: encamisado
+  // cemento, embutido (esterilla+arcilla) y tabique de GUADUA. Determinista.
+  const etiqueta = (texto: string): THREE.Sprite => {
+    const cv = document.createElement("canvas");
+    cv.width = 640; cv.height = 140;
+    const ctx = cv.getContext("2d")!;
+    ctx.fillStyle = "rgba(7,13,26,0.88)";
+    ctx.fillRect(0, 0, 640, 140);
+    ctx.strokeStyle = "rgba(120,180,140,0.5)"; ctx.strokeRect(2, 2, 636, 136);
+    ctx.font = "bold 56px Arial";
+    ctx.fillStyle = "#d7ffe4";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(texto, 320, 72, 610);
+    const tex = new THREE.CanvasTexture(cv);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    sp.scale.set(2.6, 0.57, 1);
+    return sp;
+  };
+
+  const buildCapas = (): THREE.Group => {
+    const g = new THREE.Group();
+    const system = plan.structure?.system ?? "concreto";
+    const asm = WALL_ASSEMBLIES[system as keyof typeof WALL_ASSEMBLIES] ?? WALL_ASSEMBLIES.concreto;
+    const HL = 2.6; // largo de la muestra de muro
+    // Capas explotadas a lo largo de X: espesor VISUAL mínimo 0.09, real en
+    // la etiqueta (cm). Orden: exterior → interior.
+    const capas = [...asm.ext.layers];
+    const conPintura = ["mamposteria_confinada", "bahareque_encamisado"].includes(system);
+    if (conPintura) capas.unshift({ name: "Pintura exterior (vinílica)", thickness: 0.004 });
+    let x = 0;
+    const centros: Array<{ x: number; w: number }> = [];
+    for (const l of capas) {
+      const w = Math.max(l.thickness, 0.09);
+      const look = mat3d(l.name) ?? mat3d("genérico");
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(w, 1.15, HL),
+        new THREE.MeshStandardMaterial({ color: look.hex, roughness: look.roughness, metalness: look.metalness }),
+      );
+      mesh.position.set(x + w / 2, 1.0, 0);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      g.add(mesh);
+      const cm = Math.round(l.thickness * 100);
+      const tag = etiqueta(`${l.name.replace(/ ?e=[0-9.]+ ?(cm|mm)? ?/i, "")} · ${cm === 0 ? "0.4" : cm} cm`);
+      tag.position.set(x + w / 2, 0.28, HL / 2 + 0.05);
+      g.add(tag);
+      centros.push({ x: x + w / 2, w });
+      x += w + 0.42;
+    }
+    if (conPintura) {
+      const w = 0.06;
+      const pint = new THREE.Mesh(new THREE.BoxGeometry(w, 1.15, HL),
+        new THREE.MeshStandardMaterial({ color: 0xf2f4f0, roughness: 0.35 }));
+      pint.position.set(x + w / 2, 1.0, 0); pint.castShadow = true;
+      g.add(pint);
+      const t = etiqueta("Pintura interior (vinílica) · 0.4 cm");
+      t.position.set(x + w / 2, 0.28, HL / 2 + 0.05);
+      g.add(t);
+      x += w + 0.42;
+    }
+    // PIEZA ESTRUCTURAL característica, a la derecha de las capas.
+    const bx = x + 0.9;
+    const steel = new THREE.MeshStandardMaterial({ color: 0xb9c3cc, roughness: 0.32, metalness: 0.85 });
+    const concretoM = new THREE.MeshStandardMaterial({ color: 0xb6b3a8, roughness: 0.88 });
+    const maderaM = new THREE.MeshStandardMaterial({ color: 0x9a6a3f, roughness: 0.72 });
+    const guaduaM3 = new THREE.MeshStandardMaterial({ color: 0xc8a44a, roughness: 0.6, metalness: 0.05 });
+    if (system === "mamposteria_confinada") {
+      // COLUMNA de confinamiento 0.30×0.30 con ACERO: 4Ø verticales + estribos
+      const col = new THREE.Mesh(new THREE.BoxGeometry(0.46, 1.5, 0.46), concretoM);
+      col.position.set(bx, 0.95, 0.6); col.castShadow = true; g.add(col);
+      const colMat = new THREE.MeshStandardMaterial({ color: 0xb6b3a8, transparent: true, opacity: 0.42, roughness: 0.88 });
+      col.material = colMat;
+      for (const [dx, dz] of [[-0.13, -0.13], [0.13, -0.13], [-0.13, 0.13], [0.13, 0.13]]) {
+        const rebar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.5, 10), steel);
+        rebar.position.set(bx + dx, 0.95, 0.6 + dz);
+        g.add(rebar);
+      }
+      for (const yE of [0.45, 0.95, 1.45]) {
+        const est = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.018, 8, 4), steel);
+        est.rotation.x = Math.PI / 2; est.rotation.z = Math.PI / 4;
+        est.position.set(bx, yE, 0.6);
+        g.add(est);
+      }
+      const tc = etiqueta("Columna confinamiento 30×30 · 4Ø3/8\" + estribos Ø1/4\"@0.15 (E.3)");
+      tc.position.set(bx, 0.12, 0.6); tc.scale.set(3.4, 0.75, 1); g.add(tc);
+      // VIGA CADENA con 4Ø
+      const vig = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.34, 0.4),
+        new THREE.MeshStandardMaterial({ color: 0xb6b3a8, transparent: true, opacity: 0.42, roughness: 0.88 }));
+      vig.position.set(bx + 0.4, 0.36, -1.0); vig.castShadow = true; g.add(vig);
+      for (const dz of [-0.12, 0.12]) for (const dy of [-0.09, 0.09]) {
+        const rb = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.2, 8), steel);
+        rb.rotation.z = Math.PI / 2;
+        rb.position.set(bx + 0.4, 0.36 + dy, -1.0 + dz);
+        g.add(rb);
+      }
+      const tv = etiqueta("Viga cadena (amarre) 30×25 · concreto + 4Ø — recibe CERCHA");
+      tv.position.set(bx + 0.4, -0.28, -1.0); tv.scale.set(3.2, 0.7, 1); g.add(tv);
+    } else {
+      // BAHAREQUE / otros: TABIQUE de guadua (montantes) como pieza viva
+      const tab = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.5, 1.6), maderaM);
+      tab.position.set(bx, 0.95, 0.2); tab.castShadow = true; g.add(tab);
+      for (let i = 0; i < 4; i++) {
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 12), guaduaM3);
+        m.position.set(bx, 0.95, -0.45 + i * 0.42);
+        g.add(m);
+      }
+      const tt = etiqueta("TABIQUE: montantes de guadua G.12 + esterilla (diafragma E.7)");
+      tt.position.set(bx, 0.12, 0.2); tt.scale.set(3.6, 0.75, 1); g.add(tt);
+      const emb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 1.2),
+        new THREE.MeshStandardMaterial({ color: 0x8d6a40, roughness: 0.95 }));
+      emb.position.set(bx + 0.55, 0.9, 0.2); g.add(emb);
+      const te = etiqueta("EMBUTIDO: esterilla + arcilla");
+      te.position.set(bx + 0.55, 0.12, 0.2); te.scale.set(2.4, 0.55, 1); g.add(te);
+    }
+    return g;
+  };
+
   // Aplicar modo a las mallas ya generadas (sin regenerar el IFC).
   useEffect(() => {
+    const scene = sceneRef.current as any;
+    const root: THREE.Group | undefined = scene?.root;
+    // 🧱 CAPAS: maqueta explotada del sistema — el modelo se oculta.
+    if (view === "capas") {
+      if (!scene) return;
+      const rev = JSON.stringify([plan.structure, plan.levels]).slice(0, 600);
+      if (scene.capasRev !== rev || !scene.capas) {
+        if (scene.capas) { scene.remove(scene.capas); }
+        scene.capas = buildCapas();
+        scene.capasRev = rev;
+        scene.add(scene.capas);
+      }
+      scene.capas.visible = true;
+      if (root) root.visible = false;
+      const grid: THREE.GridHelper | undefined = scene.grid;
+      const capas: THREE.Group = scene.capas;
+      capas.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(capas, true);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3()).length() || 8;
+      if (grid) grid.position.set(center.x, box.min.y, center.z);
+      const gnd: THREE.Mesh | undefined = scene.ground;
+      if (gnd) gnd.position.set(center.x, box.min.y + 0.01, center.z);
+      const sun: THREE.DirectionalLight | undefined = scene.sun;
+      if (sun) { sun.castShadow = true; sun.position.set(center.x + size, box.max.y + size, center.z + size * 0.6); sun.target.position.copy(center); scene.add(sun.target); }
+      const cam: THREE.PerspectiveCamera = scene.cam;
+      const ctl = scene.ctl;
+      if (cam && ctl) {
+        ctl.target.copy(center);
+        const dir = new THREE.Vector3(0.55, 0.5, 0.85).normalize();
+        cam.position.copy(center.clone().add(dir.multiplyScalar(size * 1.25)));
+        cam.near = size / 200; cam.far = size * 30; cam.updateProjectionMatrix();
+        ctl.update();
+      }
+      const ren: THREE.WebGLRenderer | undefined = scene.ren;
+      if (ren) ren.shadowMap.enabled = true;
+      return;
+    }
+    if (scene?.capas) scene.capas.visible = false;
+    if (root) root.visible = true;
     const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean }> | undefined;
     if (!store) return;
     for (const it of store) {
@@ -86,7 +246,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
     const ground: THREE.Mesh | undefined = (sceneRef as any)?.ground;
     if (ground) ground.visible = view === "realista";
     const sun: THREE.DirectionalLight | undefined = (sceneRef as any)?.sun;
-    if (sun) sun.castShadow = view === "realista";
+    if (sun) sun.castShadow = view === "realista"; // capas configura su sol y retorna antes
   }, [view]);
 
   useEffect(() => {
@@ -207,7 +367,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           const look = lookOf(tId, name);
           const isStruct = tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING;
           const ghost = !isStruct && tId !== IFCWINDOW; // rayos X: envolvente fantasma, estructura+MEP+vidrio sólidos
-          const m3 = new THREE.Mesh(bg, materialFor(look, ghost, viewRef.current));
+          const m3 = new THREE.Mesh(bg, materialFor(look, ghost, viewRef.current === "capas" ? "realista" : viewRef.current));
           m3.castShadow = viewRef.current === "realista" && !ghost;
           m3.receiveShadow = viewRef.current === "realista";
           m3.matrixAutoUpdate = false;
@@ -275,7 +435,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           Abajo-derecha: arriba-derecha lo ocupan los botones flotantes
           ⚙️ Estudio / 📋 Expediente (z-40) y tapaban el selector. */}
       <div className="absolute bottom-2 right-2 z-20 flex gap-1 rounded-lg bg-[#070d1a]/85 p-1 backdrop-blur">
-        {([["realista", "🎨 Realista"], ["xray", "🩻 Rayos X"], ["bn", "⬛ Plot B/N"]] as const).map(([m, label]) => (
+        {([["realista", "🎨 Realista"], ["xray", "🩻 Rayos X"], ["bn", "⬛ Plot B/N"], ["capas", "🧱 Capas"]] as const).map(([m, label]) => (
           <button
             key={m} type="button" onClick={() => setView(m)}
             className={`rounded-md px-2 py-1 text-[10.5px] font-semibold transition ${view === m ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "text-slate-400 hover:bg-white/5"}`}

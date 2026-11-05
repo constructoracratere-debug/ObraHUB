@@ -203,12 +203,18 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
   // along="y": el RefDirection del sólido gira el perfil 90° (X local → Y
   // mundo). Así el muro este/oeste queda orientado de verdad — cualquier
   // visor (web-ifc, BIMvision, Revit) lo dibuja en su sitio.
-  const solidBox = (x: number, y: number, z: number, w: number, d: number, h: number, along: "x" | "y") => {
+  const solidBox = (x: number, y: number, z: number, w: number, d: number, h: number, along: "x" | "y", tilt = 0) => {
     // Perfil SIEMPRE con la longitud sobre X local (la rotación la pone el placement).
     const prof = ent(`RPX:${w},${d}`, (n) => `#${n}= IFCRECTANGLEPROFILEDEF(.AREA.,$,#${axis2(0, 0)},${f(along === "x" ? w : d)},${f(along === "x" ? d : w)});`);
     const ref = along === "x" ? dir3(1, 0, 0) : dir3(0, 1, 0);
-    const pl = ent(`SP:${x},${y},${z},${along}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x, y, z)},#${dir3(0, 0, 1)},#${ref});`);
-    return ent(`SOL:${x},${y},${z},${w},${d},${h},${along}`, (n) => `#${n}= IFCEXTRUDEDAREASOLID(#${prof},#${pl},#${dir3(0, 0, 1)},${f(h)});`);
+    // INCLINACIÓN (faldones/pares de cercha): el eje Z local se inclina tilt
+    // rad sobre X — el perfil queda tendido en el plano de la pendiente y la
+    // extrusión (h) es el espesor PERPENDICULAR. tilt>0 sube hacia +Y.
+    const t = Math.round(tilt * 1000) / 1000;
+    const pl = t
+      ? ent(`SPT:${x},${y},${z},${t}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x, y, z)},#${dir3(0, -Math.sin(t), Math.cos(t))},#${ref});`)
+      : ent(`SP:${x},${y},${z},${along}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x, y, z)},#${dir3(0, 0, 1)},#${ref});`);
+    return ent(`SOL:${x},${y},${z},${w},${d},${h},${along},${t}`, (n) => `#${n}= IFCEXTRUDEDAREASOLID(#${prof},#${pl},#${dir3(0, 0, 1)},${f(h)});`);
   };
 
   const axis2 = (x: number, y: number) => ent(`A2:${x},${y}`, (n) => `#${n}= IFCAXIS2PLACEMENT2D(#${pt2(x, y)},#${dir2(1, 0)});`);
@@ -438,8 +444,78 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       products.push(prod);
     }
 
-    // Losa de pisotecho (encima del nivel).
+    // ── CUBIERTA del nivel superior: los TÍTULO E van a DOS AGUAS
+    // CERCHADAS (E.3/E.6: cubierta liviana sobre cadenas — NORMA para
+    // mampostería confinada; antes dibujábamos losa plana, error). Sobre
+    // el último nivel: 2 faldones inclinados 30% + cerchas (@1.20) +
+    // cumbrera; entrepisos intermedios siguen en losa.
+    const CERCHADA = new Set(["mamposteria_confinada", "bahareque_encamisado", "madera", "guadua", "tierra", "acero_liviano"]);
+    const esCubierta = lvl === levels - 1 && CERCHADA.has(system);
+    if (esCubierta) {
+      const alero = 0.40;
+      const pitch = 0.30; // 30% — teja de barro (E.6.3)
+      const run = D / 2 + alero;
+      const rise = Math.round(run * pitch * 100) / 100;
+      const theta = Math.atan(pitch);
+      const slopeLen = Math.round(Math.hypot(run, rise) * 100) / 100;
+      const roofMatName = roofMatOf(system);
+      const cerchaMatName = system === "bahareque_encamisado" || system === "guadua" ? MATERIALS.guaduaMat : MATERIALS.maderaMat;
+      const pushRoof = (solid: number, matName: string, prod: number, name: string) => {
+        styled(solid, matName);
+        relAssoc(prod, material(matName), `RM:${name}`);
+      };
+      // Faldones (teja) — cumbrera PARALELA a X (la larga).
+      for (const lado of ["sur", "norte"] as const) {
+        const up = lado === "sur" ? 1 : -1; // sur sube hacia +Y, norte hacia -Y
+        const cy = lado === "sur" ? D / 4 - alero / 2 : (3 * D) / 4 + alero / 2;
+        const cz = fft + rise / 2;
+        const solid = solidBox(W / 2, cy, cz, W + 2 * alero, slopeLen, 0.06, "x", theta * up);
+        const prd = shapeRep(solid, `RF${lado}${z0}`);
+        const pl = ent(`RFPL:${lado},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+        const prod = id();
+        lines.push(`#${prod}= IFCSLAB('${guid(`RF${lado}${lvl}`)}',#${owner},'Cubierta teja dos aguas — faldón ${lado} 30%',$,$,#${pl},#${prd},$,.ROOF.);`);
+        pushRoof(solid, roofMatName, prod, `faldon${lado}`);
+        pset(prod, "Pset_ObraHub_5D6D", [["Fase", "Cubierta"], ["Codigo", "A-CUBT"], ["Pendiente", "30%"], ["Alero", "0.40 m"]], `P5RF:${lado}${lvl}`);
+        qto(prod, [["A", "Área faldón", (W + 2 * alero) * slopeLen]], `Q5RF:${lado}${lvl}`);
+        products.push(prod);
+      }
+      // Cumbrera + cerchas (tirante + 2 pares @1.20 m — madera aserrada o
+      // guadua según sistema): la estructura visible de la cubierta.
+      const cumb = solidBox(W / 2, D / 2, fft + rise, W + 2 * alero, 0.14, 0.20, "x");
+      const cumbPrd = shapeRep(cumb, `CB${z0}`);
+      const cumbPl = ent(`CBPL:${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+      const cumbP = id();
+      lines.push(`#${cumbP}= IFCBEAM('${guid(`CB${lvl}`)}',#${owner},'Cumbrera — ${cerchaMatName}',$,$,#${cumbPl},#${cumbPrd},$,.BEAM.);`);
+      pushRoof(cumb, cerchaMatName, cumbP, "cumbrera");
+      products.push(cumbP);
+      const nCerchas = Math.max(2, Math.floor((W - 0.6) / 1.2) + 1);
+      for (let k = 0; k < nCerchas; k++) {
+        const xc = 0.3 + (k * (W - 0.6)) / (nCerchas - 1);
+        // tirante (horizontal, eave a eave)
+        const tir = solidBox(xc, D / 2, fft + 0.15, 0.10, D + 2 * alero, 0.15, "y");
+        const tirPl = ent(`TIPL:${k},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+        const tirP = id();
+        lines.push(`#${tirP}= IFCBEAM('${guid(`TI${k},${lvl}`)}',#${owner},'Cercha ${cerchaMatName} — tirante @1.20',$,$,#${tirPl},#${shapeRep(tir, `TI${k},${z0}`)},$,.BEAM.);`);
+        pushRoof(tir, cerchaMatName, tirP, `tirante${k}`);
+        products.push(tirP);
+        // pares sur/norte (inclinados con el faldón)
+        for (const lado of ["sur", "norte"] as const) {
+          const up = lado === "sur" ? 1 : -1;
+          const cy = lado === "sur" ? D / 4 - alero / 2 : (3 * D) / 4 + alero / 2;
+          const par = solidBox(xc, cy, fft + rise / 2 + 0.12, 0.10, slopeLen, 0.15, "x", theta * up);
+          const parP = id();
+          const parPl = ent(`PAPL:${k},${lado},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+          lines.push(`#${parP}= IFCBEAM('${guid(`PA${k}${lado}${lvl}`)}',#${owner},'Cercha ${cerchaMatName} — par ${lado}',$,$,#${parPl},#${shapeRep(par, `PA${k}${lado}${z0}`)},$,.BEAM.);`);
+          pushRoof(par, cerchaMatName, parP, `par${k}${lado}`);
+          products.push(parP);
+        }
+      }
+    }
+    // Losa de pisotecho (encima del nivel) — entrepiso o sistemas no cerchados.
     const slabT = system === "acero_liviano" ? CONCRETE.slabLigera.thickness : CONCRETE.slab.thickness;
+    if (esCubierta) {
+      // sin losa plana en la corona: la cubierta cerchada la reemplaza
+    } else {
     const slabSolid = solidBox(W / 2, D / 2, fft, W, D, slabT, "x");
     // La losa del ÚLTIMO nivel se ve como CUBIERTA (teja de barro cafetera /
     // fibrocemento en steel framing) — realismo del paquete a la vista.
@@ -453,6 +529,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     pset(slab, "Pset_ObraHub_5D6D", [["Fase", "Estructura"], ["Codigo", "S-LOSA"], ["CO2e_kg", Math.round(slabVol * CO2_CONCRETO + slabVol * 100 * CO2_ACERO)], ["Fuente_CO2", "EPD LATAM · acero 100 kg/m3"]], `P5SL:${lvl}`);
     qto(slab, [["A", "Área losa", W * D], ["V", "Concreto m3", slabVol], ["W", "Acero kg", slabVol * 100]], `Q5SL:${lvl}`);
     products.push(slab);
+    }
 
     // Placa de piso nivel 0.
     if (lvl === 0 && FOUND) {

@@ -1241,7 +1241,45 @@ export function roofPlanPrimitives(plan: FloorPlan): Prim[] {
   const out: Prim[] = [];
   const { width: W, depth: D } = plan.outline;
   const L = "TEXTOS";
-  out.push({ t: "H", l: "MUROS", x: 0, y: 0, w: W, h: D });
+  // Sistemas con cubierta LIVIANA CERCHADA a dos aguas (Título E): la norma
+  // manda cubierta inclinada sobre cadenas — losa plana sólo en pórticos.
+  const CERCHADA = ["mamposteria_confinada", "bahareque_encamisado", "madera", "guadua", "tierra", "acero_liviano"].includes(plan.structure?.system ?? "");
+  if (CERCHADA) {
+    const alero = 0.40, pitch = 30;
+    out.push({ t: "H", l: "MOBILIARIO", x: -alero, y: -alero, w: W + 2 * alero, h: D + 2 * alero }); // alero
+    out.push({ t: "H", l: "MUROS", x: 0, y: 0, w: W, h: D });
+    out.push({ t: "L", l: "CORTE", x1: -alero, y1: D / 2, x2: W + alero, y2: D / 2 }); // CUMBRERA
+    out.push({ t: "T", l: L, x: W / 2 - 1.3, y: D / 2 + 0.22, h: 0.17, s: "CUMBRERA" });
+    // cerchas transversales @1.20 (líneas discontinuas bajo la teja)
+    const n = Math.max(2, Math.floor((W - 0.6) / 1.2) + 1);
+    for (let k = 0; k < n; k++) {
+      const xc = 0.3 + (k * (W - 0.6)) / (n - 1);
+      out.push({ t: "L", l: "MOBILIARIO", x1: xc, y1: -alero, x2: xc, y2: D + alero, thin: true, dash: true });
+    }
+    // flechas de pendiente (una por faldón, desde la cumbrera hacia el alero)
+    for (const ty of [D * 0.25, D * 0.75]) {
+      const down = ty < D / 2 ? -1 : 1;
+      out.push({ t: "L", l: L, x1: W / 2, y1: D / 2 + (down < 0 ? -0.1 : 0.1), x2: W / 2, y2: ty });
+      out.push({ t: "L", l: L, x1: W / 2 - 0.14, y1: ty + down * 0.12, x2: W / 2, y2: ty });
+      out.push({ t: "L", l: L, x1: W / 2 + 0.14, y1: ty + down * 0.12, x2: W / 2, y2: ty });
+      out.push({ t: "T", l: L, x: W / 2 + 0.24, y: ty - 0.3, h: 0.16, s: pitch + "%" });
+    }
+    // bajantes (BJS) en esquinas opuestas
+    for (const [bx, by] of [[-alero + 0.15, -alero + 0.15], [W + alero - 0.15, D + alero - 0.15]] as Array<[number, number]>) {
+      out.push({ t: "H", l: L, x: bx - 0.08, y: by - 0.08, w: 0.16, h: 0.16 });
+      out.push({ t: "T", l: L, x: bx - 0.32, y: by + 0.32, h: 0.14, s: "BJS 3in" });
+    }
+    out.push({ t: "T", l: L, x: -alero, y: D + alero + 0.55, h: 0.17, s: "CERCHA MADERA 2×6\" @1.20 m — CUBIERTA LIVIANA (NSR-10 E.3/E.6, NO diafragma)" });
+    out.push({ t: "T", l: L, x: -alero, y: D + alero + 0.22, h: 0.17, s: "TEJA DE BARRO SOBRE ENTABLADURA · ALERO 0.40 m" });
+    dimChain("COTAS", [-alero, W + alero], -alero - 0.7, out);
+    out.push({ t: "T", l: "COTAS", x: W / 2 - 0.22, y: -alero - 1.15, h: 0.18, s: fmt(W + 2 * alero) });
+    out.push({ t: "L", l: "COTAS", x1: -alero - 0.7, y1: -alero, x2: -alero - 0.7, y2: D + alero });
+    out.push({ t: "L", l: "COTAS", x1: -alero - 0.77, y1: -alero - 0.07, x2: -alero - 0.63, y2: -alero + 0.07 });
+    out.push({ t: "L", l: "COTAS", x1: -alero - 0.77, y1: D + alero - 0.07, x2: -alero - 0.63, y2: D + alero + 0.07 });
+    out.push({ t: "T", l: "COTAS", x: -alero - 1.17, y: D / 2, h: 0.18, s: fmt(D + 2 * alero), r: 90 });
+    out.push({ t: "T", l: L, x: 0, y: D + alero + 1.35, h: 0.26, s: "PLANTA DE CUBIERTA INCLINADA — DOS AGUAS · CERCHADA" });
+    return out;
+  }
   const cx = W / 2, cy = D / 2;
   // Flechas de pendiente: las del EJE X (a cy) rotulan DEBAJO de la flecha
   // para no invadir el título central (colisión medida por el QA plot).
