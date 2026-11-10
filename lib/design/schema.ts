@@ -419,27 +419,56 @@ export function rederiveDoors(rooms: Room[], raw: Door[], W: number, D: number, 
  *  por el eje de menor invasión). El que queda < 0.9 m de lado se DROPS
  *  (mejor un espacio menos que un plano imposible). Resultado garantizado:
  *  cero traslapes en la salida. */
-function resolveOverlaps(rooms: Room[]): Room[] {
-  const min = 0.9;
+/** Resuelve SOLAPAMIENTOS entre espacios — el plano BIM jamás muestra un
+ *  cuarto encima de otro, venga del modelo que venga (GPT-4.1 arma
+ *  programas ricos y a veces se pisa; el motor lo separa SIEMPRE).
+ *  Determinista: grandes primero; cada pieza se EMPUJA por el eje de menor
+ *  invasión (una u otra dirección, la que quede dentro del outline y no
+ *  choque con otro fijo); si no cabe, se ADELGAZA; si tras 12 intentos
+ *  sigue en conflicto, se DESCARTA (mejor un espacio menos que un plano
+ *  imposible). */
+function resolveOverlaps(rooms: Room[], W = 60, D = 60): Room[] {
+  const MIN = 0.9;
+  // Baños necesitan lado mayor (el gate lo exige): el adelgazamiento lo
+  // respeta — si no cabe así, la pieza se descarta.
+  const minFor = (r: Room) => (/ba[nñ]o|bano/i.test(r.type + " " + r.name) ? 1.35 : MIN);
+  const TOL = 0.12; // m² de solape tolerado (muros compartidos ≈ 0)
+  const area = (r: Room) => r.width * r.depth;
+  const overlap = (a: Room, b: Room) => {
+    const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+    const oy = Math.min(a.y + a.depth, b.y + b.depth) - Math.max(a.y, b.y);
+    return ox > 0.03 && oy > 0.03 ? ox * oy : 0;
+  };
+  const inside = (r: Room) => r.x >= -0.02 && r.y >= -0.02 && r.x + r.width <= W + 0.02 && r.y + r.depth <= D + 0.02;
   const out: Room[] = [];
-  for (const r of rooms) {
+  for (const r of [...rooms].sort((a, b) => area(b) - area(a))) {
     let room = { ...r };
-    for (const fixed of out) {
-      if (fixed.level !== room.level) continue;
-      const ox = Math.min(fixed.x + fixed.width, room.x + room.width) - Math.max(fixed.x, room.x);
-      const oy = Math.min(fixed.y + fixed.depth, room.y + room.depth) - Math.max(fixed.y, room.y);
-      if (ox > 0.05 && oy > 0.05) {
-        // Recortar por el eje de menor invasion.
-        if (ox <= oy) {
-          if (room.x + room.width / 2 < fixed.x + fixed.width / 2) room = { ...room, width: Math.max(min, room.width - ox), x: fixed.x - Math.max(min, room.width - ox) };
-          else room = { ...room, width: Math.max(min, room.width - ox), x: fixed.x + fixed.width };
-        } else {
-          if (room.y + room.depth / 2 < fixed.y + fixed.depth / 2) room = { ...room, depth: Math.max(min, room.depth - oy), y: fixed.y - Math.max(min, room.depth - oy) };
-          else room = { ...room, depth: Math.max(min, room.depth - oy), y: fixed.y + fixed.depth };
-        }
+    let guard = 0;
+    while (guard++ < 12) {
+      const hit = out.find((f) => f.level === room.level && overlap(f, room) > TOL);
+      if (!hit) break;
+      const ox = Math.min(hit.x + hit.width, room.x + room.width) - Math.max(hit.x, room.x);
+      const oy = Math.min(hit.y + hit.depth, room.y + room.depth) - Math.max(hit.y, room.y);
+      const cands: Room[] = [];
+      if (ox <= oy) {
+        cands.push({ ...room, x: room.x - ox - 0.01 }, { ...room, x: room.x + ox + 0.01 });
+        // sin hueco a ningún lado → adelgazar
+        cands.push({ ...room, x: room.x + room.width / 2 < hit.x + hit.width / 2 ? hit.x - room.width - 0.01 : hit.x + hit.width + 0.01 });
+        cands.push({ ...room, width: Math.max(minFor(room), room.width - ox) });
+      } else {
+        cands.push({ ...room, y: room.y - oy - 0.01 }, { ...room, y: room.y + oy + 0.01 });
+        cands.push({ ...room, y: room.y + room.depth / 2 < hit.y + hit.depth / 2 ? hit.y - room.depth - 0.01 : hit.y + hit.depth + 0.01 });
+        cands.push({ ...room, depth: Math.max(minFor(room), room.depth - oy) });
       }
+      const viable = cands.find((c) =>
+        c.width >= minFor(c) && c.depth >= MIN && inside(c) &&
+        !out.some((f) => f.level === c.level && overlap(f, c) > TOL));
+      if (!viable) break; // se intenta en la próxima pasada o se descarta
+      room = viable;
     }
-    if (room.width >= min && room.depth >= min) out.push(room);
+    if (room.width >= minFor(room) && room.depth >= MIN && !out.some((f) => f.level === room.level && overlap(f, room) > TOL)) {
+      out.push(room);
+    }
   }
   return out;
 }
@@ -498,7 +527,7 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
   // compartida entre los espacios. Se acabaron las puertas random.
   // ANTI-SOLAPE garantizado antes de derivar puertas (las aristas
   // compartidas salen de geometria YA limpia).
-  rooms = resolveOverlaps(rooms);
+  rooms = resolveOverlaps(rooms, outlineW, outlineD);
   const doors = rederiveDoors(rooms, rawDoors, outlineW, outlineD, wallExt);
 
   const windowsRaw = Array.isArray(o.windows) ? o.windows.slice(0, 80) : [];
