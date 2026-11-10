@@ -52,6 +52,19 @@ export const WALL_ASSEMBLIES: Record<StructuralSystem, { ext: WallAssembly; int:
       layers: [{ name: "Tablero yeso + perfil C 70 + aislante", thickness: 0.09 }],
     },
   },
+  // TÍTULO F: muro cortina ligero sobre pórtico de acero (panel + lana +
+  // panel — el pórtico es el sistema; la envolvente va aparte).
+  acero_estructural: {
+    ext: {
+      label: "Envolvente panel metálico s/pórtico F",
+      layers: [
+        { name: "Panel metálico prepintado 0.5mm", thickness: 0.005 },
+        { name: "Lana de vidrio 50mm + aire", thickness: 0.055 },
+        { name: "Panel yeso-cemento 10mm", thickness: 0.010 },
+      ],
+    },
+    int: { label: "División drywall s/pórtico", layers: [{ name: "Tablero yeso doble 12.7mm", thickness: 0.025 }] },
+  },
   madera: {
     ext: {
       label: "Muro timber frame",

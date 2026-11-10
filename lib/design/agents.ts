@@ -136,12 +136,16 @@ SKILL 1 — VIVIENDA de 1-2 pisos, NSR-10 TÍTULO E, DOS sistemas:
   ambas caras — trabaja como diafragma estructural, NO lleva pórticos de
   concreto ni columnas RC: los encuentros de la retícula son nodos de
   guadua sobre pedestales/zapatas menores.
-Los demás sistemas (pórticos concreto/acero, timberframe) son de skills
-futuras — NO los propongas para vivienda de 1-2 pisos.
+GAMA ALTA del skill (sólo si el ENCARGO lo pide — la regla vinculante manda):
+· "concreto" (TÍTULO C): pórticos resistentes a momento — columnas y vigas
+  RC con refuerzo; muros sólo relleno.
+· "acero_estructural" (TÍTULO F): pórticos en perfil I + RIOSTRAS con
+  pletinas y pernos (uniones articuladas — F.4); envolvente ligera.
+· "madera": pórticos timber/guadua con uniones empernadas.
 
 Responde SOLO este JSON:
 {
-  "system": "mamposteria_confinada|bahareque_encamisado",
+  "system": "mamposteria_confinada|bahareque_encamisado|concreto|acero_estructural|madera",
   "justification": "decisión + razones NSR-10 (cita capítulos: A.1 cargas, A.3 sismo, C.11 viento, E.3 confinada, E.7 bahareque, G.12 guadua…)",
   "axes": [ { "id": "A", "orientation": "vertical", "at": 0.0 }, { "id": "B", "orientation": "vertical", "at": 4.0 }, { "id": "1", "orientation": "horizontal", "at": 0.0 } ],
   "spanWarnings": [ "luz libre de X supera lo sano para el sistema — ver adaptación" ],

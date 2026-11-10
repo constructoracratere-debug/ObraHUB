@@ -87,6 +87,7 @@ const byKeyword: Array<[RegExp, Mat3D]> = [
   [/porcelana|inodoro|lavamanos|sanitario/i, MAT3D["Porcelana sanitaria"]],
   [/sof[aá]|cama|silla|comedor|mesa|tapiz|alfombra/i, MAT3D["Tela tapiz"]],
   [/closet|mostrador|escritorio|tv|mueble|lavadero/i, MAT3D["Mueble de madera"]],
+  [/pletina|perno|riostra|perfil i|gusset|anclaje|a325|refuerzo Ø|acero estructural/i, MAT3D[MATERIALS.acero]],
   [/excavaci|tierra removida|desplante/i, MAT3D["Excavación en tierra (Df 1.50)"]],
   [/teja|cubierta/i, MAT3D["Teja de barro"]],
 ];

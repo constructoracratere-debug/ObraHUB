@@ -31,9 +31,10 @@ export type WallSide = "norte" | "sur" | "este" | "oeste";
 export type StructuralSystem =
   | "mamposteria_confinada" // SKILL 1 · NSR-10 E.3 (viviendas 1-2 pisos)
   | "bahareque_encamisado"  // SKILL 1 · NSR-10 E.7 (viviendas 1-2 pisos)
-  | "concreto"
+  | "concreto"              // NSR-10 Título C · pórticos RC (gama alta skill)
+  | "acero_estructural"     // NSR-10 Título F · pórticos I + riostras
+  | "madera"                // timber/guadua frame (como F en madera)
   | "acero_liviano"
-  | "madera"
   | "guadua"
   | "tierra"
   | "mixto";
@@ -244,7 +245,8 @@ const ELEC_KINDS: ElectricalDevice[] = [
 
 const SYSTEMS: StructuralSystem[] = [
   "mamposteria_confinada", "bahareque_encamisado",
-  "concreto", "acero_liviano", "madera", "guadua", "tierra", "mixto",
+  "concreto", "acero_estructural", "madera",
+  "acero_liviano", "guadua", "tierra", "mixto",
 ];
 
 /** NORMALIZA el nombre de un sistema estructural por INTENCIÓN — el LLM y
@@ -266,7 +268,8 @@ export function normalizeSystem(raw: unknown): StructuralSystem | null {
   if (/guadua|bamboo|bambu/.test(s)) return "guadua";
   if (/confin|mamposter|ladrillo/.test(s)) return "mamposteria_confinada";
   if (/timber|frame de madera|madera/.test(s)) return "madera";
-  if (/steel|acero|metalico/.test(s)) return "acero_liviano";
+  if (/titulo f|estructural en acero|acero estructural|portico en acero|perfil i|pórtico met/i.test(s)) return "acero_estructural";
+  if (/steel framing|acero liviano|metallico|metalico|steel/.test(s)) return "acero_liviano";
   if (/tierra|tapia|adobe|cted|earth/.test(s)) return "tierra";
   if (/portico|concreto|concret|cemento|rc\b/.test(s)) return "concreto";
   if (/mixto|hibrido/.test(s)) return "mixto";
@@ -699,9 +702,10 @@ export const ROOM_COLORS: Record<RoomType, string> = {
 export const STRUCTURE_LABELS: Record<StructuralSystem, string> = {
   mamposteria_confinada: "Mampostería confinada (NSR-10 E.3)",
   bahareque_encamisado: "Bahareque encamisado (NSR-10 E.7)",
-  concreto: "Concreto estructural",
+  concreto: "Pórticos en concreto armado (NSR-10 Título C)",
+  acero_estructural: "Pórticos en acero estructural (NSR-10 Título F)",
+  madera: "Pórticos en madera/guadua (timber frame)",
   acero_liviano: "Acero liviano (steel framing)",
-  madera: "Timber frame (madera)",
   guadua: "Guadua (bamboo)",
   tierra: "Tierra (bahareque/tapia)",
   mixto: "Mixto",

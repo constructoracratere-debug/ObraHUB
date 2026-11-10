@@ -113,6 +113,19 @@ export function memoriaPrimitives(plan: FloorPlan): Prim[] {
       "encamisado cemento-arena + malla ambas caras. SIN pórticos",
       "RC: nodos de guadua sobre pedestales/zapatas menores.",
     ],
+    concreto: [
+      "TÍTULO C · PÓRTICOS RC — columnas y vigas",
+      "armadas 4Ø5/8 + estribos (S-05).",
+    ],
+    acero_estructural: [
+      "TÍTULO F · ACERO A36 — pórticos PERFIL I +",
+      "RIOSTRAS L; PLETINAS e=8 y PERNOS A325 Ø5/8",
+      "(F.4); placas base e=12 con anclajes.",
+    ],
+    madera: [
+      "TIMBER/GUADUA — postes y vigas dobles",
+      "con pletinas/pernos en cada nudo.",
+    ],
   };
   const comp = COMPOSICION[sys];
   if (comp) {

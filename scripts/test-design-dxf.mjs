@@ -281,6 +281,24 @@ const ifcMam = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPl
 const ifcBah = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "bahareque_encamisado" } }));
 check("IFC materiales E.3: mampostería confinada → muros LADRILLO + cubierta TEJA + confinamiento CONCRETO", ifcMam.includes("IFCSURFACESTYLE('Ladrillo cerámico H-10'") && ifcMam.includes("IFCSURFACESTYLE('Teja de barro'") && !/Columna eje[^\n]*Madera/.test(ifcMam) && ifcMam.includes("IFCSURFACESTYLE('Concreto estructural 3000 PSI'"));
 check("IFC materiales E.7: bahareque encamisado → diafragma de GUADUA + esterilla + arcilla (sin ladrillo ni madera aserrada)", ifcBah.includes("IFCSURFACESTYLE('Guadua angustifolia tratada'") && ifcBah.includes("Esterilla de guadua") && ifcBah.includes("arcilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo") && !/Columna eje[^\n]*Madera aserrada/.test(ifcBah));
+check("LIBRERÍA ESTRUCTURAL 3D × sistema (nivel Revit): F con perfil I + pletinas + pernos y riostras · C/E.3 con rebar · E.7 con guadua hueca · timber empernado", (() => {
+  const mk = (sys) => planToIfcFn(sanitizeFloorPlan({ ...rawPlan, levels: 1, structure: { ...rawPlan.structure, system: sys } }));
+  const ac = mk("acero_estructural");
+  const con = mk("concreto");
+  const bah = mk("bahareque_encamisado");
+  const mad = mk("madera");
+  return ac.includes("IFCISHAPEPROFILEDEF") && /Pletina 260x260 e=8/.test(ac) && /Perno A325 Ø5\/8 pletina/.test(ac) && ac.includes("Riostra L 2x2 A36")
+    && con.includes("IFCREINFORCINGBAR") && /Refuerzo Ø5\/8 Columna/.test(con)
+    && bah.includes("IFCCIRCLEHOLLOWPROFILEDEF") && /Montante guadua Ø10/.test(bah) && /Solera (inferior|superior) guadua/.test(bah) && /Riostra guadua diafragma/.test(bah)
+    && /Pletina nudo/.test(mad) && /Perno nudo/.test(mad);
+})());
+check("anti-alucinación gama alta: 'acero estructural título F' → acero_estructural · 'timberframe' → madera", (() => {
+  const norm = req(path.join(tmp, "design", "schema.js")).normalizeSystem;
+  return norm("porticos en acero estructural titulo F con riostras") === "acero_estructural"
+    && norm("casa timberframe") === "madera"
+    && norm("pórtico de concreto armado") === "concreto";
+})());
+
 check("IFC capas E.7 reales (encamisado cemento + esterilla + guadua + arcilla)", /IFCMATERIALLAYER\(#[0-9]+,0\.1[0-9]?,\$,'Guadua angustifolia tratada: montantes y riostras'/.test(ifcBah) && ifcBah.includes("Encamisado exterior: mortero cemento-arena"));
 check("vanos DENTRO de muros (fix flotantes): ventana x=99 se clampa al muro de su espacio y puerta de esquina snapea a un muro real", (() => {
   const ventanas = sanitizeFloorPlan({

@@ -217,6 +217,34 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     return ent(`SOL:${x},${y},${z},${w},${d},${h},${along},${t}`, (n) => `#${n}= IFCEXTRUDEDAREASOLID(#${prof},#${pl},#${dir3(0, 0, 1)},${f(h)});`);
   };
 
+  // ── LIBRERÍA ESTRUCTURAL 3D (nivel Revit/CivilCAD) ────────────────────
+  // Perfiles reales por sistema: I (Título F), L (riostras), CÍRCULO HUECO
+  // (guadua G.12), círculo (pernos/refuerzo). Extrusión con dirección
+  // libre (miembros verticales, horizontales y DIAGONALES).
+  const profileI = (tag: string, D: number, B: number, tw: number, tf: number) =>
+    ent(`PI:${tag}`, (n) => `#${n}= IFCISHAPEPROFILEDEF(.AREA.,'I ${tag}',#${axis2(0, 0)},${f(D)},${f(B)},${f(tw)},${f(tf)},$,$,$);`);
+  const profileL = (tag: string, d: number, t: number) =>
+    ent(`PLG:${tag}`, (n) => `#${n}= IFCLSHAPEPROFILEDEF(.AREA.,'L ${tag}',#${axis2(0, 0)},${f(d)},${f(d)},${f(t)},$,$,$,$);`);
+  const profileCH = (tag: string, D: number, t: number) =>
+    ent(`PCH:${tag}`, (n) => `#${n}= IFCCIRCLEHOLLOWPROFILEDEF(.AREA.,'Guadua ${tag}',#${axis2(0, 0)},${f(D)},${f(t)},$);`);
+  const profileC = (tag: string, D: number) =>
+    ent(`PC:${tag}`, (n) => `#${n}= IFCCIRCLEPROFILEDEF(.AREA.,'Circ ${tag}',#${axis2(0, 0)},${f(D)},$);`);
+  /** Miembro por extrusión de perfil en dirección libre (z | x | y). */
+  const member = (prof: number, x: number, y: number, z: number, dir: "z" | "x" | "y", len: number, tag: string) => {
+    const ax = dir === "z" ? dir3(0, 0, 1) : dir === "x" ? dir3(1, 0, 0) : dir3(0, 1, 0);
+    const rf = dir === "z" ? dir3(1, 0, 0) : dir3(0, 0, 1);
+    const pl = ent(`MPL:${tag}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x, y, z)},#${ax},#${rf});`);
+    return ent(`MSOL:${tag}`, (n) => `#${n}= IFCEXTRUDEDAREASOLID(#${prof},#${pl},#${dir3(0, 0, 1)},${f(len)});`);
+  };
+  /** Miembro DIAGONAL entre dos puntos (riostras): eje = p2−p1. */
+  const memberDiag = (prof: number, x1: number, y1: number, z1: number, x2: number, y2: number, z2: number, tag: string) => {
+    const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+    const L = Math.hypot(dx, dy, dz) || 1;
+    const ax = ent(`DAX:${tag}`, (n) => `#${n}= IFCDIRECTION((${f(dx / L)},${f(dy / L)},${f(dz / L)}));`);
+    const rf = Math.abs(dz / L) > 0.99 ? dir3(1, 0, 0) : dir3(0, 0, 1);
+    const pl = ent(`DPL:${tag}`, (n) => `#${n}= IFCAXIS2PLACEMENT3D(#${pt3(x1, y1, z1)},#${ax},#${rf});`);
+    return ent(`DSOL:${tag}`, (n) => `#${n}= IFCEXTRUDEDAREASOLID(#${prof},#${pl},#${dir3(0, 0, 1)},${f(L)});`);
+  };
   const axis2 = (x: number, y: number) => ent(`A2:${x},${y}`, (n) => `#${n}= IFCAXIS2PLACEMENT2D(#${pt2(x, y)},#${dir2(1, 0)});`);
 
   const shapeRep = (solid: number, tag: string) => {
@@ -415,6 +443,25 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       }
     }
 
+  /** Parte estructural genérica: clase IFC + material + estilo, en un storey. */
+    let partN = 0;
+    const part = (solid: number, entity: string, name: string, matName: string, tail: string) => {
+      styled(solid, matName);
+      const prd = shapeRep(solid, `SPR:${name}`);
+      const pl = ent(`SPPL:${name}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+      const p = id();
+      lines.push(`#${p}= ${entity}('${guid(`SP${partN++}:${name}`)}',#${owner},'${esc(name)}',$,$,#${pl},#${prd},${tail});`);
+      relAssoc(p, material(matName), `SPM:${name}`);
+      products.push(p);
+      return p;
+    };
+    const placa = (x: number, y: number, z: number, w: number, d: number, h: number, name: string, matName = MATERIALS.acero) =>
+      part(solidBox(x, y, z, w, d, h, "x"), "IFCPLATE", name, matName, "$,.SHEET.");
+    const perno = (x: number, y: number, z: number, dir: "z" | "x" | "y", len: number, name: string, r = 0.008) =>
+      part(member(profileC(`PB${r}`, r * 2), x, y, z, dir, len, `PB:${name}`), "IFCMECHANICALFASTENER", name, MATERIALS.acero, `$,${f(r * 2)},${f(len)},${/Anclaje/.test(name) ? ".ANCHORBOLT." : ".BOLT."}`);
+    const rebar = (x: number, y: number, z: number, dir: "z" | "x" | "y", len: number, name: string, r = 0.008) =>
+      part(member(profileC(`RB${r}`, r * 2), x, y, z, dir, len, `RB:${name}`), "IFCREINFORCINGBAR", name, MATERIALS.acero, `$,'A615-G60',${f(r * 2)},$,${f(len)},.MAIN.,$`);
+
     // Columnas en intersecciones de la retícula + vigas sobre ejes.
     const axes = plan.structure?.axes ?? [];
     const vs = axes.filter((a) => a.orientation === "vertical").map((a) => a.at);
@@ -445,20 +492,133 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       return prod;
     };
 
+    // Pórtico I (F) y timber/guadua tienen su PROPIA librería — el esqueleto
+    // en caja es de los sistemas RC.
+    const steelFrame = system === "acero_estructural";
+    const timberFrame = system === "madera" || system === "guadua";
+    const nodes: Array<[number, number]> = [];
     for (const x of vs.length ? vs : [te, W - te]) {
       if (x < 0.05 || x > W - 0.05) continue;
       for (const y of hs.length ? hs : [te, D - te]) {
         if (y < 0.05 || y > D - 0.05) continue;
-        columnAt(x, y);
+        nodes.push([x, y]);
+        if (!steelFrame && !timberFrame) columnAt(x, y);
       }
     }
+
+    // ══ TÍTULO F · ACERO ESTRUCTURAL: pórticos I + RIOSTRAS + PLETINAS +
+    // ══ PERNOS + placas base con anclajes (uniones articuladas — F.4).
+    if (steelFrame) {
+      const Icol = profileI("COL", 0.16, 0.16, 0.008, 0.012);
+      const Ivig = profileI("VIG", 0.20, 0.10, 0.006, 0.009);
+      const Lrio = profileL("RIO", 0.05, 0.005);
+      for (const [x, y] of nodes) {
+        part(member(Icol, x, y, 0, "z", fft, `SC:${x},${y}`), "IFCCOLUMN", `Columna I A36 (${f(x)},${f(y)}) N${lvl + 1} — Título F`, MATERIALS.acero, "$,.COLUMN.");
+        placa(x, y, 0, 0.22, 0.22, 0.012, `Placa base (${f(x)},${f(y)}) e=12`);
+        perno(x - 0.05, y, -0.28, "z", 0.42, `Anclaje A325 Ø5/8 base (${f(x)},${f(y)})-A`, 0.008);
+        perno(x + 0.05, y, -0.28, "z", 0.42, `Anclaje A325 Ø5/8 base (${f(x)},${f(y)})-B`, 0.008);
+      }
+      const vx = nodes.map(([x]) => x).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
+      const hy = nodes.map(([, y]) => y).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
+      for (const y of hy) part(member(Ivig, vx[0], y, fft - 0.20, "x", vx[vx.length - 1] - vx[0], `SVx:${y}`), "IFCBEAM", `Viga I A36 eje y=${f(y)} N${lvl + 1} — Título F`, MATERIALS.acero, "$,.BEAM.");
+      for (const x of vx) part(member(Ivig, x, hy[0], fft - 0.20, "y", hy[hy.length - 1] - hy[0], `SVy:${x}`), "IFCBEAM", `Viga I A36 eje x=${f(x)} N${lvl + 1} — Título F`, MATERIALS.acero, "$,.BEAM.");
+      // Riostras en vanos perimetrales (alternadas) con pletina + 2 pernos
+      // en cada extremo: la unión articulada de la norma.
+      const riostra = (x1: number, y1: number, x2: number, y2: number, tag: string) => {
+        part(memberDiag(Lrio, x1, y1, 0.20, x2, y2, fft - 0.25, `RD:${tag}`), "IFCMEMBER", `Riostra L 2x2 A36 (${tag}) N${lvl + 1}`, MATERIALS.acero, "$,.BRACE.");
+        for (const [px, py, pz] of [[x1, y1, 0.35], [x2, y2, fft - 0.45]] as Array<[number, number, number]>) {
+          const vertical = x1 === x2; // vano en plano YZ → pletina normal a X
+          placa(px, vertical ? px : px, py, vertical ? 0.008 : 0.26, vertical ? 0.26 : 0.008, 0.26, `Pletina 260x260 e=8 (${f(px)},${f(py)}) ${tag}`);
+          perno(px, py, pz - 0.06, "z", 0.06, `Perno A325 Ø5/8 pletina (${f(px)},${f(py)}) ${tag}a`, 0.008);
+          perno(px, py, pz + 0.06, "z", 0.06, `Perno A325 Ø5/8 pletina (${f(px)},${f(py)}) ${tag}b`, 0.008);
+        }
+      };
+      for (let i = 0; i + 1 < vx.length; i++) {
+        if (i % 2 === 0) { riostra(vx[i], hy[0], vx[i + 1], hy[0], `S${i}`); riostra(vx[i], hy[hy.length - 1], vx[i + 1], hy[hy.length - 1], `N${i}`); }
+        else { riostra(vx[i + 1], hy[0], vx[i], hy[0], `S${i}`); riostra(vx[i], hy[hy.length - 1], vx[i + 1], hy[hy.length - 1], `N${i}`); }
+      }
+      for (let j = 0; j + 1 < hy.length; j++) {
+        if (j % 2 === 0) { riostra(vx[0], hy[j], vx[0], hy[j + 1], `O${j}`); riostra(vx[vx.length - 1], hy[j], vx[vx.length - 1], hy[j + 1], `E${j}`); }
+        else { riostra(vx[0], hy[j + 1], vx[0], hy[j], `O${j}`); riostra(vx[vx.length - 1], hy[j + 1], vx[vx.length - 1], hy[j], `E${j}`); }
+      }
+    }
+
+    // ══ TIMBER / GUADUA: pórticos como F pero en madera aserrada o guadua
+    // ══ hueca (G.12), con pletinas y pernos en cada nudo.
+    if (timberFrame) {
+      const guadua = system === "guadua";
+      const post = guadua ? profileCH("POST", 0.10, 0.018) : null;
+      for (const [x, y] of nodes) {
+        if (guadua) part(member(post!, x, y, 0, "z", fft, `TP:${x},${y}`), "IFCCOLUMN", `Poste guadua Ø10cm (${f(x)},${f(y)}) N${lvl + 1} — G.12`, MATERIALS.guaduaMat, "$,.COLUMN.");
+        else part(solidBox(x, y, 0, 0.15, 0.15, fft, "x"), "IFCCOLUMN", `Columna madera 15x15 (${f(x)},${f(y)}) N${lvl + 1}`, MATERIALS.maderaMat, "$,.COLUMN.");
+        placa(x, y, fft - 0.24, 0.12, 0.12, 0.006, `Pletina nudo (${f(x)},${f(y)}) N${lvl + 1}`, MATERIALS.acero);
+        perno(x, y - 0.04, fft - 0.20, "x", 0.10, `Perno nudo (${f(x)},${f(y)}) N${lvl + 1}a`, 0.006);
+        perno(x, y + 0.04, fft - 0.20, "x", 0.10, `Perno nudo (${f(x)},${f(y)}) N${lvl + 1}b`, 0.006);
+      }
+      const vx = nodes.map(([x]) => x).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
+      const hy = nodes.map(([, y]) => y).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
+      const viga = (x: number, y: number, dir: "x" | "y", len: number, off: number, tag: string) => {
+        if (guadua) part(member(profileCH(`VG${off}`, 0.10, 0.018), dir === "x" ? x : x + off, dir === "x" ? y + off : y, fft - 0.12, dir, len, `TV:${tag}`), "IFCBEAM", `Viga doble guadua Ø10 (${tag}) N${lvl + 1}`, MATERIALS.guaduaMat, "$,.BEAM.");
+        else part(solidBox(dir === "x" ? x : x + off, dir === "x" ? y + off : y, fft - 0.20, dir === "x" ? len : 0.15, dir === "x" ? 0.15 : len, 0.20, dir === "x" ? "x" : "y"), "IFCBEAM", `Viga madera 15x20 (${tag}) N${lvl + 1}`, MATERIALS.maderaMat, "$,.BEAM.");
+      };
+      for (const y of hy) { const L = vx[vx.length - 1] - vx[0]; viga(vx[0], y, "x", L, -0.055, `x${y}A`); viga(vx[0], y, "x", L, 0.055, `x${y}B`); }
+      for (const x of vx) { const L = hy[hy.length - 1] - hy[0]; viga(x, hy[0], "y", L, -0.055, `y${x}A`); viga(x, hy[0], "y", L, 0.055, `y${x}B`); }
+      // Riostras de madera redonda / guadua en el perímetro.
+      const rioMat = guadua ? MATERIALS.guaduaMat : MATERIALS.maderaMat;
+      const rioProf = guadua ? profileCH("RIOT", 0.08, 0.015) : profileC("RIOM", 0.08);
+      for (let i = 0; i + 1 < vx.length; i += 2) {
+        part(memberDiag(rioProf, vx[i], hy[0], 0.15, vx[i + 1], hy[0], fft - 0.25, `TRDS${i}`), "IFCMEMBER", `Riostra ${guadua ? "guadua" : "madera Ø8"} (S${i}) N${lvl + 1}`, rioMat, "$,.BRACE.");
+        part(memberDiag(rioProf, vx[i], hy[hy.length - 1], 0.15, vx[i + 1], hy[hy.length - 1], fft - 0.25, `TRDN${i}`), "IFCMEMBER", `Riostra ${guadua ? "guadua" : "madera Ø8"} (N${i}) N${lvl + 1}`, rioMat, "$,.BRACE.");
+      }
+    }
+
+    // ══ REFUERZO REAL (Título C y E.3): 4Ø5/8 + 2Ø3/8 en cada columna de
+    // ══ concreto del retículo (los estribos viajan en los despieces S-05).
+    if (system === "concreto" || system === "mamposteria_confinada") {
+      for (const [x, y] of nodes) {
+        for (const [dx, dy] of [[-0.09, -0.09], [0.09, -0.09], [-0.09, 0.09], [0.09, 0.09]] as Array<[number, number]>) {
+          rebar(x + dx, y + dy, 0, "z", fft, `Refuerzo Ø5/8 Columna (${f(x)},${f(y)}) N${lvl + 1}${dx > 0 ? "E" : "O"}${dy > 0 ? "N" : "S"}`, 0.0079);
+        }
+      }
+    }
+
+    // ══ BAHAREQUE E.7 · DIAFRAGMA de guadua en los MUROS: montantes @0.45,
+    // ══ soleras dobles (abajo/arriba) y riostras — la pared ES estructura.
+    if (system === "bahareque_encamisado") {
+      const CHg = profileCH("MONT", 0.10, 0.018);
+      const CHs = profileCH("SOL", 0.10, 0.018);
+      const muros: Array<{ along: "x" | "y"; a: number; b: number; c: number }> = [
+        { along: "x", a: te, b: W - te, c: te / 2 }, { along: "x", a: te, b: W - te, c: D - te / 2 },
+        { along: "y", a: te, b: D - te, c: te / 2 }, { along: "y", a: te, b: D - te, c: W - te / 2 },
+      ];
+      let mN = 0;
+      for (const m of muros) {
+        for (let p = m.a + 0.10; p < m.b - 0.05; p += 0.45) {
+          const [mx, my] = m.along === "x" ? [p, m.c] : [m.c, p];
+          part(member(CHg, mx, my, 0, "z", fft, `GM:${mN}`), "IFCCOLUMN", `Montante guadua Ø10 (${f(mx)},${f(my)}) N${lvl + 1} — E.7`, MATERIALS.guaduaMat, "$,.COLUMN.");
+          mN++;
+        }
+        const cx = m.along === "x" ? (m.a + m.b) / 2 : m.c;
+        const cy = m.along === "x" ? m.c : (m.a + m.b) / 2;
+        const len = m.b - m.a;
+        part(member(CHs, cx, cy, 0.04, m.along, len, `GSa:${mN}`), "IFCBEAM", `Solera inferior guadua (${m.along === "x" ? "y=" + f(cy) : "x=" + f(cx)}) N${lvl + 1}`, MATERIALS.guaduaMat, "$,.BEAM.");
+        part(member(CHs, cx, cy, fft - 0.12, m.along, len, `GSb:${mN}`), "IFCBEAM", `Solera superior guadua (${m.along === "x" ? "y=" + f(cy) : "x=" + f(cx)}) N${lvl + 1}`, MATERIALS.guaduaMat, "$,.BEAM.");
+        for (let p = m.a + 0.10; p + 1.8 < m.b - 0.05; p += 1.8) {
+          const [x1, y1] = m.along === "x" ? [p, m.c] : [m.c, p];
+          const [x2, y2] = m.along === "x" ? [p + 1.8, m.c] : [m.c, p + 1.8];
+          part(memberDiag(CHs, x1, y1, 0.12, x2, y2, fft - 0.20, `GR:${mN}:${p}`), "IFCMEMBER", `Riostra guadua diafragma (${f(x1)},${f(y1)}) N${lvl + 1} — E.7`, MATERIALS.guaduaMat, "$,.BRACE.");
+        }
+      }
+    }
+
 
     // Vigas: a lo largo de cada eje horizontal/vertical (intra nivel superior).
     // Vigas: material POR SISTEMA (madera/guadua no llevan concreto — igual
     // que columnas; antes todo viga nacía concreto aunque el sistema fuera
     // madera: contradicción 5D señalada por el review).
     const beamMat = colMat;
-    for (const y of hs.length ? hs : []) {
+    const hayVigasRC = !steelFrame && !timberFrame;
+    for (const y of hayVigasRC && hs.length ? hs : []) {
       if (y < 0.05 || y > D - 0.05) continue;
       const solid = solidBox(W / 2, y, fft - CONCRETE.beam.d, W - 2 * te, CONCRETE.beam.w, CONCRETE.beam.d, "x");
       styled(solid, colMatName);
@@ -475,7 +635,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       qto(prod, [["L", "Longitud", W - 2 * te], ["V", "Concreto m3", bv], ["W", "Acero kg", bv * 100]], `Q5BMx:${z0}`);
       products.push(prod);
     }
-    for (const x of vs.length ? vs : []) {
+    for (const x of hayVigasRC && vs.length ? vs : []) {
       if (x < 0.05 || x > W - 0.05) continue;
       const solid = solidBox(x, D / 2, fft - CONCRETE.beam.d, CONCRETE.beam.w, D - 2 * te, CONCRETE.beam.d, "y");
       styled(solid, colMatName);
