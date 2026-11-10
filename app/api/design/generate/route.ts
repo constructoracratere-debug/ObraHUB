@@ -230,7 +230,7 @@ export async function POST(req: NextRequest) {
             `FICHA DE SITIO: ${ficha || "no disponible"}\nPLANTA APROBADA (PAQUETE A): ${ctx}`,
           maxTokens: 3000,
           temperature: 0.3,
-          timeoutMs: 18000,
+          timeoutMs: 28000,
           onEvent: live("civil"),
         });
         // FIDELIDAD al encargo: lo que el cliente pidió (si pidió algo) gana
@@ -279,7 +279,7 @@ export async function POST(req: NextRequest) {
             `MEMO DEL INGENIERO CIVIL:\n${JSON.stringify(b.civilMemo).slice(0, 2200)}`,
           maxTokens: 4500,
           temperature: 0.4,
-          timeoutMs: 18000,
+          timeoutMs: 32000,
           onEvent: live("arquitecto"),
         });
         const adapted = sanitizeFloorPlan(res.data);

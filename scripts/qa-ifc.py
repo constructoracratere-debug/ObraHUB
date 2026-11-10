@@ -141,7 +141,8 @@ def audit(path: str) -> None:
     print(f"  · {name}: unidades {sorted(kinds)} (pesos={has_weight})")
 
     # ── 7. proxies ─────────────────────────────────────────────────────────
-    proxies = [e for e in f.by_type("IfcBuildingElementProxy")]
+    # EXCAVACIÓN va como proxy a propósito (no es elemento de edificio).
+    proxies = [e for e in f.by_type("IfcBuildingElementProxy") if "xcavaci" not in (e.Name or "")]
     if proxies:
         err(f"PROXY [{name}] {len(proxies)} IfcBuildingElementProxy (deben ser clases tipadas)")
     print(f"  · {name}: proxies={len(proxies)}")

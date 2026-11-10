@@ -317,11 +317,58 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     // Muros exteriores (anillo) e interiores (bordes compartidos dedup).
     const te = extThickness(asm);
 
+    // ── VANOS NORMALIZADOS (fuente única del fix "puertas/ventanas por
+    // fuera"): el snap se calcula UNA vez y lo consumen openings, fills y
+    // productos — el muro se corta donde de verdad va la hoja. Puertas: al
+    // MURO COMPARTIDO from→to o a la envolvente; ventanas: al muro de la
+    // cara declarada de su espacio, con clamp a lo largo y sill sano.
+    const snapDoor = (d: { x: number; y: number; width: number; axis?: string }): { x: number; y: number; axis: "x" | "y" } => {
+      type Seg = { axis: "x" | "y"; c: number; a: number; b: number; d2: number };
+      const segs: Seg[] = [];
+      const add = (axis: "x" | "y", c: number, a: number, b: number) => {
+        if (b - a < d.width + 0.24) return;
+        const q = axis === "x" ? d.y : d.x;
+        const t = Math.min(Math.max(q, a), b);
+        const d2 = axis === "x" ? (d.x - c) ** 2 + (d.y - t) ** 2 : (d.y - c) ** 2 + (d.x - t) ** 2;
+        segs.push({ axis, c, a, b, d2 });
+      };
+      for (const r of plan.rooms.filter((r) => r.level === lvl)) {
+        add("x", r.y, r.x, r.x + r.width); add("x", r.y + r.depth, r.x, r.x + r.width);
+        add("y", r.x, r.y, r.y + r.depth); add("y", r.x + r.width, r.y, r.y + r.depth);
+      }
+      add("x", 0, 0, W); add("x", D, 0, W); add("y", 0, 0, D); add("y", W, 0, D);
+      const pref = d.axis === "y" ? "y" : "x";
+      segs.sort((p, q2) => (p.axis === pref ? -0.02 : 0) - (q2.axis === pref ? -0.02 : 0) || p.d2 - q2.d2);
+      const best = segs[0];
+      if (!best) return { x: d.x, y: d.y, axis: pref };
+      const pos = Math.min(Math.max(best.axis === "x" ? d.x : d.y, best.a + d.width / 2 + 0.12), best.b - d.width / 2 - 0.12);
+      return best.axis === "x" ? { x: pos, y: best.c, axis: "x" } : { x: best.c, y: pos, axis: "y" };
+    };
+    const doorsN = plan.doors.map((d) => {
+      if (d.level !== lvl) return d;
+      const sd = snapDoor(d);
+      return { ...d, x: sd.x, y: sd.y, axis: sd.axis as typeof d.axis };
+    });
+    const winN = plan.windows.map((w) => {
+      if (w.level !== lvl) return w;
+      const room = plan.rooms.find((r) => r.level === lvl && keyOf(r.name) === keyOf(w.room));
+      if (!room) return w;
+      const along = w.wall === "norte" || w.wall === "sur" ? ("x" as const) : ("y" as const);
+      let x2: number, y2: number;
+      if (along === "x") {
+        y2 = w.wall === "norte" ? room.y + room.depth : room.y;
+        x2 = Math.min(Math.max(w.x, room.x + w.width / 2 + 0.12), room.x + room.width - w.width / 2 - 0.12);
+      } else {
+        x2 = w.wall === "este" ? room.x + room.width : room.x;
+        y2 = Math.min(Math.max(room.y + room.depth / 2, room.y + w.width / 2 + 0.12), room.y + room.depth - w.width / 2 - 0.12);
+      }
+      return { ...w, x: along === "x" ? x2 : y2, sill: Math.min(Math.max(w.sill, 0.15), Math.max(0.3, fft - w.height - 0.25)) };
+    });
     // Vanos por muro exterior: puertas (sill 0, head 2.10) + ventanas (sill/head
     // del JSON), solo si el espacio toca la envolvente (como en fachadas).
     const extOpenings = (side: "sur" | "norte" | "oeste" | "este") => {
       const ops: Array<{ at: number; w: number; sill: number; head: number; kind: "door" | "window" }> = [];
-      for (const d of plan.doors.filter((x) => x.level === lvl)) {
+      for (const d of doorsN.filter((x) => x.level === lvl)) {
         let doorSide: "sur" | "norte" | "oeste" | "este" | null = null;
         if (d.y < 0.35) doorSide = "sur";
         else if (d.y > D - 0.35) doorSide = "norte";
@@ -330,7 +377,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
         if (doorSide !== side) continue;
         ops.push({ at: side === "oeste" || side === "este" ? d.y : d.x, w: d.width, sill: 0, head: 2.1, kind: "door" });
       }
-      for (const w of plan.windows.filter((x) => x.level === lvl)) {
+      for (const w of winN.filter((x) => x.level === lvl)) {
         if (w.wall !== side) continue;
         const room = plan.rooms.find((r) => r.level === lvl && keyOf(r.name) === keyOf(w.room));
         if (!room) continue;
@@ -357,7 +404,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       // la MISMA convención de wallWithOpenings (antes se restaba s0 y el
       // bounds-check del vano leía un offset como absoluto: puertas corridas
       // o descartadas en muros con inicio > 0).
-      const ops2 = plan.doors
+      const ops2 = doorsN
         // Consistencia axis↔arista: muro "x" se corta con puertas axis "x".
         .filter((d) => d.level === lvl && (e.along === "x") === (d.axis !== "y") && (e.along === "x" ? Math.abs(d.y - e.cy) < 0.15 : Math.abs(d.x - e.cx) < 0.15))
         .map((d) => ({ at: e.along === "x" ? d.x : d.y, w: d.width, sill: 0, head: 2.1, kind: "door" as const }));
@@ -547,14 +594,35 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
         if (x < 0.05 || x > W - 0.05) continue;
         for (const y of hs.length ? hs : [te, D - te]) {
           if (y < 0.05 || y > D - 0.05) continue;
-          const s2 = solidBox(x, y, -CONCRETE.footing.pad * 0.0 - 1.4, CONCRETE.footing.pad, CONCRETE.footing.pad, CONCRETE.footing.thickness, "x");
+          // CIMENTACIÓN con su EXCAVACIÓN a la vista (NSR-10 E.3.3 — la
+          // profundidad de desplante mínima 1.50 m y el PEDAZO de terreno
+          // removido se MODELAN: Df clara, zapata sobre suelo firme y
+          // pedestal hasta el NPT. Antes la zapata flotaba sin contexto.
+          const DF = 1.50; // m — desplante mínimo (E.3.3; hasta suelo firme)
+          const s2 = solidBox(x, y, -DF, CONCRETE.footing.pad, CONCRETE.footing.pad, CONCRETE.footing.thickness, "x");
           styled(s2, MATERIALS.concreto);
           const p2 = shapeRep(s2, `FT${x},${y}`);
           const pl2 = ent(`FTPL:${x},${y}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
           const ft = id();
-          lines.push(`#${ft}= IFCFOOTING('${guid(`FT${x},${y}`)}',#${owner},'Zapata aislada (${f(x)},${f(y)}) 1.10×1.10×0.30 — concreto 3000 PSI',$,$,#${pl2},#${p2},$,.PAD_FOOTING.);`);
+          lines.push(`#${ft}= IFCFOOTING('${guid(`FT${x},${y}`)}',#${owner},'Zapata aislada (${f(x)},${f(y)}) 1.10×1.10×0.30 — desplante Df=1.50 (NSR-10 E.3.3)',$,$,#${pl2},#${p2},$,.PAD_FOOTING.);`);
           relAssoc(ft, material(MATERIALS.concreto), `FTM${x},${y}`);
           products.push(ft);
+          // Pedestal 0.30: de la zapata al NPT (la transición que se ve).
+          const ped = solidBox(x, y, -DF + CONCRETE.footing.thickness, 0.30, 0.30, DF - CONCRETE.footing.thickness, "x");
+          styled(ped, MATERIALS.concreto);
+          const pedP = id();
+          lines.push(`#${pedP}= IFCCOLUMN('${guid(`PD${x},${y}`)}',#${owner},'Pedestal (${f(x)},${f(y)}) 0.30×0.30 — zapata a NPT',$,$,#${pl2},#${shapeRep(ped, `PD${x},${y}`)},$,.COLUMN.);`);
+          relAssoc(pedP, material(MATERIALS.concreto), `PDM${x},${y}`);
+          products.push(pedP);
+          // EXCAVACIÓN: el volumen de tierra removido (zapata + 0.30 de
+          // trabajo por lado, Df completa) — semitransparente, se LEE.
+          // IFCELEMENT es abstracto en IFC4 → IFCBUILDINGELEMENTPROXY.
+          const ex = solidBox(x, y, -DF, CONCRETE.footing.pad + 0.60, CONCRETE.footing.pad + 0.60, DF, "x");
+          styled(ex, "Excavación en tierra (Df 1.50)");
+          const exP = id();
+          lines.push(`#${exP}= IFCBUILDINGELEMENTPROXY('${guid(`EX${x},${y}`)}',#${owner},'Excavación Z(${f(x)},${f(y)}) 1.70×1.70 Df=1.50 — NSR-10 E.3.3 (mín. hasta suelo firme)',$,$,#${pl2},#${shapeRep(ex, `EX${x},${y}`)},$,.USERDEFINED.);`);
+          relAssoc(exP, material("Excavación en tierra (Df 1.50)"), `EXM${x},${y}`);
+          products.push(exP);
         }
       }
     }
@@ -567,7 +635,8 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       if (!hit) return;
       ent(`RF:${tag}`, (n) => `#${n}= IFCRELFILLSELEMENT('${guid(`RF${tag}`)}',#${owner},$,$,#${hit.op},#${el});`);
     };
-    for (const d of plan.doors.filter((x) => x.level === lvl)) {
+    // Puertas YA snapeadas (doorsN): hoja y opening comparten coordenadas.
+    for (const d of doorsN.filter((x) => x.level === lvl)) {
       const alongD = d.axis === "y";
       const s3 = solidBox(d.x, d.y, 0, alongD ? 0.06 : Math.max(d.width - 0.04, 0.3), alongD ? Math.max(d.width - 0.04, 0.3) : 0.06, 2.1, "x");
       styled(s3, MATERIALS.hojaPuerta);
@@ -581,12 +650,15 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       fillOpening("door", alongD ? "y" : "x", alongD ? d.y : d.x, d.width, 0, dr, `DR${d.x},${d.y},${z0}`);
       products.push(dr);
     }
-    for (const w of plan.windows.filter((x) => x.level === lvl)) {
+    // Ventanas YA normalizadas (winN): muro por cara + clamp a lo largo.
+    // winN guarda en w.x la coordenada a lo largo del muro y en sill el
+    // antepecho sano — hoja y opening comparten coordenadas.
+    for (const w of winN.filter((x) => x.level === lvl)) {
       const room = plan.rooms.find((r) => r.level === lvl && keyOf(r.name) === keyOf(w.room));
       if (!room) continue;
-      const y2 = w.wall === "norte" ? room.y + room.depth : w.wall === "sur" ? room.y : w.x;
-      const x2 = w.wall === "este" ? room.x + room.width : w.wall === "oeste" ? room.x : w.x;
       const along = w.wall === "norte" || w.wall === "sur" ? "x" : "y";
+      const y2 = along === "x" ? (w.wall === "norte" ? room.y + room.depth : room.y) : w.x;
+      const x2 = along === "x" ? w.x : (w.wall === "este" ? room.x + room.width : room.x);
       const s4 = solidBox(x2, y2, w.sill, along === "x" ? w.width : 0.06, along === "x" ? 0.06 : w.width, w.height, along);
       styled(s4, MATERIALS.vidrio);
       const pr4 = shapeRep(s4, `WN${x2},${y2},${z0}`);

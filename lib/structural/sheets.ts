@@ -248,9 +248,14 @@ export function cimentacionPrimitives(plan: FloorPlan): Prim[] {
     out.push({ t: "H", l: "ESTRUCTURA-CIMENTACION", x: x - 0.55, y: y - 0.55, w: 1.1, h: 1.1 });
     out.push({ t: "L", l: "ESTRUCTURA-CIMENTACION", x1: x - 0.55, y1: y - 0.55, x2: x + 0.55, y2: y + 0.55, dash: true, thin: true });
     out.push({ t: "L", l: "ESTRUCTURA-CIMENTACION", x1: x + 0.55, y1: y - 0.55, x2: x - 0.55, y2: y + 0.55, dash: true, thin: true });
+    // EXCAVACIÓN por zapata (E.3.3): caja punteada 1.70 con su Df — el
+    // revisor lee el volumen a remover sin abrir el corte.
+    out.push({ t: "H", l: "TEXTOS", x: x - 0.85, y: y - 0.85, w: 1.7, h: 1.7 });
     out.push({ t: "T", l: "TEXTOS", x: x - 0.18, y: y + 0.62, h: 0.14, s: `Z-${nz}` });
   }
   // Cotas entre ejes (cadena inferior) + silueta de referencia.
+  out.push({ t: "T", l: "TEXTOS", x: 0, y: -1.75, h: 0.16, s: "EXCAVACIÓN 1.70×1.70 POR ZAPATA · Df = 1.50 m — NSR-10 E.3.3 (mínimo hasta suelo firme)" });
+  out.push({ t: "T", l: "TEXTOS", x: 0, y: -2.1, h: 0.16, s: "RELLENO COMPACTADO POR CAPAS DE 0.20 · PEDRESTAL 0.30×0.30 ZAPATA→NPT" });
   out.push({ t: "H", l: "ESTRUCTURA-LOSAS", x: 0, y: 0, w: W, h: D, });
   const xsChain = [0, ...vX, W];
   out.push({ t: "L", l: "COTAS", x1: 0, y1: -0.7, x2: W, y2: -0.7 });
@@ -368,7 +373,8 @@ export function seccionEstructuralPrimitives(plan: FloorPlan): Prim[] {
   out.push({ t: "L", l: "COTAS", x1: xz, y1: 0, x2: xz, y2: -1.7 });
   out.push({ t: "L", l: "COTAS", x1: xz - 0.07, y1: -0.07, x2: xz + 0.07, y2: 0.07 });
   out.push({ t: "L", l: "COTAS", x1: xz - 0.07, y1: -1.77, x2: xz + 0.07, y2: -1.63 });
-  out.push({ t: "T", l: "COTAS", x: xz - 0.62, y: -0.85, h: 0.15, s: "Df=1.70", r: 90 });
+  out.push({ t: "T", l: "COTAS", x: xz - 0.62, y: -0.85, h: 0.15, s: "Df=1.50", r: 90 });
+    out.push({ t: "T", l: "TEXTOS", x: xz + 0.18, y: -0.9, h: 0.15, s: "EXCAVACIÓN 1.70×1.70 (E.3.3)" });
   out.push({ t: "T", l: "TEXTOS", x: -1.6, y: -2.15, h: 0.13, s: "NPT ±0.00" });
   // Cadenas de cotas VERTICALES (por nivel + total) — como el corte A-02.
   const xd = W + 1.4;

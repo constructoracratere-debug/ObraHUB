@@ -113,8 +113,19 @@ export function providerChain(task: LlmTask): ProviderSpec[] {
     case "vision":
       return [openai("gpt-4o", "GPT-4o (pagado)", 55_000), gemini()];
     // JSON estructurado (APU, cronogramas): fiabilidad ante todo.
-    case "structure":
-      return [openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 40_000), orGlm, orMiniMax];
+    // DISEÑO (géometría del plano): GPT-4.1 COMPLETO primero — el mini
+    // dejaba ventanas/puertas fuera de muros y coberturas rotas; el modelo
+    // grande piensa la geometría y el motor la corrige (snapping). Cualquier
+    // modelo se impone con DESIGN_MODEL (p. ej. gpt-4o, o3, gemini-3.6-pro).
+    case "structure": {
+      const designModel = process.env.DESIGN_MODEL ?? "gpt-4.1";
+      return [
+        openai(designModel, `${designModel.toUpperCase()} (pagado)`, 45_000),
+        openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 40_000),
+        orGlm,
+        orMiniMax,
+      ];
+    }
   }
 }
 

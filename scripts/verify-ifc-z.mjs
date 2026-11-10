@@ -122,11 +122,13 @@ check(`ventana base z-mundo=1 (sill 1) — got [${wins.map((r) => r.world)}]`, w
 const slabs = rows.filter((r) => r.type === "SLAB").map((r) => r.world).sort((a, b) => a - b);
 check(`losas z-mundo = [-0.1, 3, 6] — got [${slabs}]`, JSON.stringify(slabs.map((z) => Math.round(z * 10) / 10)) === JSON.stringify([-0.1, 3, 6]));
 const cols = rows.filter((r) => r.type === "COLUMN");
-check(`columnas base z-mundo 0 o 3 — got [${[...new Set(cols.map((r) => r.world))].sort()}]`, cols.length > 0 && cols.every((r) => [0, 3].some((z) => Math.abs(r.world - z) < 0.01)));
+// Pedestales de cimentacion nacen en -1.20 (Df 1.50 - zapata 0.30) —
+// lo demas en 0 o 3.
+check(`columnas base z-mundo 0, 3 o pedestal -1.2 — got [${[...new Set(cols.map((r) => r.world))].sort()}]`, cols.length > 0 && cols.every((r) => /Pedestal/.test(r.name) ? Math.abs(r.world + 1.2) < 0.01 : [0, 3].some((z) => Math.abs(r.world - z) < 0.01)));
 const furn = rows.filter((r) => r.type === "FURNISHINGELEMENT");
 check(`mobiliario z-mundo 0 o 3 — got [${[...new Set(furn.map((r) => r.world))].sort()}]`, furn.length > 0 && furn.every((r) => [0, 3].some((z) => Math.abs(r.world - z) < 0.01)));
 const foot = rows.filter((r) => r.type === "FOOTING");
-check(`zapatas z-mundo=-1.4`, foot.length > 0 && foot.every((r) => Math.abs(r.world + 1.4) < 0.01));
+check(`zapatas z-mundo=-1.5 (Df NSR-10 E.3.3)`, foot.length > 0 && foot.every((r) => Math.abs(r.world + 1.5) < 0.01));
 
 // ── GUID buildingSMART (IfcGloballyUniqueId) ────────────────────────────────
 const guids = [...ifc.matchAll(/= IFC[A-Z0-9]+\('([^']{22})',#/g)].map((m) => m[1]);
@@ -194,8 +196,11 @@ check(`ancho de puerta desde el plan (0.9, no 1.0 hardcodeado) — got ${doorWid
 // ── Espacios y clases MEP ────────────────────────────────────────────────────
 const spaces = rows.filter((r) => r.type === "SPACE");
 check(`IFCSPACE por cada cuarto (${spaces.length}/${plan.rooms.length})`, spaces.length === plan.rooms.length);
-check("MEP con clases reales (SanitaryTerminal/LightFixture/DistributionBoard) y 0 proxies genéricos",
-  /IFCSANITARYTERMINAL|IFCLIGHTFIXTURE|IFCELECTRICDISTRIBUTIONBOARD/.test(ifc) && !/IFCBUILDINGELEMENTPROXY/.test(ifc));
+// La EXCAVACIÓN (Df NSR-10 E.3.3) viaja legítimamente como PROXY — no es
+// un elemento de edificio; lo demás sí debe ir con clase tipada.
+check("MEP con clases reales (SanitaryTerminal/LightFixture/DistributionBoard) y 0 proxies genéricos (excavación exenta)",
+  /IFCSANITARYTERMINAL|IFCLIGHTFIXTURE|IFCELECTRICDISTRIBUTIONBOARD/.test(ifc)
+  && ![...ifc.matchAll(/IFCBUILDINGELEMENTPROXY\('[^']+',#\d+,'([^']*)'/g)].some((m) => !/Excavaci/i.test(m[1])));
 
 // ── Review #12: codec GUID exacto + unicidad GLOBAL + aridad OPENING ────────
 const { ifcGuidCompress, ifcGuidDecompress } = req(path.join(process.cwd(), ".tmp-ifc", "ifc.js"));

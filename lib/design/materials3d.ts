@@ -63,6 +63,7 @@ export const MAT3D: Record<string, Mat3D> = {
   [MATERIALS.griferia]: { hex: 0xd9dee3, roughness: 0.35, metalness: 0.1, label: "PVC hidráulico" },
   "MEP eléctrico": { hex: 0xf6a821, roughness: 0.5, metalness: 0.2, emissive: 0x664400, label: "Punto eléctrico RETIE" },
   "MEP hidrosanitario": { hex: 0x3d9bd6, roughness: 0.45, metalness: 0.1, emissive: 0x0a2436, label: "Punto hidrosanitario RAS" },
+  "Excavación en tierra (Df 1.50)": { hex: 0x6e5233, roughness: 1, metalness: 0, opacity: 0.3, label: "Excavación (tierra removida)" },
   // ── Interior (mobiliario del solver Neufert + acabados) ──────────────
   "Porcelana sanitaria": { hex: 0xf4f6f7, roughness: 0.18, metalness: 0.0, label: "Porcelana" },
   "Mueble de madera": { hex: 0xa9743e, roughness: 0.7, metalness: 0.0, label: "Madera (mobiliario)" },
@@ -86,6 +87,7 @@ const byKeyword: Array<[RegExp, Mat3D]> = [
   [/porcelana|inodoro|lavamanos|sanitario/i, MAT3D["Porcelana sanitaria"]],
   [/sof[aá]|cama|silla|comedor|mesa|tapiz|alfombra/i, MAT3D["Tela tapiz"]],
   [/closet|mostrador|escritorio|tv|mueble|lavadero/i, MAT3D["Mueble de madera"]],
+  [/excavaci|tierra removida|desplante/i, MAT3D["Excavación en tierra (Df 1.50)"]],
   [/teja|cubierta/i, MAT3D["Teja de barro"]],
 ];
 

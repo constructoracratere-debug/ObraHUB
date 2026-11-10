@@ -333,7 +333,9 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         const scene = sceneRef.current!;
         const root: THREE.Group = (sceneRef as any).root;
         for (const c of [...root.children]) { root.remove(c); ((c as THREE.Mesh).geometry as THREE.BufferGeometry)?.dispose?.(); ((c as THREE.Mesh).material as THREE.Material)?.dispose?.(); }
-        const ifcText = planToIfc(plan, { includeFoundations: false }); // caja limpia en 000
+        // Con CIMENTACIÓN y EXCAVACIÓN (Df=1.50 NSR-10 E.3.3): el usuario
+        // debe VER el desplante — la rejilla se apoya en el fondo de excavación.
+        const ifcText = planToIfc(plan, { includeFoundations: true });
         const bytes = new TextEncoder().encode(ifcText);
         if (modelRef.current >= 0) { try { api.CloseModel(modelRef.current); } catch { /* */ } }
         // COORDINATE_TO_ORIGIN: false — nuestro IFC vive en 0,0,0 por diseño;
@@ -365,7 +367,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           let name = "";
           try { name = String((api as any).GetLine(mid, mesh.expressID)?.Name ?? ""); } catch { /* */ }
           const look = lookOf(tId, name);
-          const isStruct = tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING;
+          const isStruct = tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING || /excavaci/i.test(name);
           const ghost = !isStruct && tId !== IFCWINDOW; // rayos X: envolvente fantasma, estructura+MEP+vidrio sólidos
           const m3 = new THREE.Mesh(bg, materialFor(look, ghost, viewRef.current === "capas" ? "realista" : viewRef.current));
           m3.castShadow = viewRef.current === "realista" && !ghost;
@@ -435,12 +437,12 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           Abajo-derecha: arriba-derecha lo ocupan los botones flotantes
           ⚙️ Estudio / 📋 Expediente (z-40) y tapaban el selector. */}
       <div className="absolute bottom-2 right-2 z-20 flex gap-1 rounded-lg bg-[#070d1a]/85 p-1 backdrop-blur">
-        {([["realista", "🎨 Realista"], ["xray", "🩻 Rayos X"], ["bn", "⬛ Plot B/N"], ["capas", "🧱 Capas"]] as const).map(([m, label]) => (
+        {([["realista", "🎨", "Realista (materiales PBR)"], ["xray", "🩻", "Rayos X — estructura e instalaciones"], ["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema (Título E)"]] as const).map(([m, icon, title]) => (
           <button
-            key={m} type="button" onClick={() => setView(m)}
-            className={`rounded-md px-2 py-1 text-[10.5px] font-semibold transition ${view === m ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "text-slate-400 hover:bg-white/5"}`}
+            key={m} type="button" onClick={() => setView(m)} title={title}
+            className={`rounded-md px-2 py-1 text-[13px] font-semibold leading-none transition ${view === m ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "text-slate-400 hover:bg-white/5"}`}
           >
-            {label}
+            {icon}
           </button>
         ))}
       </div>

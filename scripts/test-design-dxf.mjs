@@ -282,6 +282,34 @@ const ifcBah = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPl
 check("IFC materiales E.3: mampostería confinada → muros LADRILLO + cubierta TEJA + confinamiento CONCRETO", ifcMam.includes("IFCSURFACESTYLE('Ladrillo cerámico H-10'") && ifcMam.includes("IFCSURFACESTYLE('Teja de barro'") && !/Columna eje[^\n]*Madera/.test(ifcMam) && ifcMam.includes("IFCSURFACESTYLE('Concreto estructural 3000 PSI'"));
 check("IFC materiales E.7: bahareque encamisado → diafragma de GUADUA + esterilla + arcilla (sin ladrillo ni madera aserrada)", ifcBah.includes("IFCSURFACESTYLE('Guadua angustifolia tratada'") && ifcBah.includes("Esterilla de guadua") && ifcBah.includes("arcilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo") && !/Columna eje[^\n]*Madera aserrada/.test(ifcBah));
 check("IFC capas E.7 reales (encamisado cemento + esterilla + guadua + arcilla)", /IFCMATERIALLAYER\(#[0-9]+,0\.1[0-9]?,\$,'Guadua angustifolia tratada: montantes y riostras'/.test(ifcBah) && ifcBah.includes("Encamisado exterior: mortero cemento-arena"));
+check("vanos DENTRO de muros (fix flotantes): ventana x=99 se clampa al muro de su espacio y puerta de esquina snapea a un muro real", (() => {
+  const ventanas = sanitizeFloorPlan({
+    ...rawPlan, rooms: rawPlan.rooms, levels: 1,
+    windows: [{ room: "Sala", wall: "oeste", x: 99, width: 1.2, sill: 0.9, height: 1.2, level: 0 }],
+    structure: { ...rawPlan.structure, system: "mamposteria_confinada" },
+  });
+  const ifcV = planToIfcFn(ventanas);
+  const sin99 = !/IFCCARTESIANPOINT\(\(99/.test(ifcV); // la geometría ya no viaja a 99 m
+  const hayVentana = /IFCWINDOW\('[^']+',#\d+,'Ventana Sala oeste/.test(ifcV);
+  const puertas = sanitizeFloorPlan({
+    ...rawPlan, levels: 1,
+    doors: [{ from: "Sala", to: "Alcoba 1", x: 0.02, y: 0.02, width: 0.75, hinge: "left", swing: "in", level: 0 }],
+    structure: { ...rawPlan.structure, system: "mamposteria_confinada" },
+  });
+  const ifcP = planToIfcFn(puertas);
+  const esquinaVacia = !/IFCCARTESIANPOINT\(\(0\.02,0\.02/.test(ifcP); // salió de la esquina
+  const hayPuerta = ifcP.includes("Puerta Sala→Alcoba 1");
+  return sin99 && hayVentana && esquinaVacia && hayPuerta;
+})());
+check("EXCAVACIÓN NSR-10 E.3.3 visible: IFC con Df=1.50 + pedestales + volumen de excavación · S-01 la declara", (() => {
+  const p = sanitizeFloorPlan({ ...rawPlan, levels: 1, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } });
+  const ifcF = planToIfcFn(p);
+  const { planToDxfStructural } = req(path.join(tmp, "design", "dxf.js"));
+  const sDxf = planToDxfStructural(p, { fecha: "2026-01-15" }) ?? "";
+  return ifcF.includes("Df=1.50") && ifcF.includes("Pedestal") && /Excavación Z\(/.test(ifcF)
+    && sDxf.includes("EXCAVACIÓN 1.70×1.70") && sDxf.includes("Df = 1.50 m");
+})());
+
 check("CUBIERTA CERCHADA (norma E.3/E.6): A-05 a dos aguas con cumbrera, cerchas @1.20, pendiente 30% y alero — y SIN placa maciza en Título E", (() => {
   const cerchada = sanitizeFloorPlan({ ...rawPlan, levels: 1, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } });
   const dxfR = planToDxf(cerchada);
