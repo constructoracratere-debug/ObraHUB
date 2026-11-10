@@ -84,6 +84,16 @@ function xai(): ProviderSpec {
   };
 }
 
+/** Familia GPT-6+/o-series (razonadoras): max_tokens YA NO existe — usan
+ *  max_completion_tokens (presupuesto de razono + respuesta) y no aceptan
+ *  temperature. Sin esto devuelven 400 o se comen el presupuesto pensando. */
+const isReasoningModel = (model: string) => /^(gpt-[6-9]|gpt-[1-9][0-9]|o[1-9])/.test(model);
+
+const tokenParams = (model: string, maxTokens?: number, temperature?: number) =>
+  isReasoningModel(model)
+    ? { ...(maxTokens ? { max_completion_tokens: Math.max(maxTokens, 16000) } : {}) }
+    : { ...(maxTokens ? { max_tokens: maxTokens } : {}), ...(temperature != null ? { temperature } : {}) };
+
 function openai(model: string, label: string, timeoutMs: number): ProviderSpec {
   return {
     id: `openai:${model}`,
@@ -113,15 +123,16 @@ export function providerChain(task: LlmTask): ProviderSpec[] {
     case "vision":
       return [openai("gpt-4o", "GPT-4o (pagado)", 55_000), gemini()];
     // JSON estructurado (APU, cronogramas): fiabilidad ante todo.
-    // DISEÑO (géometría del plano): GPT-4.1 COMPLETO primero — el mini
-    // dejaba ventanas/puertas fuera de muros y coberturas rotas; el modelo
-    // grande piensa la geometría y el motor la corrige (snapping). Cualquier
-    // modelo se impone con DESIGN_MODEL (p. ej. gpt-4o, o3, gemini-3.6-pro).
+    // DISEÑO (geometría del plano): GPT-6.1-TERRA líder — A/B 2026-11-10
+    // (scripts/ab-models.mjs): 11 espacios · 10/10 gates · $1/$5 por M
+    // (MÁS BARATO que 4.1). Razona antes de responder (~60-90 s): los
+    // timeouts de las etapas ya lo contemplan. GPT-4.1 de relevo rápido.
+    // Cualquier modelo se impone con DESIGN_MODEL.
     case "structure": {
-      const designModel = process.env.DESIGN_MODEL ?? "gpt-4.1";
+      const designModel = process.env.DESIGN_MODEL ?? "gpt-6.1-terra";
       return [
-        openai(designModel, `${designModel.toUpperCase()} (pagado)`, 45_000),
-        openai("gpt-4.1-mini", "GPT-4.1-mini (pagado)", 40_000),
+        openai(designModel, `${designModel.toUpperCase()} (pagado)`, 110_000),
+        openai("gpt-4.1", "GPT-4.1 (pagado)", 45_000),
         orGlm,
         orMiniMax,
       ];
@@ -218,8 +229,7 @@ export async function llmComplete(
           {
             model: spec.model,
             messages: msgs,
-            ...(params.maxTokens ? { max_tokens: params.maxTokens } : {}),
-            ...(params.temperature != null ? { temperature: params.temperature } : {}),
+            ...tokenParams(spec.model, params.maxTokens, params.temperature),
             ...(wantsJson ? { response_format: { type: "json_object" as const } } : {}),
             stream: true,
           },

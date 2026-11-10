@@ -26,10 +26,11 @@ const { extractJson } = req(path.join(tmp, "ai", "json.js"));
 const ENCARGO = "Casa de 1 piso en mamposteria confinada, 3 alcobas, 2 banos, sala-comedor, cocina, lote 12x15 m, cubierta inclinada";
 const USER = `ENCARGO: ${ENCARGO}\nLOTE: 12.0 x 15.0 m\nResponde el JSON del plan.`;
 
+const OR = { baseURL: "https://openrouter.ai/api/v1", key: process.env.OPENROUTER_API_KEY };
 const CANDIDATOS = [
-  { id: "gpt-4.1", baseURL: "https://api.openai.com/v1", key: process.env.OPENAI_API_KEY, model: "gpt-4.1" },
-  { id: "gpt-4.1-mini", baseURL: "https://api.openai.com/v1", key: process.env.OPENAI_API_KEY, model: "gpt-4.1-mini" },
-  { id: "gemini-3.6-flash", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai", key: process.env.GEMINI_API_KEY, model: "gemini-3.6-flash" },
+  { id: "gpt-4.1 (base actual)", baseURL: "https://api.openai.com/v1", key: process.env.OPENAI_API_KEY, model: "gpt-4.1" },
+  { id: "gpt-6.1-terra", baseURL: "https://api.openai.com/v1", key: process.env.OPENAI_API_KEY, model: "gpt-6.1-terra", newApi: true },
+  { id: "gpt-6-luna", baseURL: "https://api.openai.com/v1", key: process.env.OPENAI_API_KEY, model: "gpt-6-luna", newApi: true },
 ];
 
 const { default: OpenAI } = await import("openai");
@@ -39,11 +40,12 @@ for (const c of CANDIDATOS) {
   const t0 = Date.now();
   try {
     const cli = new OpenAI({ apiKey: c.key, baseURL: c.baseURL, timeout: 150_000 });
+    // Familia gpt-6 usa max_completion_tokens (max_tokens ya no existe).
+    const body = c.newApi
+      ? { model: c.model, response_format: { type: "json_object" }, max_completion_tokens: 16000 }
+      : { model: c.model, response_format: { type: "json_object" }, max_tokens: 4500, temperature: 0.4 };
     const r = await cli.chat.completions.create({
-      model: c.model,
-      response_format: { type: "json_object" },
-      max_tokens: 4500,
-      temperature: 0.4,
+      ...body,
       messages: [
         { role: "system", content: AGENT_ARCHITECT_DRAFT },
         { role: "user", content: USER },
