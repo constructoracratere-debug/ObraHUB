@@ -223,7 +223,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [revisions, setRevisions] = useState<RevisionLog[]>(restored?.revisions ?? []);
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
-  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split">("split");
+  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split" | "three">("split");
   // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
   // negro — así se ve si el plano sobrevive la fotocopiadora.
   const [printMode, setPrintMode] = useState(false);
@@ -952,7 +952,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
         <div className={`absolute inset-0 ${printMode ? "bg-white" : "bg-[#0a1120]"}`} style={printMode ? { filter: "invert(1) hue-rotate(180deg)" } : undefined}>
           {plan && (
             <div className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5 backdrop-blur">
-              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"], ["pasaporte", "🌱 Pasaporte"], ["split", "🧩 2D+3D"]] as const).map(([id, label]) => (
+              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"], ["pasaporte", "🌱 Pasaporte"], ["split", "🧩 2D+3D"], ["three", "🌐 3D"]] as const).map(([id, label]) => (
                 <button key={id} type="button" onClick={() => setView(id)}
                   className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${view === id ? "bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30" : "text-slate-400 hover:bg-white/[0.06]"}`}>
                   {label}
@@ -988,7 +988,15 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             </div>
           )}
           {plan ? (
-            view === "split" ? (
+            view === "three" ? (
+              /** 🌐 3D a PANTALLA COMPLETA — el modelo vivo EN MEMORIA (mismo
+               *  IFC que genera el estudio): Realista · Rayos X · AISLAR
+               *  Estructura/Instalaciones · HOLOGRAMA · B/N · Capas. Nada que
+               *  descargar; respeta el filtro de piso P1/P2. */
+              <div className="absolute inset-0">
+                <IfcLive plan={levelView == null ? plan : { ...plan, levels: 1, rooms: plan.rooms.filter((r) => r.level === levelView), doors: plan.doors.filter((d) => d.level === levelView), windows: plan.windows.filter((w) => w.level === levelView) }} />
+              </div>
+            ) : view === "split" ? (
               <div className="absolute inset-0 flex flex-col lg:flex-row">
                 <div className="min-h-[45%] flex-1 border-b border-white/[0.07] lg:min-h-0 lg:border-b-0 lg:border-r">
                   <PlanSvg plan={plan} onlyLevel={levelView} onEdit={applyPlan} />
