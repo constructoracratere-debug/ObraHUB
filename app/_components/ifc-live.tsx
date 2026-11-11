@@ -11,7 +11,7 @@ import { MATERIALS, WALL_ASSEMBLIES } from "@/lib/design/materials";
 /** Categoría de pieza para AISLAR por disciplina (como Revit Isolate):
  *  estructura · arquitectura (muros/vanos/acabados) · mep. */
 export type ParteCat = "estructura" | "arquitectura" | "mep";
-type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "holo" | "bn" | "capas";
+type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "holo" | "ladrillo" | "bn" | "capas";
 
 /** Clasifica una pieza por nombre/tipo — nuestros nombres son deterministas,
  *  así la categoría es exacta para TODOS los sistemas (E·C·F·madera). */
@@ -66,7 +66,9 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   };
 
   /** Material three según MODO — realista usa la paleta completa. */
-  const materialFor = (look: Mat3D, ghost: boolean, m: Exclude<ViewMode, "capas">, cat?: ParteCat): THREE.MeshStandardMaterial => {
+  const materialFor = (look: Mat3D, ghost: boolean, modo: ViewMode, cat?: ParteCat): THREE.MeshStandardMaterial => {
+    // ladrillo/capas usan la paleta realista (la magia la pone el efecto)
+    const m = modo === "ladrillo" || modo === "capas" ? "realista" : modo;
     // AISLAR por disciplina: la que manda va a COLOR COMPLETO, el resto
     // queda en fantasma mínimo (se apaga el que no toca).
     if (m === "holo") {
@@ -109,6 +111,75 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   // estructural característica — mampostería E.3: columna de confinamiento
   // con ACERO (4Ø + estribos) y viga cadena · bahareque E.7: encamisado
   // cemento, embutido (esterilla+arcilla) y tabique de GUADUA. Determinista.
+  // ── 🔍 LADRILLO x LADRILLO (LOD 400, modo "ladrillo") ────────────────────
+  // Cada muro de mampostería se descompone en UNIDADES H-10 individuales
+  // (0.30×0.10 cara, junta 1cm, tila corrida con traba) vía InstancedMesh:
+  // 5.000+ ladrillos en UN draw call. Los muros ya llegan partidos por
+  // tramo/antepecho/dintel → los vanos quedan EXACTOS. Determinista desde
+  // el IFC en memoria; el archivo queda limpio (las UNIDADES exactas ya
+  // viajan en el takeoff del pasaporte).
+  const [ladrilloN, setLadrilloN] = useState(0);
+  const buildLadrillos = (): THREE.Group | null => {
+    const system = plan.structure?.system ?? "concreto";
+    if (!["mamposteria_confinada", "concreto", "mixto"].includes(system)) return null;
+    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; cat?: ParteCat }> | undefined;
+    if (!store?.length) return null;
+    const boxes: Array<THREE.Box3> = [];
+    for (const it of store) {
+      const b = new THREE.Box3().setFromObject(it.mesh, true);
+      if (b.isEmpty()) continue;
+      const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
+      // muro = caja delgada (≤0.35) y alta (≥0.8) de la categoría arquitectura
+      if (Math.min(sx, sz) <= 0.35 && sy >= 0.8 && it.cat === "arquitectura") boxes.push(b);
+    }
+    if (!boxes.length) return null;
+    const L = 0.30, H = 0.10, J = 0.012; // unidad H-10 + junta de pega 1:4
+    const mats: Array<THREE.Matrix4> = [];
+    const colors: Array<THREE.Color> = [];
+    const tmp = new THREE.Object3D();
+    const base = new THREE.Color(0xb04a26);
+    let seed = 1;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647); // determinista
+    for (const b of boxes) {
+      const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
+      const depth = Math.max(Math.min(sx, sz), 0.10);
+      const alongX = sx >= sz;
+      const run = alongX ? sx : sz;
+      const rows = Math.floor(sy / H);
+      for (let r = 0; r < rows; r++) {
+        const y = b.min.y + r * H + H / 2;
+        const offset = (r % 2) * (L / 2); // traba media pie
+        let p = -offset;
+        while (p + L <= run + 0.001) {
+          if (p >= -0.001) {
+            const cx = alongX ? b.min.x + p + L / 2 : b.min.x + sx / 2;
+            const cz = alongX ? b.min.z + sz / 2 : b.min.z + p + L / 2;
+            tmp.position.set(cx, y, cz);
+            tmp.rotation.set(0, alongX ? 0 : Math.PI / 2, 0);
+            tmp.scale.set(1, 1, 1);
+            tmp.updateMatrix();
+            mats.push(tmp.matrix.clone());
+            colors.push(base.clone().offsetHSL(0, 0, (rnd() - 0.5) * 0.06)); // cocción
+          }
+          p += L + J;
+        }
+      }
+    }
+    if (!mats.length) return null;
+    // profundidad del muro (la caja más delgada vista): misma para todas
+    const depth0 = Math.max(Math.min(boxes[0].max.x - boxes[0].min.x, boxes[0].max.z - boxes[0].min.z), 0.10);
+    const geo = new THREE.BoxGeometry(L - J, H - J, depth0 - 0.015);
+    const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0.02 }), mats.length);
+    mats.forEach((m, i) => { im.setMatrixAt(i, m); im.setColorAt(i, colors[i]); });
+    im.castShadow = true; im.receiveShadow = true;
+    im.instanceMatrix.needsUpdate = true;
+    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    setLadrilloN(mats.length);
+    const g = new THREE.Group();
+    g.add(im);
+    return g;
+  };
+
   const etiqueta = (texto: string): THREE.Sprite => {
     const cv = document.createElement("canvas");
     cv.width = 640; cv.height = 140;
@@ -226,6 +297,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   // Aplicar modo a las mallas ya generadas (sin regenerar el IFC).
   useEffect(() => {
     const scene = sceneRef.current as any;
+    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat; edges?: THREE.LineSegments }> | undefined;
     const root: THREE.Group | undefined = scene?.root;
     // 🧱 CAPAS: maqueta explotada del sistema — el modelo se oculta.
     if (view === "capas") {
@@ -264,8 +336,52 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       return;
     }
     if (scene?.capas) scene.capas.visible = false;
+    // 🔍 LADRILLO x LADRILLO: los muros sólidos se OCULTAN y en su lugar
+    // instanciamos cada unidad H-10 (cacheado por revisión del plan).
+    if (view === "ladrillo") {
+      if (!scene) return;
+      const rev = JSON.stringify([plan.structure, plan.rooms, plan.levels]).slice(0, 400);
+      if (scene.ladrilloRev !== rev || !scene.ladrillo) {
+        if (scene.ladrillo) { scene.remove(scene.ladrillo); setLadrilloN(0); }
+        scene.ladrillo = buildLadrillos();
+        scene.ladrilloRev = rev;
+        if (scene.ladrillo) scene.add(scene.ladrillo);
+      }
+      if (scene.ladrillo) {
+        scene.ladrillo.visible = true;
+        // ocultar SOLO los muros (cajas delgadas de arquitectura); estructura
+        // y vanos siguen: se lee la confined mampostería con su esqueleto.
+        for (const it of store ?? []) {
+          const b = new THREE.Box3().setFromObject(it.mesh, true);
+          const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z, sy = b.max.y - b.min.y;
+          it.mesh.visible = !(it.cat === "arquitectura" && Math.min(sx, sz) <= 0.35 && sy >= 0.8);
+        }
+        const box = new THREE.Box3().setFromObject(scene.ladrillo, true);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3()).length() || 10;
+        const grid: THREE.GridHelper | undefined = scene.grid;
+        if (grid) grid.position.set(center.x, box.min.y, center.z);
+        const gnd: THREE.Mesh | undefined = scene.ground;
+        if (gnd) gnd.position.set(center.x, box.min.y + 0.01, center.z);
+        const sun: THREE.DirectionalLight | undefined = scene.sun;
+        if (sun) { sun.castShadow = true; sun.position.set(center.x + size, box.max.y + size, center.z + size * 0.6); sun.target.position.copy(center); scene.add(sun.target); }
+        const cam: THREE.PerspectiveCamera = scene.cam, ctl = scene.ctl;
+        if (cam && ctl) {
+          ctl.target.copy(center);
+          const dir = new THREE.Vector3(0.6, 0.5, 0.8).normalize();
+          cam.position.copy(center.clone().add(dir.multiplyScalar(size * 1.1)));
+          cam.near = size / 200; cam.far = size * 30; cam.updateProjectionMatrix();
+          ctl.update();
+        }
+        const ren: THREE.WebGLRenderer | undefined = scene.ren;
+        if (ren) ren.shadowMap.enabled = true;
+        return;
+      }
+    }
+    // salir de ladrillo: restaurar visibilidad de muros
+    if (scene?.ladrillo) { scene.ladrillo.visible = false; }
+    for (const it of store ?? []) it.mesh.visible = true;
     if (root) root.visible = true;
-    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat; edges?: THREE.LineSegments }> | undefined;
     if (!store) return;
     for (const it of store) {
       it.mesh.material = materialFor(it.look, it.ghost, view, it.cat);
@@ -486,6 +602,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           ⚙️ Estudio / 📋 Expediente (z-40) y tapaban el selector. */}
       <div className="absolute bottom-2 right-2 z-20 flex gap-1 rounded-lg bg-[#070d1a]/85 p-1 backdrop-blur">
         {([["realista", "🎨", "Realista (materiales PBR)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["holo", "🌐", "HOLOGRAMA azul — estructura luminosa con aristas, envolvente en niebla"],
+["ladrillo", "🔍", "LADRILLO x LADRILLO (LOD 400) — cada unidad H-10 de la mampostería"],
 ["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema (Título E)"]] as const).map(([m, icon, title]) => (
           <button
             key={m} type="button" onClick={() => setView(m)} title={title}
@@ -495,6 +612,11 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           </button>
         ))}
       </div>
+      {view === "ladrillo" && ladrilloN > 0 && (
+        <p className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-[#0a1c10]/90 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-200 ring-1 ring-emerald-400/30 backdrop-blur">
+          🧱 {ladrilloN.toLocaleString("es-CO")} unidades H-10 instanciadas — LOD 400 (cantidades exactas en el 🌱 Pasaporte)
+        </p>
+      )}
       <p className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-[#070d1a]/85 px-2.5 py-1.5 text-[10px] text-slate-500 backdrop-blur">
         🧱 3D vivo con MATERIALES NSR-10 Título E — ladrillo · concreto · tierra · madera · vidrio · teja · rueda=zoom, arrastra=orbitar
       </p>
