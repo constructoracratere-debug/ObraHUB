@@ -2,13 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { IfcAPI, IFCCOLUMN, IFCBEAM, IFCSLAB, IFCFOOTING, IFCWALLSTANDARDCASE, IFCWINDOW, IFCFURNISHINGELEMENT } from "web-ifc";
+import { IfcAPI, IFCCOLUMN, IFCBEAM, IFCSLAB, IFCFOOTING, IFCWALLSTANDARDCASE, IFCWINDOW, IFCFURNISHINGELEMENT, IFCPLATE, IFCMEMBER } from "web-ifc";
 import type { FloorPlan } from "@/lib/design/schema";
 import { planToIfc } from "@/lib/design/ifc";
 import { mat3d, wallMatOf, roofMatOf, furnitureMatOf, type Mat3D } from "@/lib/design/materials3d";
 import { MATERIALS, WALL_ASSEMBLIES } from "@/lib/design/materials";
 
-type ViewMode = "realista" | "xray" | "bn" | "capas";
+/** Categoría de pieza para AISLAR por disciplina (como Revit Isolate):
+ *  estructura · arquitectura (muros/vanos/acabados) · mep. */
+export type ParteCat = "estructura" | "arquitectura" | "mep";
+type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "bn" | "capas";
+
+/** Clasifica una pieza por nombre/tipo — nuestros nombres son deterministas,
+ *  así la categoría es exacta para TODOS los sistemas (E·C·F·madera). */
+const catOf = (tId: number, name: string): ParteCat => {
+  const n = name.toLowerCase();
+  if (/pletina|perno|anclaje|refuerzo ø|riostra|cumbrera|cercha|zapata|pedestal|excavaci/.test(n)) return "estructura";
+  if (/columna i |columna madera|poste guadua|montante|viga i|viga doble|viga madera|viga cadena|solera|pedrestal/.test(n)) return "estructura";
+  if (/\[eléctrico\]|\[hidrosanitario\]|retie|\(ras\)/.test(n)) return "mep";
+  if (/faldón|losa|placa de|contrapiso/.test(n)) return /faldón/.test(n) ? "arquitectura" : "estructura";
+  if (tId === IFCWINDOW || tId === IFCFURNISHINGELEMENT) return "arquitectura";
+  return "arquitectura";
+};
 
 /**
  * 3D VIVO — el ambiente simultáneo 2D+3D: el IFC se regenera EN MEMORIA desde
@@ -51,7 +66,15 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   };
 
   /** Material three según MODO — realista usa la paleta completa. */
-  const materialFor = (look: Mat3D, ghost: boolean, m: Exclude<ViewMode, "capas">): THREE.MeshStandardMaterial => {
+  const materialFor = (look: Mat3D, ghost: boolean, m: Exclude<ViewMode, "capas">, cat?: ParteCat): THREE.MeshStandardMaterial => {
+    // AISLAR por disciplina: la que manda va a COLOR COMPLETO, el resto
+    // queda en fantasma mínimo (se apaga el que no toca).
+    if (m === "estructura" || m === "instalaciones") {
+      const manda = m === "estructura" ? cat === "estructura" : cat === "mep";
+      return manda
+        ? new THREE.MeshStandardMaterial({ color: look.hex, roughness: look.roughness, metalness: look.metalness, emissive: look.emissive ?? 0x000000, side: THREE.DoubleSide })
+        : new THREE.MeshStandardMaterial({ color: 0x9db8cc, transparent: true, opacity: 0.06, roughness: 1, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
+    }
     if (m === "xray" && ghost) {
       // Rayos X: envolvente translúcida — estructura, MEP y vidrio sólidos.
       return new THREE.MeshStandardMaterial({ color: 0x8fb7d8, transparent: true, opacity: 0.07, roughness: 1, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
@@ -234,17 +257,18 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
     }
     if (scene?.capas) scene.capas.visible = false;
     if (root) root.visible = true;
-    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean }> | undefined;
+    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat }> | undefined;
     if (!store) return;
     for (const it of store) {
-      it.mesh.material = materialFor(it.look, it.ghost, view);
-      it.mesh.castShadow = view === "realista" && !it.ghost;
+      it.mesh.material = materialFor(it.look, it.ghost, view, it.cat);
+      const aislado = view === "estructura" ? it.cat === "estructura" : view === "instalaciones" ? it.cat === "mep" : true;
+      it.mesh.castShadow = (view === "realista" && !it.ghost) || ((view === "estructura" || view === "instalaciones") && aislado);
       it.mesh.receiveShadow = view === "realista";
     }
     const ren: THREE.WebGLRenderer | undefined = (sceneRef as any)?.ren;
-    if (ren) ren.shadowMap.enabled = view === "realista";
+    if (ren) ren.shadowMap.enabled = view === "realista" || view === "estructura" || view === "instalaciones";
     const ground: THREE.Mesh | undefined = (sceneRef as any)?.ground;
-    if (ground) ground.visible = view === "realista";
+    if (ground) ground.visible = view === "realista" || view === "estructura" || view === "instalaciones";
     const sun: THREE.DirectionalLight | undefined = (sceneRef as any)?.sun;
     if (sun) sun.castShadow = view === "realista"; // capas configura su sol y retorna antes
   }, [view]);
@@ -343,7 +367,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         const mid = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: false });
         if (mid < 0) throw new Error("IFC inválido");
         modelRef.current = mid;
-        const store: Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean }> = [];
+        const store: Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat }> = [];
         (sceneRef as any).meshes = store;
         api.StreamAllMeshes(mid, (mesh: any) => {
           if (cancelled) return;
@@ -369,13 +393,13 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           const look = lookOf(tId, name);
           const isStruct = tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING || /excavaci/i.test(name);
           const ghost = !isStruct && tId !== IFCWINDOW; // rayos X: envolvente fantasma, estructura+MEP+vidrio sólidos
-          const m3 = new THREE.Mesh(bg, materialFor(look, ghost, viewRef.current === "capas" ? "realista" : viewRef.current));
+          const m3 = new THREE.Mesh(bg, materialFor(look, ghost, viewRef.current === "capas" ? "realista" : viewRef.current, catOf(tId, name)));
           m3.castShadow = viewRef.current === "realista" && !ghost;
           m3.receiveShadow = viewRef.current === "realista";
           m3.matrixAutoUpdate = false;
           m3.matrix.fromArray(g0.flatTransformation); // mundo Y-up directo (sin giro extra)
           root.add(m3);
-          store.push({ mesh: m3, look, ghost });
+          store.push({ mesh: m3, look, ghost, cat: catOf(tId, name) });
         });
         // Encuadre automático al tamaño del modelo (el espejo z no afecta el bbox).
         // ANTI-EDIFICIO-EN EL-AIRE: las mallas usan matrixAutoUpdate=false —
@@ -437,7 +461,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           Abajo-derecha: arriba-derecha lo ocupan los botones flotantes
           ⚙️ Estudio / 📋 Expediente (z-40) y tapaban el selector. */}
       <div className="absolute bottom-2 right-2 z-20 flex gap-1 rounded-lg bg-[#070d1a]/85 p-1 backdrop-blur">
-        {([["realista", "🎨", "Realista (materiales PBR)"], ["xray", "🩻", "Rayos X — estructura e instalaciones"], ["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema (Título E)"]] as const).map(([m, icon, title]) => (
+        {([["realista", "🎨", "Realista (materiales PBR)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema (Título E)"]] as const).map(([m, icon, title]) => (
           <button
             key={m} type="button" onClick={() => setView(m)} title={title}
             className={`rounded-md px-2 py-1 text-[13px] font-semibold leading-none transition ${view === m ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "text-slate-400 hover:bg-white/5"}`}
