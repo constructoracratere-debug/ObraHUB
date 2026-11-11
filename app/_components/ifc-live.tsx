@@ -11,7 +11,7 @@ import { MATERIALS, WALL_ASSEMBLIES } from "@/lib/design/materials";
 /** Categoría de pieza para AISLAR por disciplina (como Revit Isolate):
  *  estructura · arquitectura (muros/vanos/acabados) · mep. */
 export type ParteCat = "estructura" | "arquitectura" | "mep";
-type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "bn" | "capas";
+type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "holo" | "bn" | "capas";
 
 /** Clasifica una pieza por nombre/tipo — nuestros nombres son deterministas,
  *  así la categoría es exacta para TODOS los sistemas (E·C·F·madera). */
@@ -69,6 +69,14 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   const materialFor = (look: Mat3D, ghost: boolean, m: Exclude<ViewMode, "capas">, cat?: ParteCat): THREE.MeshStandardMaterial => {
     // AISLAR por disciplina: la que manda va a COLOR COMPLETO, el resto
     // queda en fantasma mínimo (se apaga el que no toca).
+    if (m === "holo") {
+      // HOLOGRAMA AZUL: la estructura luminosa y translúcida con aristas
+      // brillantes (las dibuja el efecto [view] con EdgesGeometry) — la
+      // envolvente queda en niebla del mismo tono. La vista BIM favorita.
+      return cat === "estructura"
+        ? new THREE.MeshStandardMaterial({ color: 0x55c1ff, transparent: true, opacity: 0.5, roughness: 0.4, metalness: 0.1, emissive: 0x1a7fd4, emissiveIntensity: 0.85, side: THREE.DoubleSide, depthWrite: false })
+        : new THREE.MeshStandardMaterial({ color: 0x2f6db3, transparent: true, opacity: 0.05, roughness: 1, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
+    }
     if (m === "estructura" || m === "instalaciones") {
       const manda = m === "estructura" ? cat === "estructura" : cat === "mep";
       return manda
@@ -257,16 +265,32 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
     }
     if (scene?.capas) scene.capas.visible = false;
     if (root) root.visible = true;
-    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat }> | undefined;
+    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat; edges?: THREE.LineSegments }> | undefined;
     if (!store) return;
     for (const it of store) {
       it.mesh.material = materialFor(it.look, it.ghost, view, it.cat);
+      // Holograma: aristas luminosas SOLO en la estructura (EdgesGeometry
+      // cacheada por pieza — se agrega/quito al entrar/salir del modo).
+      const holoOn = view === "holo" && it.cat === "estructura";
+      if (holoOn && !it.edges) {
+        it.edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(it.mesh.geometry, 28),
+          new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.9 }),
+        );
+        it.edges.matrixAutoUpdate = false;
+        it.edges.matrix.copy(it.mesh.matrix);
+        it.mesh.add(it.edges);
+      } else if (!holoOn && it.edges) {
+        it.mesh.remove(it.edges);
+        it.edges.geometry.dispose();
+        it.edges = undefined;
+      }
       const aislado = view === "estructura" ? it.cat === "estructura" : view === "instalaciones" ? it.cat === "mep" : true;
       it.mesh.castShadow = (view === "realista" && !it.ghost) || ((view === "estructura" || view === "instalaciones") && aislado);
       it.mesh.receiveShadow = view === "realista";
     }
     const ren: THREE.WebGLRenderer | undefined = (sceneRef as any)?.ren;
-    if (ren) ren.shadowMap.enabled = view === "realista" || view === "estructura" || view === "instalaciones";
+    if (ren) ren.shadowMap.enabled = view === "realista" || view === "estructura" || view === "instalaciones"; // holo no: brilla solo
     const ground: THREE.Mesh | undefined = (sceneRef as any)?.ground;
     if (ground) ground.visible = view === "realista" || view === "estructura" || view === "instalaciones";
     const sun: THREE.DirectionalLight | undefined = (sceneRef as any)?.sun;
@@ -367,7 +391,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         const mid = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: false });
         if (mid < 0) throw new Error("IFC inválido");
         modelRef.current = mid;
-        const store: Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat }> = [];
+        const store: Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat; edges?: THREE.LineSegments }> = [];
         (sceneRef as any).meshes = store;
         api.StreamAllMeshes(mid, (mesh: any) => {
           if (cancelled) return;
@@ -461,7 +485,8 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           Abajo-derecha: arriba-derecha lo ocupan los botones flotantes
           ⚙️ Estudio / 📋 Expediente (z-40) y tapaban el selector. */}
       <div className="absolute bottom-2 right-2 z-20 flex gap-1 rounded-lg bg-[#070d1a]/85 p-1 backdrop-blur">
-        {([["realista", "🎨", "Realista (materiales PBR)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema (Título E)"]] as const).map(([m, icon, title]) => (
+        {([["realista", "🎨", "Realista (materiales PBR)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["holo", "🌐", "HOLOGRAMA azul — estructura luminosa con aristas, envolvente en niebla"],
+["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema (Título E)"]] as const).map(([m, icon, title]) => (
           <button
             key={m} type="button" onClick={() => setView(m)} title={title}
             className={`rounded-md px-2 py-1 text-[13px] font-semibold leading-none transition ${view === m ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "text-slate-400 hover:bg-white/5"}`}
