@@ -6,6 +6,7 @@ import { IfcAPI, IFCCOLUMN, IFCBEAM, IFCSLAB, IFCFOOTING, IFCWALLSTANDARDCASE, I
 import type { FloorPlan } from "@/lib/design/schema";
 import { planToIfc } from "@/lib/design/ifc";
 import { mat3d, wallMatOf, roofMatOf, furnitureMatOf, type Mat3D } from "@/lib/design/materials3d";
+import { STRUCTURE_LABELS } from "@/lib/design/schema";
 import { MATERIALS, WALL_ASSEMBLIES } from "@/lib/design/materials";
 
 /** Categoría de pieza para AISLAR por disciplina (como Revit Isolate):
@@ -237,6 +238,11 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       g.add(t);
       x += w + 0.42;
     }
+    // TÍTULO: el sistema a la vista (arriba de todo).
+    const sysLabel = etiqueta(`SISTEMA: ${(STRUCTURE_LABELS[system as keyof typeof STRUCTURE_LABELS] ?? system).toUpperCase()}`);
+    sysLabel.position.set(x / 2, 2.05, 0);
+    sysLabel.scale.set(4.4, 0.75, 1);
+    g.add(sysLabel);
     // PIEZA ESTRUCTURAL característica, a la derecha de las capas.
     const bx = x + 0.9;
     const steel = new THREE.MeshStandardMaterial({ color: 0xb9c3cc, roughness: 0.32, metalness: 0.85 });
@@ -274,6 +280,64 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       }
       const tv = etiqueta("Viga cadena (amarre) 30×25 · concreto + 4Ø — recibe CERCHA");
       tv.position.set(bx + 0.4, -0.28, -1.0); tv.scale.set(3.2, 0.7, 1); g.add(tv);
+    } else if (system === "acero_estructural") {
+      // TÍTULO F: columna PERFIL I + placa base + anclajes + PLETINA con
+      // PERNOS y una RIOSTRA L — la unión articulada de la norma (F.4).
+      const perfilI = new THREE.Shape();
+      const bf = 0.16, dI = 0.16, tf2 = 0.012, tw = 0.008;
+      perfilI.moveTo(-bf / 2, dI / 2); perfilI.lineTo(bf / 2, dI / 2);
+      perfilI.lineTo(bf / 2, dI / 2 - tf2); perfilI.lineTo(tw / 2, dI / 2 - tf2);
+      perfilI.lineTo(tw / 2, -dI / 2 + tf2); perfilI.lineTo(bf / 2, -dI / 2 + tf2);
+      perfilI.lineTo(bf / 2, -dI / 2); perfilI.lineTo(-bf / 2, -dI / 2);
+      perfilI.lineTo(-bf / 2, -dI / 2 + tf2); perfilI.lineTo(-tw / 2, -dI / 2 + tf2);
+      perfilI.lineTo(-tw / 2, dI / 2 - tf2); perfilI.lineTo(-bf / 2, dI / 2 - tf2);
+      perfilI.closePath();
+      const colI = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(perfilI, { depth: 1.5, bevelEnabled: false }),
+        steel,
+      );
+      colI.rotation.x = -Math.PI / 2;
+      colI.position.set(bx, 0.02, 1.35);
+      colI.castShadow = true; g.add(colI);
+      const tc = etiqueta("Columna I A36 160×160 · perfil laminado (Título F)");
+      tc.position.set(bx, 1.85, 1.35); tc.scale.set(3.8, 0.75, 1); g.add(tc);
+      // placa base + anclajes
+      const pb = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.012, 0.24), steel);
+      pb.position.set(bx, 0.006, 1.35); pb.castShadow = true; g.add(pb);
+      for (const dz of [-0.06, 0.06]) {
+        const an = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.34, 10), steel);
+        an.position.set(bx, -0.15, 1.35 + dz); g.add(an);
+      }
+      const tp = etiqueta("Placa base e=12 + anclajes A325 Ø5/8 (2)");
+      tp.position.set(bx, 0.35, 1.35); tp.scale.set(3.2, 0.6, 1); g.add(tp);
+      // pletina con pernos + riostra L
+      const pl = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.30, 0.30), steel);
+      pl.position.set(bx + 0.10, 0.95, 0.35); g.add(pl);
+      for (const dy of [0.08, -0.05]) for (const dz of [0.08, -0.06]) {
+        const pe = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.06, 10), steel);
+        pe.rotation.z = Math.PI / 2;
+        pe.position.set(bx + 0.11, 0.95 + dy, 0.35 + dz); g.add(pe);
+      }
+      const rio = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.05, 0.05), steel);
+      rio.position.set(bx + 0.45, 1.25, 0.35);
+      rio.rotation.z = Math.PI / 5; g.add(rio);
+      const tu = etiqueta("Pletina 300×300 e=8 + 4 PERNOS A325 + Riostra L (F.4)");
+      tu.position.set(bx + 0.45, 0.55, 0.35); tu.scale.set(3.6, 0.7, 1); g.add(tu);
+    } else if (system === "madera") {
+      // TIMBER: nudo empernado — poste + viga + pletinas + pernos.
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.5, 0.15), maderaM);
+      post.position.set(bx, 0.8, 0.6); post.castShadow = true; g.add(post);
+      const vig = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.18, 0.15), maderaM);
+      vig.position.set(bx + 0.55, 1.45, 0.6); g.add(vig);
+      const plm = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.16, 0.16), steel);
+      plm.position.set(bx + 0.09, 1.45, 0.6); g.add(plm);
+      for (const dz of [-0.045, 0.045]) {
+        const pe = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.14, 10), steel);
+        pe.rotation.z = Math.PI / 2;
+        pe.position.set(bx + 0.09, 1.45, 0.6 + dz); g.add(pe);
+      }
+      const tn = etiqueta("Nudo timber: pletina + 2 pernos Ø5/8 (unión empernada)");
+      tn.position.set(bx + 0.55, 0.35, 0.6); tn.scale.set(3.8, 0.7, 1); g.add(tn);
     } else {
       // BAHAREQUE / otros: TABIQUE de guadua (montantes) como pieza viva
       const tab = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.5, 1.6), maderaM);
@@ -305,7 +369,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       const rev = JSON.stringify([plan.structure, plan.levels]).slice(0, 600);
       if (scene.capasRev !== rev || !scene.capas) {
         if (scene.capas) { scene.remove(scene.capas); }
-        scene.capas = buildCapas();
+        try { scene.capas = buildCapas(); } catch { scene.capas = new THREE.Group(); }
         scene.capasRev = rev;
         scene.add(scene.capas);
       }
