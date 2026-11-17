@@ -12,7 +12,7 @@ import { MATERIALS, WALL_ASSEMBLIES } from "@/lib/design/materials";
 /** Categoría de pieza para AISLAR por disciplina (como Revit Isolate):
  *  estructura · arquitectura (muros/vanos/acabados) · mep. */
 export type ParteCat = "estructura" | "arquitectura" | "mep";
-type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "holo" | "ladrillo" | "bn" | "capas";
+type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "ladrillo" | "bn" | "capas";
 
 /** Clasifica una pieza por nombre/tipo — nuestros nombres son deterministas,
  *  así la categoría es exacta para TODOS los sistemas (E·C·F·madera). */
@@ -72,18 +72,19 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
     const m = modo === "ladrillo" || modo === "capas" ? "realista" : modo;
     // AISLAR por disciplina: la que manda va a COLOR COMPLETO, el resto
     // queda en fantasma mínimo (se apaga el que no toca).
-    if (m === "holo") {
-      // HOLOGRAMA AZUL: la estructura luminosa y translúcida con aristas
-      // brillantes (las dibuja el efecto [view] con EdgesGeometry) — la
-      // envolvente queda en niebla del mismo tono. La vista BIM favorita.
-      return cat === "estructura"
-        ? new THREE.MeshStandardMaterial({ color: 0x66ccff, transparent: true, opacity: 0.74, roughness: 0.35, metalness: 0.1, emissive: 0x1e8ee8, emissiveIntensity: 1.35, side: THREE.DoubleSide })
-        : new THREE.MeshStandardMaterial({ color: 0x2f6db3, transparent: true, opacity: 0.045, roughness: 1, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
-    }
     if (m === "estructura" || m === "instalaciones") {
       const manda = m === "estructura" ? cat === "estructura" : cat === "mep";
       return manda
-        ? new THREE.MeshStandardMaterial({ color: look.hex, roughness: look.roughness, metalness: look.metalness, emissive: look.emissive ?? 0x000000, side: THREE.DoubleSide })
+        ? new THREE.MeshStandardMaterial({
+            color: look.hex,
+            roughness: look.roughness,
+            metalness: look.metalness,
+            // MEP BRILLA y se ve: los puntos son pequeños (11-16 cm) y a
+            // escala de edificio se pierden — emisión fuerte + opacidad 1
+            emissive: look.emissive ?? (cat === "mep" ? look.hex : 0x000000),
+            emissiveIntensity: cat === "mep" ? 1.0 : 0,
+            side: THREE.DoubleSide,
+          })
         : new THREE.MeshStandardMaterial({ color: 0x9db8cc, transparent: true, opacity: 0.06, roughness: 1, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
     }
     if (m === "xray" && ghost) {
@@ -123,7 +124,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   const buildLadrillos = (): THREE.Group | null => {
     const system = plan.structure?.system ?? "concreto";
     if (!["mamposteria_confinada", "concreto", "mixto"].includes(system)) return null;
-    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; cat?: ParteCat }> | undefined;
+    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; cat?: ParteCat; tId?: number; scaled?: boolean }> | undefined;
     if (!store?.length) return null;
     const boxes: Array<THREE.Box3> = [];
     for (const it of store) {
@@ -131,7 +132,9 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       if (b.isEmpty()) continue;
       const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
       // muro = caja delgada (≤0.35) y alta (≥0.8) de la categoría arquitectura
-      if (Math.min(sx, sz) <= 0.35 && sy >= 0.8 && it.cat === "arquitectura") boxes.push(b);
+      // SOLO muros (IFCWALLSTANDARDCASE) — las ventanas y puertas son
+      // cajas delgadas que colaban como ladrillos (bug reportado).
+      if (Math.min(sx, sz) <= 0.35 && sy >= 0.8 && it.cat === "arquitectura" && it.tId === IFCWALLSTANDARDCASE) boxes.push(b);
     }
     if (!boxes.length) return null;
     const L = 0.30, H = 0.10, J = 0.012; // unidad H-10 + junta de pega 1:4
@@ -361,7 +364,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   // Aplicar modo a las mallas ya generadas (sin regenerar el IFC).
   useEffect(() => {
     const scene = sceneRef.current as any;
-    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat; edges?: THREE.LineSegments }> | undefined;
+    const store = (sceneRef as any)?.meshes as Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat; edges?: THREE.LineSegments; tId?: number; scaled?: boolean }> | undefined;
     const root: THREE.Group | undefined = scene?.root;
     // 🧱 CAPAS: maqueta explotada del sistema — el modelo se oculta.
     if (view === "capas") {
@@ -418,7 +421,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         for (const it of store ?? []) {
           const b = new THREE.Box3().setFromObject(it.mesh, true);
           const sx = b.max.x - b.min.x, sz = b.max.z - b.min.z, sy = b.max.y - b.min.y;
-          it.mesh.visible = !(it.cat === "arquitectura" && Math.min(sx, sz) <= 0.35 && sy >= 0.8);
+          it.mesh.visible = !(it.cat === "arquitectura" && it.tId === IFCWALLSTANDARDCASE);
         }
         const box = new THREE.Box3().setFromObject(scene.ladrillo, true);
         const center = box.getCenter(new THREE.Vector3());
@@ -451,20 +454,31 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       it.mesh.material = materialFor(it.look, it.ghost, view, it.cat);
       // Holograma: aristas luminosas SOLO en la estructura (EdgesGeometry
       // cacheada por pieza — se agrega/quito al entrar/salir del modo).
-      const holoOn = (view === "holo" || view === "xray") && it.cat === "estructura";
+      const edgesOn = view === "xray" && it.cat === "estructura";
       // en xray las aristas son blancas; en holo, cian brillante
-      if (holoOn && !it.edges) {
+      if (edgesOn && !it.edges) {
         it.edges = new THREE.LineSegments(
           new THREE.EdgesGeometry(it.mesh.geometry, 28),
-          new THREE.LineBasicMaterial({ color: view === "holo" ? 0xbfe8ff : 0xe8f4ff, transparent: true, opacity: view === "holo" ? 0.95 : 0.55 }),
+          new THREE.LineBasicMaterial({ color: 0xe8f4ff, transparent: true, opacity: 0.55 }),
         );
         it.edges.matrixAutoUpdate = false;
         it.edges.matrix.copy(it.mesh.matrix);
         it.mesh.add(it.edges);
-      } else if (!holoOn && it.edges) {
+      } else if (!edgesOn && it.edges) {
         it.mesh.remove(it.edges);
         it.edges.geometry.dispose();
         it.edges = undefined;
+      }
+      // MODO INSTALACIONES: los puntos MEP se ESCALAN ×4 (de 11 cm a ~45 cm
+      // visibles) — a escala de edificio los cilindros normales son puntos.
+      if (view === "instalaciones" && it.cat === "mep" && !it.scaled) {
+        it.mesh.scale.multiplyScalar(4);
+        it.mesh.updateMatrix();
+        it.scaled = true;
+      } else if (view !== "instalaciones" && it.scaled) {
+        it.mesh.scale.multiplyScalar(0.25);
+        it.mesh.updateMatrix();
+        it.scaled = false;
       }
       const aislado = view === "estructura" ? it.cat === "estructura" : view === "instalaciones" ? it.cat === "mep" : true;
       it.mesh.castShadow = (view === "realista" && !it.ghost) || ((view === "estructura" || view === "instalaciones") && aislado);
@@ -572,7 +586,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         const mid = api.OpenModel(bytes, { COORDINATE_TO_ORIGIN: false });
         if (mid < 0) throw new Error("IFC inválido");
         modelRef.current = mid;
-        const store: Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat; edges?: THREE.LineSegments }> = [];
+        const store: Array<{ mesh: THREE.Mesh; look: Mat3D; ghost: boolean; cat?: ParteCat; edges?: THREE.LineSegments; tId?: number; scaled?: boolean }> = [];
         (sceneRef as any).meshes = store;
         api.StreamAllMeshes(mid, (mesh: any) => {
           if (cancelled) return;
@@ -604,7 +618,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           m3.matrixAutoUpdate = false;
           m3.matrix.fromArray(g0.flatTransformation); // mundo Y-up directo (sin giro extra)
           root.add(m3);
-          store.push({ mesh: m3, look, ghost, cat: catOf(tId, name) });
+          store.push({ mesh: m3, look, ghost, cat: catOf(tId, name), tId });
         });
         // Encuadre automático al tamaño del modelo (el espejo z no afecta el bbox).
         // ANTI-EDIFICIO-EN EL-AIRE: las mallas usan matrixAutoUpdate=false —
@@ -665,8 +679,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       {/* Selector de VISTAS — icono + NOMBRE visible (chips envueltos en dos
           filas máx): abajo-derecha; arriba-derecha están ⚙️/📋 (z-40). */}
       <div className="absolute bottom-2 right-2 z-30 flex max-w-[92%] flex-wrap justify-end gap-1 rounded-xl bg-[#070d1a]/90 p-1.5 ring-1 ring-white/10 backdrop-blur">
-        {([["realista", "🎨", "Realista — materiales PBR (ladrillo, guadua, acero, teja)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["holo", "🌐", "HOLOGRAMA azul — estructura luminosa con aristas, envolvente en niebla"],
-["ladrillo", "🔍", "LADRILLO x LADRILLO (LOD 400) — cada unidad H-10 de la mampostería"],
+        {([["realista", "🎨", "Realista — materiales PBR (ladrillo, guadua, acero, teja)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["ladrillo", "🔍", "LADRILLO x LADRILLO (LOD 400) — cada unidad H-10 de la mampostería"],
 ["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema constructivo (E.3 · E.4 · F · C · timber)"]] as const).map(([m, icon, title]) => (
           <button
             key={m} type="button" onClick={() => setView(m)} title={title}
