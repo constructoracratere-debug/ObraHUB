@@ -12,7 +12,7 @@
  *
  * Sistemas del skill (schema.StructuralSystem):
  *   · mamposteria_confinada (E.3) → muros LADRILLO + esqueleto CONCRETO
- *   · bahareque_encamisado (E.7) → muros TIERRA/MADERA encamisados
+ *   · bahareque_encamisado (E.4) → muros TIERRA/MADERA encementados
  *   (concreto/mixto/acero_liviano de skills futuros ya mapeados.)
  */
 
@@ -36,16 +36,16 @@ export const MAT3D: Record<string, Mat3D> = {
   // ── Título E · mampostería confinada ─────────────────────────────────
   [MATERIALS.ladrillo]: { hex: 0xb04a26, roughness: 0.92, metalness: 0.02, label: "Ladrillo cerámico (mampostería E.3)" },
   [MATERIALS.panete]: { hex: 0xcdc8ba, roughness: 0.9, metalness: 0.02, label: "Mortero de pañete" },
-  "Repello cemento-arena + malla 3cm": { hex: 0xc9c4b5, roughness: 0.9, metalness: 0.02, label: "Repello cemento (encamisado E.7)" },
+  "Repello cemento-arena + malla 3cm": { hex: 0xc9c4b5, roughness: 0.9, metalness: 0.02, label: "Encementado mortero (E.4)" },
   "Repello interior 3cm": { hex: 0xd3cec1, roughness: 0.9, metalness: 0.02, label: "Repello interior" },
-  // ── Título E · bahareque encamisado (E.7 — diafragma de guadua) ─────
-  [MATERIALS.tierraMat]: { hex: 0x9c7a4d, roughness: 0.95, metalness: 0.0, label: "Arcilla/tierra (bahareque E.7)" },
+  // ── Título E · bahareque encementado (E.4 — diafragma de guadua) ─────
+  [MATERIALS.tierraMat]: { hex: 0x9c7a4d, roughness: 0.95, metalness: 0.0, label: "Arcilla/tierra (bahareque E.4)" },
   [MATERIALS.maderaMat]: { hex: 0x9a6a3f, roughness: 0.72, metalness: 0.0, label: "Madera aserrada" },
   [MATERIALS.guaduaMat]: { hex: 0xc8a44a, roughness: 0.6, metalness: 0.05, label: "Guadua angustifolia (G.12)" },
   "Esterilla de guadua angustifolia": { hex: 0xd0b062, roughness: 0.7, metalness: 0.03, label: "Esterilla de guadua" },
   "Esterilla de guadua + montantes 0.08": { hex: 0xd0b062, roughness: 0.7, metalness: 0.03, label: "Esterilla de guadua (división)" },
   "Relleno arcilla/barro + esterilla interior": { hex: 0x8d6a40, roughness: 0.95, metalness: 0.0, label: "Arcilla + esterilla" },
-  "Encamisado exterior: mortero cemento-arena e=3cm + malla": { hex: 0xc9c4b5, roughness: 0.9, metalness: 0.02, label: "Encamisado cemento (E.7)" },
+  "Encamisado exterior: mortero cemento-arena e=3cm + malla": { hex: 0xc9c4b5, roughness: 0.9, metalness: 0.02, label: "Encementado mortero (E.4)" },
   "Encamisado interior: mortero cemento-arena e=2cm": { hex: 0xd3cec1, roughness: 0.9, metalness: 0.02, label: "Encamisado interior" },
   // ── Estructura (confinamiento) ───────────────────────────────────────
   [MATERIALS.concreto]: { hex: 0xb6b3a8, roughness: 0.88, metalness: 0.0, label: "Concreto 3000 PSI" },

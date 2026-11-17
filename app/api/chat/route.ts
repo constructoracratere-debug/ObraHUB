@@ -27,7 +27,7 @@ const JARGON: Record<string, string> = {
   arena: "agregados arena gravilla concreto",
   varilla: "varilla acero de refuerzo diámetro fy4200",
   ferraje: "refuerzo acero varilla estructura",
-  bahareque: "bahareque encementado mampostería madera título E.7",
+  bahareque: "bahareque encementado mampostería madera título E.4",
   nsr: "NSR-10 sismorresistente requisitos reglamento colombiano",
   retie: "RETIE reglamento instalaciones eléctricas",
   retiq: "RETIQ reglamento transporte gas",

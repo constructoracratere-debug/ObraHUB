@@ -280,8 +280,8 @@ const planToIfcFn = req(path.join(tmp, "design", "ifc.js")).planToIfc;
 const ifcMam = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } }));
 const ifcBah = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "bahareque_encamisado" } }));
 check("IFC materiales E.3: mampostería confinada → muros LADRILLO + cubierta TEJA + confinamiento CONCRETO", ifcMam.includes("IFCSURFACESTYLE('Ladrillo cerámico H-10'") && ifcMam.includes("IFCSURFACESTYLE('Teja de barro'") && !/Columna eje[^\n]*Madera/.test(ifcMam) && ifcMam.includes("IFCSURFACESTYLE('Concreto estructural 3000 PSI'"));
-check("IFC materiales E.7: bahareque encamisado → diafragma de GUADUA + esterilla + arcilla (sin ladrillo ni madera aserrada)", ifcBah.includes("IFCSURFACESTYLE('Guadua angustifolia tratada'") && ifcBah.includes("Esterilla de guadua") && ifcBah.includes("arcilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo") && !/Columna eje[^\n]*Madera aserrada/.test(ifcBah));
-check("LIBRERÍA ESTRUCTURAL 3D × sistema (nivel Revit): F con perfil I + pletinas + pernos y riostras · C/E.3 con rebar · E.7 con guadua hueca · timber empernado", (() => {
+check("IFC materiales E.4: bahareque encementado → diafragma de GUADUA + esterilla + arcilla (sin ladrillo ni madera aserrada)", ifcBah.includes("IFCSURFACESTYLE('Guadua angustifolia tratada'") && ifcBah.includes("Esterilla de guadua") && ifcBah.includes("arcilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo") && !/Columna eje[^\n]*Madera aserrada/.test(ifcBah));
+check("LIBRERÍA ESTRUCTURAL 3D × sistema (nivel Revit): F con perfil I + pletinas + pernos y riostras · C/E.3 con rebar · E.4 con guadua hueca · timber empernado", (() => {
   const mk = (sys) => planToIfcFn(sanitizeFloorPlan({ ...rawPlan, levels: 1, structure: { ...rawPlan.structure, system: sys } }));
   const ac = mk("acero_estructural");
   const con = mk("concreto");
@@ -299,7 +299,7 @@ check("anti-alucinación gama alta: 'acero estructural título F' → acero_estr
     && norm("pórtico de concreto armado") === "concreto";
 })());
 
-check("IFC capas E.7 reales (encamisado cemento + esterilla + guadua + arcilla)", /IFCMATERIALLAYER\(#[0-9]+,0\.1[0-9]?,\$,'Guadua angustifolia tratada: montantes y riostras'/.test(ifcBah) && ifcBah.includes("Encamisado exterior: mortero cemento-arena"));
+check("IFC capas E.4 reales (encementado mortero + esterilla + guadua + arcilla)", /IFCMATERIALLAYER\(#[0-9]+,0\.1[0-9]?,\$,'Guadua angustifolia tratada: montantes y riostras'/.test(ifcBah) && ifcBah.includes("Encamisado exterior: mortero cemento-arena"));
 check("vanos DENTRO de muros (fix flotantes): ventana x=99 se clampa al muro de su espacio y puerta de esquina snapea a un muro real", (() => {
   const ventanas = sanitizeFloorPlan({
     ...rawPlan, rooms: rawPlan.rooms, levels: 1,
@@ -355,7 +355,7 @@ check("anti-alucinación: sin enum exacto YA NO cae a concreto/pórticos (fallba
   const p = sanitizeFloorPlan({ ...rawPlan, structure: { system: "bahareque encementado", justification: "x", axes: rawPlan.structure.axes } });
   return p.structure.system === "bahareque_encamisado";
 })());
-check("memoria S-00 declara la COMPOSICIÓN por sistema (E.3 confinamiento RC · E.7 diafragma guadua)", (() => {
+check("memoria S-00 declara la COMPOSICIÓN por sistema (E.3 confinamiento RC · E.4 diafragma guadua)", (() => {
   const { memoriaPrimitives } = req(path.join(tmp, "structural", "sheets.js"));
   const txt = (p) => memoriaPrimitives(p).filter((x) => x.t === "T").map((x) => x.s).join(" | ");
   const m = txt(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "mamposteria_confinada" } }));
@@ -452,8 +452,8 @@ check("escalera legible: SUBE en N1 y LLEGADA+BAJA en N2 (multiLevel)", (() => {
 check("Skill 1: sistemas mamposteria_confinada y bahareque_encamisado válidos y rotulados", (() => {
   const { planToDxfStructural } = req(path.join(tmp, "design", "dxf.js"));
   const conf = planToDxfStructural(sanitizeFloorPlan({ ...rawPlan, structure: { system: "mamposteria_confinada", justification: "E.3", axes: [{ id: "A", orientation: "vertical", at: 3 }, { id: "1", orientation: "horizontal", at: 3 }] } }), { fecha: "2026-01-15" }) ?? "";
-  const bah = planToDxfStructural(sanitizeFloorPlan({ ...rawPlan, structure: { system: "bahareque_encamisado", justification: "E.7", axes: [{ id: "A", orientation: "vertical", at: 3 }, { id: "1", orientation: "horizontal", at: 3 }] } }), { fecha: "2026-01-15" }) ?? "";
-  return conf.includes("MAMPOSTER") && conf.includes("E.3") && bah.includes("BAHAREQUE") && bah.includes("E.7") && bah.includes("despiece propio de este sistema llega en su skill");
+  const bah = planToDxfStructural(sanitizeFloorPlan({ ...rawPlan, structure: { system: "bahareque_encamisado", justification: "E.4", axes: [{ id: "A", orientation: "vertical", at: 3 }, { id: "1", orientation: "horizontal", at: 3 }] } }), { fecha: "2026-01-15" }) ?? "";
+  return conf.includes("MAMPOSTER") && conf.includes("E.3") && bah.includes("BAHAREQUE") && bah.includes("E.4") && bah.includes("despiece propio de este sistema llega en su skill");
 })());
 check("Skill 1: gate rechaza 3+ niveles (debe declarar Skill 2, no improvisar)", (() => {
   const { allGates } = req(path.join(tmp, "design", "validate.js"));

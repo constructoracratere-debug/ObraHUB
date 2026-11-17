@@ -34,7 +34,7 @@ const LADRILLO_INT: WallAssembly = {
 export const WALL_ASSEMBLIES: Record<StructuralSystem, { ext: WallAssembly; int: WallAssembly }> = {
   // SKILL 1 (NSR-10 Título E): confinada = mampostería con cadenas y
   // columnas de confinamiento; bahareque encamisado = estructura de madera
-  // + malla + repello (E.7) — mismos ensambles de tierra.
+  // + malla + repello (E.4) — mismos ensambles de tierra.
   mamposteria_confinada: { ext: LADRILLO_EXT, int: LADRILLO_INT },
   concreto: { ext: LADRILLO_EXT, int: LADRILLO_INT },
   mixto: { ext: LADRILLO_EXT, int: LADRILLO_INT },
@@ -98,13 +98,13 @@ export const WALL_ASSEMBLIES: Record<StructuralSystem, { ext: WallAssembly; int:
     },
     int: { label: "División tierra", layers: [{ name: "Estructura + tierra", thickness: 0.08 }] },
   },
-  // SKILL 1 · NSR-10 E.7: bahareque ENCAMISADO — DIAFRAGMA estructural de
+  // SKILL 1 · NSR-10 E.4: bahareque ENCEMENTADO — DIAFRAGMA estructural de
   // GUADUA angustifolia (montantes y riostras, G.12) + esterilla de guadua +
   // relleno de arcilla, encamisado con mortero cemento-arena y malla en
   // ambas caras. Sin pórticos de concreto: los nodos van sobre pedestales.
   bahareque_encamisado: {
     ext: {
-      label: "Bahareque encamisado en cemento (E.7) — diafragma de guadua",
+      label: "Bahareque encementado (NSR-10 E.4) — diafragma de guadua",
       layers: [
         { name: "Encamisado exterior: mortero cemento-arena e=3cm + malla", thickness: 0.03 },
         { name: "Esterilla de guadua angustifolia", thickness: 0.02 },

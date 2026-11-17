@@ -32,7 +32,7 @@ const catOf = (tId: number, name: string): ParteCat => {
  * con web-ifc + three. Sin descargar nada: lo que ves es el modelo real.
  *
  * REALISMO Título E: cada malla se pinta por MATERIAL (ladrillo E.3, tierra/
- * madera E.7, concreto de confinamiento, vidrio, teja, porcelana…) con la
+ * madera E.4, concreto de confinamiento, vidrio, teja, porcelana…) con la
  * MISMA paleta del archivo IFC (materials3d, fuente única) + entorno PBR
  * (RoomEnvironment), tono ACES y sombras al piso. Modos: 🎨 Realista ·
  * 🩻 Rayos X (envolvente fantasma, estructura e instalaciones sólidas) ·
@@ -52,7 +52,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   viewRef.current = view;
 
   // Material 3D de una malla: tipo + nombre del elemento + sistema Título E
-  // del plan (mampostería E.3 → ladrillo; bahareque E.7 → tierra/madera).
+  // del plan (mampostería E.3 → ladrillo; bahareque E.4 → tierra/madera).
   const lookOf = (tId: number, name: string): Mat3D => {
     const levels = Math.max(1, plan.levels ?? 1);
     const system = plan.structure?.system ?? "concreto";
@@ -110,7 +110,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   // Muestra de muro EXPLOTADA del sistema del plan (WALL_ASSEMBLIES, fuente
   // única): cada capa con SU material y espesor real rotulado, más la pieza
   // estructural característica — mampostería E.3: columna de confinamiento
-  // con ACERO (4Ø + estribos) y viga cadena · bahareque E.7: encamisado
+  // con ACERO (4Ø + estribos) y viga cadena · bahareque E.4: encementado
   // cemento, embutido (esterilla+arcilla) y tabique de GUADUA. Determinista.
   // ── 🔍 LADRILLO x LADRILLO (LOD 400, modo "ladrillo") ────────────────────
   // Cada muro de mampostería se descompone en UNIDADES H-10 individuales
@@ -347,7 +347,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
         m.position.set(bx, 0.95, -0.45 + i * 0.42);
         g.add(m);
       }
-      const tt = etiqueta("TABIQUE: montantes de guadua G.12 + esterilla (diafragma E.7)");
+      const tt = etiqueta("TABIQUE: montantes de guadua G.12 + esterilla (diafragma E.4)");
       tt.position.set(bx, 0.12, 0.2); tt.scale.set(3.6, 0.75, 1); g.add(tt);
       const emb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 1.2),
         new THREE.MeshStandardMaterial({ color: 0x8d6a40, roughness: 0.95 }));
@@ -667,7 +667,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       <div className="absolute bottom-2 right-2 z-30 flex max-w-[92%] flex-wrap justify-end gap-1 rounded-xl bg-[#070d1a]/90 p-1.5 ring-1 ring-white/10 backdrop-blur">
         {([["realista", "🎨", "Realista — materiales PBR (ladrillo, guadua, acero, teja)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["holo", "🌐", "HOLOGRAMA azul — estructura luminosa con aristas, envolvente en niebla"],
 ["ladrillo", "🔍", "LADRILLO x LADRILLO (LOD 400) — cada unidad H-10 de la mampostería"],
-["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema (Título E)"]] as const).map(([m, icon, title]) => (
+["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema constructivo (E.3 · E.4 · F · C · timber)"]] as const).map(([m, icon, title]) => (
           <button
             key={m} type="button" onClick={() => setView(m)} title={title}
             className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] font-semibold leading-none transition ${view === m ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "bg-white/[0.04] text-slate-300 ring-1 ring-white/[0.06] hover:bg-white/[0.1]"}`}

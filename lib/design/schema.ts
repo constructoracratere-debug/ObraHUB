@@ -30,7 +30,7 @@ export type WallSide = "norte" | "sur" | "este" | "oeste";
 
 export type StructuralSystem =
   | "mamposteria_confinada" // SKILL 1 · NSR-10 E.3 (viviendas 1-2 pisos)
-  | "bahareque_encamisado"  // SKILL 1 · NSR-10 E.7 (viviendas 1-2 pisos)
+  | "bahareque_encamisado"  // SKILL 1 · NSR-10 E.4 (viviendas 1-2 pisos)
   | "concreto"              // NSR-10 Título C · pórticos RC (gama alta skill)
   | "acero_estructural"     // NSR-10 Título F · pórticos I + riostras
   | "madera"                // timber/guadua frame (como F en madera)
@@ -701,7 +701,7 @@ export const ROOM_COLORS: Record<RoomType, string> = {
 
 export const STRUCTURE_LABELS: Record<StructuralSystem, string> = {
   mamposteria_confinada: "Mampostería confinada (NSR-10 E.3)",
-  bahareque_encamisado: "Bahareque encamisado (NSR-10 E.7)",
+  bahareque_encamisado: "Bahareque encementado (NSR-10 E.4)",
   concreto: "Pórticos en concreto armado (NSR-10 Título C)",
   acero_estructural: "Pórticos en acero estructural (NSR-10 Título F)",
   madera: "Pórticos en madera/guadua (timber frame)",

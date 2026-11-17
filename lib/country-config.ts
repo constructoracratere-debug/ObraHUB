@@ -51,7 +51,7 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
       "RAS (Res. 0330/2017)",
       "NTC-LIC (Ley 20257 bitácora de obra)",
       "Res. 037/2024 — Construcción sostenible",
-      "NSR-10 Cap. E.7 — Bahareque encementado",
+      "NSR-10 Cap. E.4 — Bahareque encementado",
     ],
     bitacoraLegal: "Ley 20257 de 2020 — bitácora de obra obligatoria para licencias",
     status: "active",

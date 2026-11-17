@@ -273,7 +273,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       // dinteles quedaban como muros duplicados de piso a techo).
       const solid = solidBox(x, y, zBot, w, d, h, along);
       // COLOR por sistema Título E: exterior = ladrillo (E.3) o tierra/
-      // bahareque (E.7); divisiones = ladrillo/esterilla de madera.
+      // bahareque (E.4); divisiones = ladrillo/esterilla de madera.
       styled(solid, setName === extSet ? wallMatExtName : wallMatIntName);
       const prd = shapeRep(solid, `W${x},${y},${z0},${zBot},${h},${w},${d},${along}`);
       const pl = ent(`WPL:${x},${y},${z0},${zBot}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
@@ -469,7 +469,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     const colDim = system === "acero_liviano" ? CONCRETE.columnLigero : CONCRETE.column;
     // Esqueleto por sistema (Título E): la mampostería CONFINADA lleva
     // columnas/vigas de CONCRETO (E.3), el bahareque encamisado va sobre
-    // MADERA (E.7) — antes "mamposteria_confinada" caía en madera.
+    // MADERA (E.4 bahareque va sobre madera) — antes "mamposteria_confinada" caía en madera.
     const colMatName =
       system === "acero_liviano" ? MATERIALS.acero
       : system === "guadua" || system === "bahareque_encamisado" ? MATERIALS.guaduaMat
@@ -582,7 +582,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       }
     }
 
-    // ══ BAHAREQUE E.7 · DIAFRAGMA de guadua en los MUROS: montantes @0.45,
+    // ══ BAHAREQUE E.4 · DIAFRAGMA de guadua en los MUROS: montantes @0.45,
     // ══ soleras dobles (abajo/arriba) y riostras — la pared ES estructura.
     if (system === "bahareque_encamisado") {
       const CHg = profileCH("MONT", 0.10, 0.018);
@@ -595,7 +595,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       for (const m of muros) {
         for (let p = m.a + 0.10; p < m.b - 0.05; p += 0.45) {
           const [mx, my] = m.along === "x" ? [p, m.c] : [m.c, p];
-          part(member(CHg, mx, my, 0, "z", fft, `GM:${mN}`), "IFCCOLUMN", `Montante guadua Ø10 (${f(mx)},${f(my)}) N${lvl + 1} — E.7`, MATERIALS.guaduaMat, "$,.COLUMN.");
+          part(member(CHg, mx, my, 0, "z", fft, `GM:${mN}`), "IFCCOLUMN", `Montante guadua Ø10 (${f(mx)},${f(my)}) N${lvl + 1} — E.4`, MATERIALS.guaduaMat, "$,.COLUMN.");
           mN++;
         }
         const cx = m.along === "x" ? (m.a + m.b) / 2 : m.c;
@@ -606,7 +606,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
         for (let p = m.a + 0.10; p + 1.8 < m.b - 0.05; p += 1.8) {
           const [x1, y1] = m.along === "x" ? [p, m.c] : [m.c, p];
           const [x2, y2] = m.along === "x" ? [p + 1.8, m.c] : [m.c, p + 1.8];
-          part(memberDiag(CHs, x1, y1, 0.12, x2, y2, fft - 0.20, `GR:${mN}:${p}`), "IFCMEMBER", `Riostra guadua diafragma (${f(x1)},${f(y1)}) N${lvl + 1} — E.7`, MATERIALS.guaduaMat, "$,.BRACE.");
+          part(memberDiag(CHs, x1, y1, 0.12, x2, y2, fft - 0.20, `GR:${mN}:${p}`), "IFCMEMBER", `Riostra guadua diafragma (${f(x1)},${f(y1)}) N${lvl + 1} — E.4`, MATERIALS.guaduaMat, "$,.BRACE.");
         }
       }
     }

@@ -14,7 +14,7 @@
 | Sistema | Norma | Cuándo |
 |---|---|---|
 | **Mampostería confinada** | NSR-10 **E.3** | Default nacional: muros 0.12–0.15 + cadenas y columnas de confinamiento cada ≤4.0 m y en extremos/encuentros |
-| **Bahareque encamisado en cemento** | NSR-10 **E.7** | Zona cafetera / madera local: estructura de madera + malla + repello en cemento |
+| **Bahareque encementado** | NSR-10 **E.4** | Zona cafetera / madera local: estructura de madera + malla + repello en cemento |
 
 **Qué entrega hoy (verificado, producción):**
 - Paquete A **puramente arquitectónico** (A-00 índice+localización · A-01.x plantas con ACCESO marcado y escalera SUBE/LLEGADA/BAJA · A-02 cortes POR la escalera · A-03 fachadas+cuadro vanos · A-05 cubiertas · A-06 acabados · A-07 detalles D1–D4).
@@ -49,7 +49,7 @@
   usuario cita a **Álvarez**; ampliar con **Simón Vélez** y la escuela del
   eje cafetero (**tarea de investigación al abrir**: recopilar obras,
   detalles publicados y manuales).
-- Aquí llega también el **despiece propio de bahareque encamisado (E.7)** de la Skill 1.
+- Aquí llega también el **despiece propio de bahareque encementado (E.4)** de la Skill 1.
 
 ---
 

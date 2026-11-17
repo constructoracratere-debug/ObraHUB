@@ -63,7 +63,7 @@ ${dimensionalTableForPrompt()}
   level) — así la escalera se ve en la planta 1 (vuelo SUBE) y en la planta 2
   (LLEGADA + proyección BAJA) y los cortes pasan por ella.
 - CASO DE USO 1 (viviendas 1-2 pisos NSR-10 TÍTULO E): mampostería
-  confinada (E.3) o bahareque encamisado (E.7) — muros portantes 0.12-0.15 m,
+  confinada (E.3) o bahareque encementado (E.4) — muros portantes 0.12-0.15 m,
   luces libres <= 4.0 m, planta compacta y regular (la regularidad SÍSMICA
   manda: sin alas ni esquinas reentrantes).
 
@@ -130,13 +130,13 @@ SKILL 1 — VIVIENDA de 1-2 pisos, NSR-10 TÍTULO E, DOS sistemas:
 · "mamposteria_confinada" (E.3): MAMPOSTERÍA (ladrillo H-10/bloque) CONFINADA
   — el mampuesto carga en pared; columnas y vigas (cadenas) de CONCRETO
   confinan el muro: en extremos, encuentros y cada ≤ 4.0 m (A.6.3/E.3.3).
-· "bahareque_encamisado" (E.7): DIAFRAGMA de GUADUA angustifolia (montantes
+· "bahareque_encamisado" (E.4 · BAHAREQUE ENCEMENTADO): DIAFRAGMA de GUADUA angustifolia (montantes
   y riostras, NSR-10 G.12 para la guadua) + esterilla de guadua + relleno
   de arcilla, ENCAMISADO (repello) de mortero cemento-arena con malla en
   ambas caras — trabaja como diafragma estructural, NO lleva pórticos de
   concreto ni columnas RC: los encuentros de la retícula son nodos de
   guadua sobre pedestales/zapatas menores.
-GAMA ALTA del skill (sólo si el ENCARGO lo pide — la regla vinculante manda):
+SISTEMAS DE OTROS TÍTULOS (sólo si el ENCARGO los pide — la regla vinculante manda):
 · "concreto" (TÍTULO C): pórticos resistentes a momento — columnas y vigas
   RC con refuerzo; muros sólo relleno.
 · "acero_estructural" (TÍTULO F): pórticos en perfil I + RIOSTRAS con
@@ -146,10 +146,10 @@ GAMA ALTA del skill (sólo si el ENCARGO lo pide — la regla vinculante manda):
 Responde SOLO este JSON:
 {
   "system": "mamposteria_confinada|bahareque_encamisado|concreto|acero_estructural|madera",
-  "justification": "decisión + razones NSR-10 (cita capítulos: A.1 cargas, A.3 sismo, C.11 viento, E.3 confinada, E.7 bahareque, G.12 guadua…)",
+  "justification": "decisión + razones NSR-10 (cita capítulos: A.1 cargas, A.3 sismo, C.11 viento, E.3 confinada, E.4 bahareque encementado, G.12 guadua…)",
   "axes": [ { "id": "A", "orientation": "vertical", "at": 0.0 }, { "id": "B", "orientation": "vertical", "at": 4.0 }, { "id": "1", "orientation": "horizontal", "at": 0.0 } ],
   "spanWarnings": [ "luz libre de X supera lo sano para el sistema — ver adaptación" ],
-  "foundation": "cimentación coherente: E.3 zapatas aisladas bajo columnas de confinamiento + vigas corrida · E.7 pedestales/zapatas menores en nodos de guadua",
+  "foundation": "cimentación coherente: E.3 zapatas aisladas bajo columnas de confinamiento + vigas corrida · E.4 pedestales/zapatas menores en nodos de guadua",
   "notesForArchitect": ["instrucciones concretas de ajuste geométrico (máx 4)"]
 }
 Retícula: 4-8 ejes entre verticales y horizontales, coordenadas DENTRO del outline. Devuelve EXCLUSIVAMENTE el JSON.`;
