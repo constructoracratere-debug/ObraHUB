@@ -35,6 +35,8 @@ import { buildSheets, sheetContents } from "@/lib/design/sheets";
 import { furnishRoom, labelSpot } from "@/lib/design/symbols";
 import { IfcLive } from "./ifc-live";
 import { takeoff } from "@/lib/passport/takeoff";
+import type { ConstructionDetail, DetailCategory } from "@/lib/design/knowledge-base";
+import { CATEGORY_LABELS, DETAIL_CATEGORIES, knowledgeForPrompt } from "@/lib/design/knowledge-base";
 import { valueTakeoff, recommendations } from "@/lib/passport/value";
 import { buildEnvironmentalReport } from "@/lib/passport/report";
 import type { RevisionLog } from "@/lib/design/schema";
@@ -223,7 +225,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [revisions, setRevisions] = useState<RevisionLog[]>(restored?.revisions ?? []);
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
-  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split" | "three">("split");
+  const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split" | "three" | "conocimiento">("split");
   // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
   // negro — así se ve si el plano sobrevive la fotocopiadora.
   const [printMode, setPrintMode] = useState(false);
@@ -485,7 +487,10 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
     try {
       // El ENCARGO ORIGINAL viaja al civil: si pidió un sistema (bahareque,
       // mampostería confinada…) el motor lo impone (anti-alucinación).
-      const data = await callWithRetries({ stage: "structure", previousPlan: plan, siteMemo, constructorMemo, prompt });
+      // La BIBLIOTECA CONSTRUCTIVA viaja con el encargo: el civil recibe las
+      // fotos analizadas y diseña con el conocimiento de obra real.
+      const kb = (() => { try { return JSON.parse(localStorage.getItem("obrahub-construction-knowledge") ?? "[]"); } catch { return []; } })();
+      const data = await callWithRetries({ stage: "structure", previousPlan: plan, siteMemo, constructorMemo, prompt, constructionDetails: kb });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setCivilMemo(data.civilMemo as CivilMemo);
       setProviderInfo(`🏗️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
@@ -952,7 +957,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
         <div className={`absolute inset-0 ${printMode ? "bg-white" : "bg-[#0a1120]"}`} style={printMode ? { filter: "invert(1) hue-rotate(180deg)" } : undefined}>
           {plan && (
             <div className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-lg border border-white/[0.08] bg-[#0a1120]/85 p-0.5 backdrop-blur">
-              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"], ["pasaporte", "🌱 Pasaporte"], ["split", "🧩 2D+3D"], ["three", "🌐 3D"]] as const).map(([id, label]) => (
+              {([["planta", "📐 Planta"], ["corte", "✂️ Corte"], ["fachadas", "🏞️ Fachadas"], ["lamina", "🗂️ Lámina"], ["pasaporte", "🌱 Pasaporte"], ["split", "🧩 2D+3D"], ["three", "🌐 3D"], ["conocimiento", "📚 Conocimiento"]] as const).map(([id, label]) => (
                 <button key={id} type="button" onClick={() => setView(id)}
                   className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${view === id ? "bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30" : "text-slate-400 hover:bg-white/[0.06]"}`}>
                   {label}
@@ -988,6 +993,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             </div>
           )}
           {plan ? (
+            view === "conocimiento" ? <KnowledgePanel /> :
             view === "three" ? (
               /** 🌐 3D a PANTALLA COMPLETA — el modelo vivo EN MEMORIA (mismo
                *  IFC que genera el estudio): Realista · Rayos X · AISLAR
@@ -1056,6 +1062,133 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
             equipment={equipment} revisions={revisions}
           />
         </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 📚 BIBLIOTECA CONSTRUCTIVA — aprende de fotos de obra real ───────────────
+function KnowledgePanel() {
+  const [details, setDetails] = useState<ConstructionDetail[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<DetailCategory | "todas">("todas");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const KEY = "obrahub-construction-knowledge";
+
+  useEffect(() => {
+    try { const raw = localStorage.getItem(KEY); if (raw) setDetails(JSON.parse(raw)); } catch { }
+  }, []);
+
+  const persist = (list: ConstructionDetail[]) => {
+    setDetails(list);
+    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { }
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files?.length || busy) return;
+    setBusy(true); setError(null);
+    try {
+      const nuevos: ConstructionDetail[] = [];
+      for (const file of Array.from(files).slice(0, 5)) {
+        if (!file.type.startsWith("image/")) continue;
+        const dataUrl = await new Promise<string>((resolve) => {
+          const img = new Image();
+          const rd = new FileReader();
+          rd.onload = () => { img.src = String(rd.result); };
+          img.onload = () => {
+            const cv = document.createElement("canvas");
+            const sc = Math.min(1, 1024 / Math.max(img.width, img.height));
+            cv.width = img.width * sc; cv.height = img.height * sc;
+            cv.getContext("2d")!.drawImage(img, 0, 0, cv.width, cv.height);
+            resolve(cv.toDataURL("image/jpeg", 0.82));
+          };
+          rd.readAsDataURL(file);
+        });
+        const r = await fetch("/api/design/analyze-detail", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: dataUrl }),
+        });
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error ?? "Error analizando");
+        const t = (json.analysis?.titulo ?? "") + " " + (json.analysis?.keywords ?? []).join(" ");
+        nuevos.push({
+          id: String(Date.now()) + Math.random().toString(36).slice(2, 8),
+          image: dataUrl,
+          category: (/guadua/i.test(t) ? "union_guadua" : /bahareque/i.test(t) ? "detalle_bahareque" : /mamposter|ladrillo|confin/i.test(t) ? "detalle_mamposteria" : /zapata|ciment/i.test(t) ? "cimentacion" : /cubiert|teja|cercha/i.test(t) ? "cubierta" : /material|muestra/i.test(t) ? "material" : /da[oñ]o|error|patolog/i.test(t) ? "daño" : "otro") as DetailCategory,
+          analysis: json.analysis,
+          createdAt: new Date().toISOString(),
+          projectId: null,
+        });
+      }
+      persist([...nuevos, ...details]);
+    } catch (e) { setError(e instanceof Error ? e.message : "Error"); }
+    setBusy(false);
+  };
+
+  const visibles = filter === "todas" ? details : details.filter((d) => d.category === filter);
+
+  return (
+    <div className="absolute inset-0 overflow-y-auto bg-[#070d1a] p-4">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-emerald-200">📚 Biblioteca Constructiva</h2>
+            <p className="mt-1 text-xs text-slate-400">
+              Sube fotos de detalles REALES de obra — uniones de guadua, mampostería, materiales → el vision AI las
+              analiza → el conocimiento alimenta los prompts del civil y arquitecto →{" "}
+              <span className="font-semibold text-emerald-300">los planos y modelos mejoran con cada imagen</span>.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-200 ring-1 ring-emerald-400/30">
+              {details.length} detalles
+            </span>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}
+              className="rounded-lg bg-blue-500/20 px-4 py-2 text-sm font-bold text-blue-100 ring-1 ring-blue-400/40 transition hover:bg-blue-500/30 disabled:opacity-50">
+              {busy ? "🔄 Analizando…" : "📷 Subir fotos de obra"}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => handleFiles(e.target.files)} />
+          </div>
+        </div>
+        {error && <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-2.5 text-xs text-red-200">{error}</div>}
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {(["todas", ...DETAIL_CATEGORIES] as const).map((cat) => (
+            <button key={cat} type="button" onClick={() => setFilter(cat as DetailCategory | "todas")}
+              className={`rounded-full px-2.5 py-1 text-[10.5px] font-semibold transition ${filter === cat ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "bg-white/[0.04] text-slate-400 ring-1 ring-white/[0.06] hover:bg-white/[0.1]"}`}>
+              {cat === "todas" ? "Todas" : CATEGORY_LABELS[cat as DetailCategory]}
+              {cat !== "todas" && <span className="ml-1 text-slate-500">{details.filter((d) => d.category === cat).length}</span>}
+            </button>
+          ))}
+        </div>
+        {visibles.length === 0 ? (
+          <div className="mt-8 rounded-xl border border-white/[0.07] bg-white/[0.02] p-8 text-center">
+            <p className="text-sm text-slate-400">{details.length === 0
+              ? "Sin detalles aún — sube la primera foto de una unión de guadua, un detalle de mampostería, o cualquier construcción real que quieras que el sistema aprenda."
+              : "Nada en esta categoría."}</p>
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visibles.map((d) => (
+              <div key={d.id} className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]">
+                <img src={d.image} alt={d.analysis.titulo} className="h-40 w-full object-cover" />
+                <div className="p-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-300">{CATEGORY_LABELS[d.category]}</span>
+                    {d.analysis.nsrRef && <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[9px] font-bold text-blue-300">NSR {d.analysis.nsrRef}</span>}
+                  </div>
+                  <p className="mt-1.5 text-xs font-bold text-slate-100">{d.analysis.titulo}</p>
+                  <p className="mt-1 text-[10.5px] leading-snug text-slate-400">{d.analysis.descripcion.slice(0, 160)}</p>
+                  {d.analysis.materiales.length > 0 && (
+                    <p className="mt-1.5 text-[10px] text-slate-500"><span className="font-semibold text-slate-400">Materiales:</span> {d.analysis.materiales.slice(0, 4).join(" · ")}</p>
+                  )}
+                  <p className="mt-1.5 text-[10px] leading-snug text-amber-200/80"><span className="font-semibold">💡</span> {d.analysis.leccion.slice(0, 140)}</p>
+                  <button type="button" onClick={() => persist(details.filter((x) => x.id !== d.id))} className="mt-2 text-[10px] text-red-300/60 hover:text-red-300">Eliminar</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
