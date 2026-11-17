@@ -441,8 +441,9 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const retryable = /falló en la etapa|saturad|timed out|no devolvió resultado|Error 5\d\d|vacía/i.test(msg);
-        if (attempt >= 3 || !retryable) throw err;
-        pushLine({ agent: "mesa", kind: "fallback", text: `⚠️ ${msg.slice(0, 90)} — reintentando automáticamente (${attempt + 1}/3)…` });
+        if (attempt >= 2 || !retryable) throw err; // 2 intentos, no 3 (el usuario ya no repite como loco)
+        pushLine({ agent: "mesa", kind: "fallback", text: `⚠️ ${msg.slice(0, 90)} — reintentando (${attempt + 1}/2)…` });
+        await new Promise((r) => setTimeout(r, 1500)); // 1.5s de respiro entre intentos
       }
     }
   }, [call, pushLine]);

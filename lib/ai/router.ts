@@ -131,8 +131,8 @@ export function providerChain(task: LlmTask): ProviderSpec[] {
     case "structure": {
       const designModel = process.env.DESIGN_MODEL ?? "gpt-6.1-terra";
       return [
-        openai(designModel, `${designModel.toUpperCase()} (pagado)`, 110_000),
-        openai("gpt-4.1", "GPT-4.1 (pagado)", 45_000),
+        openai(designModel, `${designModel.toUpperCase()} (pagado)`, 42_000), // 42s: si el razono tarda más, GPT-4.1 entra en 18s (total <62s)
+        openai("gpt-4.1", "GPT-4.1 (pagado)", 40_000),
         orGlm,
         orMiniMax,
       ];

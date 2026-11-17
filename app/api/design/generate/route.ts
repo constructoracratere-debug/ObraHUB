@@ -1,5 +1,9 @@
 import { NextRequest } from "next/server";
 
+// 300 s en Vercel Pro; en Hobby cae a 60 (el router hace fallback a GPT-4.1
+// en <45 s para que NUNCA se mate la función a mitad de razono).
+export const runtime = "nodejs";
+
 import { llmJson, type JsonEvent } from "@/lib/ai/json";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -17,7 +21,7 @@ import {
 import { sanitizeFloorPlan, sanitizerFixes, normalizeSystem, STRUCTURE_LABELS, type SiteFicha, type RevisionLog } from "@/lib/design/schema";
 import { allGates, type Gate } from "@/lib/design/validate";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type Stage = "site" | "draft" | "experts" | "structure" | "adapt" | "installations" | "finishes" | "revise";
 
@@ -133,7 +137,7 @@ export async function POST(req: NextRequest) {
           user: `Ubicación: ${location || "no indicada — asume Colombia"}.\nEncargo: ${brief || "vivienda unifamiliar"}.`,
           maxTokens: 1800,
           temperature: 0.4,
-          timeoutMs: 100000,
+          timeoutMs: 55000,
           onEvent: live("urbanista"),
         });
         say("✅ Ficha de sitio lista — el arquitecto ya puede arrancar.", "urbanista");
@@ -168,7 +172,7 @@ export async function POST(req: NextRequest) {
           ...(refImages.length > 0 ? { images: refImages as string[] } : {}),
           maxTokens: 4500,
           temperature: 0.5,
-          timeoutMs: 115000,
+          timeoutMs: 55000,
           onEvent: live("arquitecto"),
         });
         say("🧹 Sanitizando geometría (clamps, redondeo a cm, anclajes)…", "arquitecto");
@@ -196,7 +200,7 @@ export async function POST(req: NextRequest) {
           user: `FICHA DE SITIO: ${ficha || "no disponible"}\nPROGRAMA: ${ctx}`,
           maxTokens: 3200,
           temperature: 0.4,
-          timeoutMs: 110000,
+          timeoutMs: 55000,
           onEvent: live("constructor"),
         });
         say("✅ Memo del constructor listo — el plano sigue siendo PURAMENTE arquitectónico.", "mesa");
@@ -230,7 +234,7 @@ export async function POST(req: NextRequest) {
             `FICHA DE SITIO: ${ficha || "no disponible"}\nPLANTA APROBADA (PAQUETE A): ${ctx}`,
           maxTokens: 3000,
           temperature: 0.3,
-          timeoutMs: 110000,
+          timeoutMs: 55000,
           onEvent: live("civil"),
         });
         // FIDELIDAD al encargo: lo que el cliente pidió (si pidió algo) gana
@@ -279,7 +283,7 @@ export async function POST(req: NextRequest) {
             `MEMO DEL INGENIERO CIVIL:\n${JSON.stringify(b.civilMemo).slice(0, 2200)}`,
           maxTokens: 4500,
           temperature: 0.4,
-          timeoutMs: 115000,
+          timeoutMs: 55000,
           onEvent: live("arquitecto"),
         });
         const adapted = sanitizeFloorPlan(res.data);
@@ -314,7 +318,7 @@ export async function POST(req: NextRequest) {
                 user: `PLANTA FINAL: ${ctx}`,
                 maxTokens,
                 temperature: 0.3,
-                timeoutMs: 100000,
+                timeoutMs: 55000,
                 onEvent: live(who),
               });
               if (Array.isArray(r.data.points) && r.data.points.length > 0) return r.data;
@@ -366,7 +370,7 @@ export async function POST(req: NextRequest) {
           user: `PLANTA FINAL: ${planContext(plan)}\nMEMO CONSTRUCTOR: ${JSON.stringify(b.constructorMemo ?? {}).slice(0, 1600)}`,
           maxTokens: 2200,
           temperature: 0.5,
-          timeoutMs: 100000,
+          timeoutMs: 55000,
           onEvent: live("interiores"),
         });
         const merged = sanitizeFloorPlan({ ...plan, finishes: res.data.finishes ?? [] });
@@ -403,7 +407,7 @@ export async function POST(req: NextRequest) {
             `OBSERVACIONES PENDIENTES:\n${gatesText || "ninguna"}`,
           maxTokens: 4500,
           temperature: 0.35,
-          timeoutMs: 115000,
+          timeoutMs: 55000,
           onEvent: live("arquitecto"),
         });
         const changes = Array.isArray((res.data as any)?.revisionChanges) ? (res.data as any).revisionChanges : [];
