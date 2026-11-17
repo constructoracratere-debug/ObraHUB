@@ -76,8 +76,8 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       // brillantes (las dibuja el efecto [view] con EdgesGeometry) — la
       // envolvente queda en niebla del mismo tono. La vista BIM favorita.
       return cat === "estructura"
-        ? new THREE.MeshStandardMaterial({ color: 0x55c1ff, transparent: true, opacity: 0.5, roughness: 0.4, metalness: 0.1, emissive: 0x1a7fd4, emissiveIntensity: 0.85, side: THREE.DoubleSide, depthWrite: false })
-        : new THREE.MeshStandardMaterial({ color: 0x2f6db3, transparent: true, opacity: 0.05, roughness: 1, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
+        ? new THREE.MeshStandardMaterial({ color: 0x66ccff, transparent: true, opacity: 0.74, roughness: 0.35, metalness: 0.1, emissive: 0x1e8ee8, emissiveIntensity: 1.35, side: THREE.DoubleSide })
+        : new THREE.MeshStandardMaterial({ color: 0x2f6db3, transparent: true, opacity: 0.045, roughness: 1, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
     }
     if (m === "estructura" || m === "instalaciones") {
       const manda = m === "estructura" ? cat === "estructura" : cat === "mep";
@@ -387,11 +387,12 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
       it.mesh.material = materialFor(it.look, it.ghost, view, it.cat);
       // Holograma: aristas luminosas SOLO en la estructura (EdgesGeometry
       // cacheada por pieza — se agrega/quito al entrar/salir del modo).
-      const holoOn = view === "holo" && it.cat === "estructura";
+      const holoOn = (view === "holo" || view === "xray") && it.cat === "estructura";
+      // en xray las aristas son blancas; en holo, cian brillante
       if (holoOn && !it.edges) {
         it.edges = new THREE.LineSegments(
           new THREE.EdgesGeometry(it.mesh.geometry, 28),
-          new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.9 }),
+          new THREE.LineBasicMaterial({ color: view === "holo" ? 0xbfe8ff : 0xe8f4ff, transparent: true, opacity: view === "holo" ? 0.95 : 0.55 }),
         );
         it.edges.matrixAutoUpdate = false;
         it.edges.matrix.copy(it.mesh.matrix);
@@ -609,6 +610,7 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           >
             <span className="text-[13px] leading-none">{icon}</span>
             <span className="hidden sm:inline">{({ realista: "Realista", xray: "Rayos X", estructura: "Estructura", instalaciones: "MEP", holo: "Holograma", ladrillo: "Ladrillo×Ladrillo", bn: "B/N", capas: "Capas" } as const)[m]}</span>
+            {m === "ladrillo" && !["mamposteria_confinada", "concreto", "mixto"].includes(plan.structure?.system ?? "concreto") && <span className="text-[8px] text-slate-500">(sin mampostería)</span>}
           </button>
         ))}
       </div>
