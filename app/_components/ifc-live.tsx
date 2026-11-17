@@ -597,18 +597,18 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
           </p>
         </div>
       )}
-      {/* Modos de visión — realismo Título E · rayos X · plot B/N.
-          Abajo-derecha: arriba-derecha lo ocupan los botones flotantes
-          ⚙️ Estudio / 📋 Expediente (z-40) y tapaban el selector. */}
-      <div className="absolute bottom-2 right-2 z-20 flex gap-1 rounded-lg bg-[#070d1a]/85 p-1 backdrop-blur">
-        {([["realista", "🎨", "Realista (materiales PBR)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["holo", "🌐", "HOLOGRAMA azul — estructura luminosa con aristas, envolvente en niebla"],
+      {/* Selector de VISTAS — icono + NOMBRE visible (chips envueltos en dos
+          filas máx): abajo-derecha; arriba-derecha están ⚙️/📋 (z-40). */}
+      <div className="absolute bottom-2 right-2 z-30 flex max-w-[92%] flex-wrap justify-end gap-1 rounded-xl bg-[#070d1a]/90 p-1.5 ring-1 ring-white/10 backdrop-blur">
+        {([["realista", "🎨", "Realista — materiales PBR (ladrillo, guadua, acero, teja)"], ["xray", "🩻", "Rayos X — envolvente fantasma, estructura e instalaciones sólidas"], ["estructura", "🏗️", "AISLAR Estructura — solo pórticos/riostras/cerchas/zapatas (acabados en fantasma)"], ["instalaciones", "⚡", "AISLAR Instalaciones — solo puntos RETIE/RAS"], ["holo", "🌐", "HOLOGRAMA azul — estructura luminosa con aristas, envolvente en niebla"],
 ["ladrillo", "🔍", "LADRILLO x LADRILLO (LOD 400) — cada unidad H-10 de la mampostería"],
 ["bn", "⬛", "Plot B/N (lámina)"], ["capas", "🧱", "Capas del sistema (Título E)"]] as const).map(([m, icon, title]) => (
           <button
             key={m} type="button" onClick={() => setView(m)} title={title}
-            className={`rounded-md px-2 py-1 text-[13px] font-semibold leading-none transition ${view === m ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "text-slate-400 hover:bg-white/5"}`}
+            className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] font-semibold leading-none transition ${view === m ? "bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-400/40" : "bg-white/[0.04] text-slate-300 ring-1 ring-white/[0.06] hover:bg-white/[0.1]"}`}
           >
-            {icon}
+            <span className="text-[13px] leading-none">{icon}</span>
+            <span className="hidden sm:inline">{({ realista: "Realista", xray: "Rayos X", estructura: "Estructura", instalaciones: "MEP", holo: "Holograma", ladrillo: "Ladrillo×Ladrillo", bn: "B/N", capas: "Capas" } as const)[m]}</span>
           </button>
         ))}
       </div>
