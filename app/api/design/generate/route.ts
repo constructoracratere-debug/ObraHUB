@@ -5,6 +5,9 @@ import { NextRequest } from "next/server";
 export const runtime = "nodejs";
 
 import { llmJson, type JsonEvent } from "@/lib/ai/json";
+import { AGENT_ARCHITECT_DRAFT_SKILL2, AGENT_CIVIL_SKILL2 } from "@/lib/design/agents";
+import type { ConstructionDetail } from "@/lib/design/knowledge-base";
+import { knowledgeForPrompt } from "@/lib/design/knowledge-base";
 import { createClient } from "@/lib/supabase/server";
 import {
   AGENT_ARCHITECT_ADAPT,
@@ -69,6 +72,10 @@ export async function POST(req: NextRequest) {
     feedback?: string;
     gates?: Gate[];
     revisions?: RevisionLog[];
+    /** Skill activa: 1 = Título E casas · 2 = VIS 5-20 pisos C/F. */
+    skill?: 1 | 2;
+    /** Biblioteca constructiva (fotos analizadas por visión AI). */
+    constructionDetails?: ConstructionDetail[];
   };
   try {
     body = await req.json();
@@ -167,7 +174,7 @@ export async function POST(req: NextRequest) {
           ? `\n\nREFERENCIAS VISUALES DEL CLIENTE (${refImages.length} imágenes adjuntas): estúdialas TODAS antes de diseñar. Sintetiza su PATRÓN COMÚN — distribución, proporciones de espacios, jerarquía, orientación y estilo — y aplícalo como guía de DISEÑO en la medida del programa y la normativa. Si se contradicen entre sí, manda la más recurrente; si contradice un mínimo normativo, gana la norma y lo notas en designReport.notes.`
           : "";
         const res = await llmJson<Record<string, unknown>>("structure", {
-          system: AGENT_ARCHITECT_DRAFT,
+          system: (b.skill === 2 ? AGENT_ARCHITECT_DRAFT_SKILL2 : AGENT_ARCHITECT_DRAFT),
           user: `ENCARGO DEL CLIENTE:\n${prompt}\n\nFICHA DE SITIO (si hay): ${ficha || "no disponible"}${refNote}`,
           ...(refImages.length > 0 ? { images: refImages as string[] } : {}),
           maxTokens: 4500,
@@ -176,7 +183,7 @@ export async function POST(req: NextRequest) {
           onEvent: live("arquitecto"),
         });
         say("🧹 Sanitizando geometría (clamps, redondeo a cm, anclajes)…", "arquitecto");
-        const plan = sanitizeFloorPlan(res.data);
+        const plan = sanitizeFloorPlan({ ...res.data, skill: b.skill === 2 ? 2 : 1 });
         // Lo corregido se REPORTA, no se esconde (review de exportaciones):
         // el usuario ve qué movió el sanitizador antes de confiar en el plano.
         const fixes = sanitizerFixes(res.data, plan);
@@ -228,7 +235,7 @@ export async function POST(req: NextRequest) {
         const encargo = String(b.prompt ?? "").slice(0, 800);
         const ctx = planContext(plan);
         const civil = await llmJson<CivilMemo>("structure", {
-          system: AGENT_CIVIL,
+          system: (b.skill === 2 ? AGENT_CIVIL_SKILL2 : AGENT_CIVIL),
           user:
             `ENCARGO ORIGINAL DEL CLIENTE (VINCULANTE en el sistema si nombra uno): ${encargo || "no disponible"}\n` +
             `FICHA DE SITIO: ${ficha || "no disponible"}\nPLANTA APROBADA (PAQUETE A): ${ctx}`,
@@ -286,7 +293,7 @@ export async function POST(req: NextRequest) {
           timeoutMs: 55000,
           onEvent: live("arquitecto"),
         });
-        const adapted = sanitizeFloorPlan(res.data);
+        const adapted = sanitizeFloorPlan({ ...res.data, skill: b.skill === 2 ? 2 : 1 });
         say("🛡️ Puerta de verificación 2 (estructura + retícula + puertas).", "arquitecto");
         send({ type: "done", plan: adapted, gates: allGates(adapted), provider: res.providerLabel, model: res.model, latencyMs: Date.now() - t0 });
         return;

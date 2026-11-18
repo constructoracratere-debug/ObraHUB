@@ -28,6 +28,11 @@ export type RoomType =
 
 export type WallSide = "norte" | "sur" | "este" | "oeste";
 
+/** Skill de diseño activa — declara el alcance normativo y de producto. */
+export type DesignSkill = 1 | 2;
+// Skill 1: CASAS 1-2 PISOS · Título E (E.3 confinada + E.4 bahareque)
+// Skill 2: VIVIENDA VIS 5-20 PISOS · Título C (pórticos RC) o F (acero)
+
 export type StructuralSystem =
   | "mamposteria_confinada" // SKILL 1 · NSR-10 E.3 (viviendas 1-2 pisos)
   | "bahareque_encamisado"  // SKILL 1 · NSR-10 E.4 (viviendas 1-2 pisos)
@@ -50,6 +55,8 @@ export type Room = {
   depth: number;
   /** Nivel (0 = primer piso). */
   level: number;
+  /** Planta TIPO (se repite en niveles superiores — Skill 2 VIS). */
+  isTypical?: boolean;
 };
 
 export type Door = {
@@ -214,6 +221,8 @@ export type FloorPlan = {
   rooms: Room[];
   doors: Door[];
   windows: Window[];
+  /** Skill activa (1 = Título E casas · 2 = VIS 5-20 pisos C/F). */
+  skill?: DesignSkill;
   structure?: {
     system: StructuralSystem;
     justification: string;
@@ -480,13 +489,16 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
   const o = (raw ?? {}) as Record<string, unknown>;
   const outlineW = dim((o.outline as any)?.width, 3, MAX_OUTLINE, 10);
   const outlineD = dim((o.outline as any)?.depth, 3, MAX_OUTLINE, 8);
-  const levels = Math.round(dim(o.levels, 1, 4, 1));
+  const skill = (o as any).skill === 2 ? 2 : 1;
+  const levels = Math.round(dim(o.levels, 1, skill === 2 ? 20 : 4, 1));
+  // la skill viaja en el plan para que gates y agentes la respeten
   const wallExt = dim((o.wallThickness as any)?.exterior, 0.1, 0.4, 0.15);
   const wallInt = dim((o.wallThickness as any)?.interior, 0.08, 0.3, 0.1);
 
   const roomsRaw = Array.isArray(o.rooms) ? o.rooms.slice(0, MAX_ROOMS) : [];
   let rooms: Room[] = roomsRaw.map((r0, i) => {
     const r = (r0 ?? {}) as Record<string, unknown>;
+        const isTypical = r.isTypical === true;
     const type = enumOf(r.type, ROOM_TYPES, "otro");
     const width = dim(r.width, MIN_DIM, MAX_DIM, 3);
     const depth = dim(r.depth, MIN_DIM, MAX_DIM, 3);
@@ -653,6 +665,7 @@ export function sanitizeFloorPlan(raw: unknown): FloorPlan {
 
   return {
     version: 2,
+    skill,
     name: str(o.name, "Proyecto sin nombre", 80),
     units: "m",
     levels,

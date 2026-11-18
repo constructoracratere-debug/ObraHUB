@@ -202,13 +202,25 @@ export function gateDraft(plan: FloorPlan): Gate {
       detail: `${plan.rooms.length} espacios definidos`,
     },
     {
-      // SKILL 1 = viviendas 1-2 pisos (Título E). 3+ pisos pertenece a la
-      // Skill 2 (VIS, Títulos C/F) — se declara, no se improvisa.
-      id: "niveles-skill1",
-      label: "Vivienda de 1-2 pisos (Skill 1 · Título E)",
-      pass: (plan.levels ?? 1) <= 2,
-      detail: (plan.levels ?? 1) <= 2 ? `${plan.levels} nivel(es)` : "3+ pisos = Skill 2 (VIS · Títulos C/F) — fase de proyección",
+      // Skill 1 = viviendas 1-2 pisos (Título E). Skill 2 = VIS 5-20.
+      id: "niveles-skill",
+      label: plan.skill === 2 ? "VIS 5-20 pisos (Skill 2 · Título C/F)" : "Vivienda 1-2 pisos (Skill 1 · Título E)",
+      pass: plan.skill === 2
+        ? (plan.levels ?? 1) >= 5 && (plan.levels ?? 1) <= 20
+        : (plan.levels ?? 1) <= 2,
+      detail: plan.skill === 2
+        ? (plan.levels ?? 1) >= 5 && (plan.levels ?? 1) <= 20 ? `${plan.levels} pisos` : "VIS requiere 5-20 pisos"
+        : (plan.levels ?? 1) <= 2 ? `${plan.levels} nivel(es)` : "3+ pisos = Skill 2 (VIS · Títulos C/F)",
     },
+    ...(plan.skill === 2 ? [{
+      // Skill 2: la PLANTA TIPO es la esencia del producto VIS
+      id: "planta-tipo",
+      label: "Planta tipo modular (Skill 2 · VIS)",
+      pass: plan.rooms.filter((r) => r.level >= 1 && (r as any).isTypical).length >= 3,
+      detail: plan.rooms.filter((r) => r.level >= 1 && (r as any).isTypical).length >= 3
+        ? `${plan.rooms.filter((r) => (r as any).isTypical).length} espacios tipo`
+        : "Marca espacios de planta tipo con isTypical: true",
+    } as { id: string; label: string; pass: boolean; detail: string }] : []),
     {
       // Instrucción de dibujo: el revisor localiza la entrada de PRIMERA —
       // el plano la marca con flecha ACCESO (planta baja).

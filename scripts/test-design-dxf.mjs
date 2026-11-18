@@ -455,12 +455,20 @@ check("Skill 1: sistemas mamposteria_confinada y bahareque_encamisado válidos y
   const bah = planToDxfStructural(sanitizeFloorPlan({ ...rawPlan, structure: { system: "bahareque_encamisado", justification: "E.4", axes: [{ id: "A", orientation: "vertical", at: 3 }, { id: "1", orientation: "horizontal", at: 3 }] } }), { fecha: "2026-01-15" }) ?? "";
   return conf.includes("MAMPOSTER") && conf.includes("E.3") && bah.includes("BAHAREQUE") && bah.includes("E.4") && bah.includes("despiece propio de este sistema llega en su skill");
 })());
-check("Skill 1: gate rechaza 3+ niveles (debe declarar Skill 2, no improvisar)", (() => {
+check("Skill por niveles: Skill 1 rechaza 3+ pisos (declara Skill 2) · Skill 2 acepta 5-20", (() => {
   const { allGates } = req(path.join(tmp, "design", "validate.js"));
-  const three = sanitizeFloorPlan({ ...rawPlan, levels: 3 });
-  const draft = allGates(three).find((g) => g.stage === "draft");
-  const niv = draft?.checks.find((c) => c.id === "niveles-skill1");
-  return !!niv && !niv.pass && niv.detail.includes("VIS");
+  const three = sanitizeFloorPlan({ ...rawPlan, levels: 3, skill: 1 });
+  const draft1 = allGates(three).find((g) => g.stage === "draft");
+  const niv1 = draft1?.checks.find((c) => c.id === "niveles-skill");
+  const s1 = !!niv1 && !niv1.pass && niv1.detail.includes("Skill 2");
+  // Skill 2: 8 pisos pasa
+  const eight = sanitizeFloorPlan({ ...rawPlan, levels: 8, skill: 2 });
+  const draft2 = allGates(eight).find((g) => g.stage === "draft");
+  const niv2 = draft2?.checks.find((c) => c.id === "niveles-skill");
+  const s2 = !!niv2 && niv2.pass && niv2.detail.includes("8");
+  // Skill 2: planta tipo
+  const pt = draft2?.checks.find((c) => c.id === "planta-tipo");
+  return s1 && s2 && !!pt;
 })());
 check("gate: 2 niveles sin local de escalera ⇒ observación de verificación", (() => {
   const { allGates } = req(path.join(tmp, "design", "validate.js"));

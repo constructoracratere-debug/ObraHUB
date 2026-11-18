@@ -225,6 +225,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const [revisions, setRevisions] = useState<RevisionLog[]>(restored?.revisions ?? []);
   const [revBusy, setRevBusy] = useState(false);
   // Vista del centro: planta, corte, fachadas o LÁMINA completa.
+  const [skill, setSkill] = useState<1 | 2>(1);
   const [view, setView] = useState<"planta" | "corte" | "fachadas" | "lamina" | "pasaporte" | "split" | "three" | "conocimiento">("split");
   // 🖨️ Vista previa de IMPRESIÓN B/N: curaduría imprime en láser blanco y
   // negro — así se ve si el plano sobrevive la fotocopiadora.
@@ -462,7 +463,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
   const runDraft = async () => {
     setBusy(1); setError(null);
     try {
-      const data = await callWithRetries({ stage: "draft", prompt, siteMemo, ...(referenceImages.length ? { referenceImages } : {}) });
+      const data = await callWithRetries({ stage: "draft", prompt, siteMemo, skill, ...(referenceImages.length ? { referenceImages } : {}) });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setProviderInfo(`🏛️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
       setStage(2);
@@ -491,7 +492,7 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
       // La BIBLIOTECA CONSTRUCTIVA viaja con el encargo: el civil recibe las
       // fotos analizadas y diseña con el conocimiento de obra real.
       const kb = (() => { try { return JSON.parse(localStorage.getItem("obrahub-construction-knowledge") ?? "[]"); } catch { return []; } })();
-      const data = await callWithRetries({ stage: "structure", previousPlan: plan, siteMemo, constructorMemo, prompt, constructionDetails: kb });
+      const data = await callWithRetries({ stage: "structure", previousPlan: plan, siteMemo, constructorMemo, prompt, constructionDetails: kb, skill });
       setPlan(data.plan as FloorPlan); setGates(data.gates as Gate[]);
       setCivilMemo(data.civilMemo as CivilMemo);
       setProviderInfo(`🏗️ ${String(data.provider)} · ${((data.latencyMs as number) / 1000).toFixed(1)}s`);
@@ -722,9 +723,21 @@ function DesignToolInner({ projectSlug, initialPrompt }: { projectSlug?: string;
       {/* ALCANCE DEL SKILL ACTIVO — declarado desde el inicio */}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-400/15 bg-emerald-500/[0.05] px-3 py-1.5">
         <p className="truncate text-[10px] font-semibold tracking-wide text-emerald-300">
-          🎯 SKILL 1 · CASAS DE 1–2 PISOS · NSR-10 TÍTULO E — MAMPOSTERÍA CONFINADA (E.3) · BAHAREQUE ENCEMENTADO (E.4)
+          {skill === 1
+                ? "🎯 SKILL 1 · CASAS DE 1–2 PISOS · NSR-10 TÍTULO E — MAMPOSTERÍA CONFINADA (E.3) · BAHAREQUE ENCEMENTADO (E.4)"
+                : "🏙️ SKILL 2 · VIVIENDA VIS 5–20 PISOS · NSR-10 TÍTULO C (PÓRTICOS RC) / TÍTULO F (ACERO)"}
         </p>
-        <p className="hidden shrink-0 text-[9px] text-emerald-200/60 md:block">Skills 2–4 (VIS · Centros educativos · Timberframe/Guadua): fase de proyección</p>
+        <p className="hidden shrink-0 text-[9px] text-emerald-200/60 md:block">{skill === 1 ? (
+                <button type="button" onClick={() => setSkill(2)}
+                  className="rounded-full bg-blue-500/15 px-3 py-1 text-[9px] font-bold text-blue-200 ring-1 ring-blue-400/30 transition hover:bg-blue-500/25">
+                  🏙️ Cambiar a Skill 2 (VIS 5–20 pisos) →
+                </button>
+              ) : (
+                <button type="button" onClick={() => setSkill(1)}
+                  className="rounded-full bg-emerald-500/15 px-3 py-1 text-[9px] font-bold text-emerald-200 ring-1 ring-emerald-400/30 transition hover:bg-emerald-500/25">
+                  🏡 Volver a Skill 1 (casas 1–2 pisos) →
+                </button>
+              )}</p>
       </div>
       {/* Stepper de etapas */}
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/[0.06] bg-[#070d1a] px-3 py-2">
