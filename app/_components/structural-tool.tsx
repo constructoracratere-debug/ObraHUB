@@ -176,7 +176,7 @@ export function StructuralTool({ onOpenDesign }: { onOpenDesign: () => void }) {
       </div>
 
       {/* ── BOTTOM: análisis + editor ── */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="min-h-0 w-full flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="mx-auto max-w-5xl">
           {/* Header */}
           <div className="flex flex-wrap items-end justify-between gap-3">
