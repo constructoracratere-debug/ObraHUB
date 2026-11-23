@@ -17,11 +17,18 @@ type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "ladrillo
 /** Clasifica una pieza por nombre/tipo — nuestros nombres son deterministas,
  *  así la categoría es exacta para TODOS los sistemas (E·C·F·madera). */
 const catOf = (tId: number, name: string): ParteCat => {
+  // Por TIPO de entidad IFC (más fiable que nombre):
+  // Columnas, vigas, zapatas, placas (pletinas), miembros (riostras) =
+  // ESTRUCTURA siempre.
+  if (tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING || tId === IFCPLATE || tId === IFCMEMBER) return "estructura";
+  // Muros = arquitectura (a menos que sean de contención — por nombre)
+  if (tId === IFCWALLSTANDARDCASE) return "arquitectura";
   const n = name.toLowerCase();
-  if (/pletina|perno|anclaje|refuerzo ø|riostra|cumbrera|cercha|zapata|pedestal|excavaci/.test(n)) return "estructura";
-  if (/columna i |columna madera|poste guadua|montante|viga i|viga doble|viga madera|viga cadena|solera|pedrestal/.test(n)) return "estructura";
-  if (/\[eléctrico\]|\[hidrosanitario\]|retie|\(ras\)/.test(n)) return "mep";
-  if (/faldón|losa|placa de|contrapiso/.test(n)) return /faldón/.test(n) ? "arquitectura" : "estructura";
+  if (/pletina|perno|anclaje|refuerzo|riostra|cumbrera|cercha|zapata|pedestal|excavaci/.test(n)) return "estructura";
+  if (/columna|poste|montante|viga|solera|pedrestal/.test(n)) return "estructura";
+  if (/el.ctrico|hidrosanitario|retie|ras\)/.test(n)) return "mep";
+  if (/fald/.test(n)) return "arquitectura";
+  if (/losa|placa de|contrapiso/.test(n)) return "estructura";
   if (tId === IFCWINDOW || tId === IFCFURNISHINGELEMENT) return "arquitectura";
   return "arquitectura";
 };
@@ -52,11 +59,17 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   viewRef.current = view;
 
   // Material 3D de una malla: tipo + nombre del elemento + sistema Título E
-  // del plan (mampostería E.3 → ladrillo; bahareque E.4 → tierra/madera).
+  // del plan (mampostería E.3 → muros ladrillo + esqueleto CONCRETO;
+  // bahareque E.4 → guadua/encementado).
   const lookOf = (tId: number, name: string): Mat3D => {
     const levels = Math.max(1, plan.levels ?? 1);
     const system = plan.structure?.system ?? "concreto";
+    // Muros = mampostería o bahareque según sistema
     if (tId === IFCWALLSTANDARDCASE) return mat3d(wallMatOf(system, /interior|divisi/i.test(name) ? "int" : "ext"));
+    // Columnas/vigas de CONFINAMIENTO (E.3) o pórtico = CONCRETO siempre
+    if (tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING) return mat3d(MATERIALS.concreto);
+    // Acero estructural (Título F): perfil I, pletinas, pernos, riostras
+    if (tId === IFCPLATE || tId === IFCMEMBER) return mat3d(MATERIALS.acero);
     if (tId === IFCWINDOW) return mat3d(MATERIALS.vidrio);
     if (tId === IFCFURNISHINGELEMENT) return mat3d(furnitureMatOf(name));
     if (tId === IFCSLAB && new RegExp(`Losa N${levels} `).test(name)) return mat3d(roofMatOf(system)); // cubierta
