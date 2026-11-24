@@ -13,7 +13,16 @@ export type MaterialSpec = { name: string; thickness: number };
 
 export type WallAssembly = { label: string; layers: MaterialSpec[] };
 
-/** Ladrillo/cerámica — mampostería (default VIS). */
+/** MAMPOSTERÍA CONFINADA "EN MASA" — TODAS las capas constructivas reales
+ *  que el albañil pone en obra, en orden de ejecución:
+ *  1. Mortero de pega 1:4 (asienta cada curso de ladrillo)
+ *  2. Ladrillo H-10 (mampostería portante)
+ *  3. DAL Ø1/4" horizontal cada 2 cursos (NSR-10 E.3.2)
+ *  4. Pañete exterior 1:3 e=2cm (más resistente a intemperie)
+ *  5. Estuco + pintura exterior (acabado)
+ *  6. Pañete interior 1:4 e=1.5cm (rayado + afinado)
+ *  7. Estuco interior + pintura vinílica (acabado)
+ */
 const LADRILLO_EXT: WallAssembly = {
   label: "Muro exterior ladrillo H-10 tableado",
   layers: [
@@ -31,11 +40,41 @@ const LADRILLO_INT: WallAssembly = {
   ],
 };
 
+const LADRILLO_EXT_MASA: WallAssembly = {
+  label: "Muro exterior mampostería confinada EN MASA (NSR-10 E.3)",
+  layers: [
+    { name: "Pintura exterior acrílica 2 manos", thickness: 0.0003 },
+    { name: "Estuco exterior e=0.2cm", thickness: 0.002 },
+    { name: "Pañete exterior 1:3 e=2.0cm", thickness: 0.020 },
+    { name: "Mortero de pega 1:4 entre cursos", thickness: 0.010 },
+    { name: "Ladrillo H-10 tableado e=15cm + DAL Ø1/4\" c/2 cursos", thickness: 0.150 },
+    { name: "Mortero de pega 1:4 entre cursos", thickness: 0.010 },
+    { name: "Pañete interior 1:4 e=1.5cm", thickness: 0.015 },
+    { name: "Estuco interior e=0.2cm", thickness: 0.002 },
+    { name: "Pintura vinílica interior 2 manos", thickness: 0.0003 },
+  ],
+};
+
+const LADRILLO_INT_MASA: WallAssembly = {
+  label: "División mampostería confinada (NSR-10 E.3)",
+  layers: [
+    { name: "Pintura vinílica 2 manos", thickness: 0.0003 },
+    { name: "Estuco interior", thickness: 0.002 },
+    { name: "Pañete interior 1:4 e=1.5cm", thickness: 0.015 },
+    { name: "Mortero de pega 1:4", thickness: 0.010 },
+    { name: "Ladrillo H-10 e=10cm + DAL Ø1/4\" c/2 cursos", thickness: 0.100 },
+    { name: "Mortero de pega 1:4", thickness: 0.010 },
+    { name: "Pañete interior 1:4 e=1.5cm", thickness: 0.015 },
+    { name: "Estuco interior", thickness: 0.002 },
+    { name: "Pintura vinílica 2 manos", thickness: 0.0003 },
+  ],
+};
+
 export const WALL_ASSEMBLIES: Record<StructuralSystem, { ext: WallAssembly; int: WallAssembly }> = {
   // SKILL 1 (NSR-10 Título E): confinada = mampostería con cadenas y
   // columnas de confinamiento; bahareque encamisado = estructura de madera
   // + malla + repello (E.4) — mismos ensambles de tierra.
-  mamposteria_confinada: { ext: LADRILLO_EXT, int: LADRILLO_INT },
+  mamposteria_confinada: { ext: LADRILLO_EXT_MASA, int: LADRILLO_INT_MASA },
   concreto: { ext: LADRILLO_EXT, int: LADRILLO_INT },
   mixto: { ext: LADRILLO_EXT, int: LADRILLO_INT },
   acero_liviano: {

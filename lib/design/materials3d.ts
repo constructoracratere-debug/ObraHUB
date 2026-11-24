@@ -58,6 +58,11 @@ export const MAT3D: Record<string, Mat3D> = {
   "Teja de barro": { hex: 0x9a4a2b, roughness: 0.85, metalness: 0.0, label: "Teja de barro" },
   "Teja fibrocemento": { hex: 0x77828c, roughness: 0.8, metalness: 0.05, label: "Teja de fibrocemento" },
   "Tablero fibrocemento 8mm": { hex: 0x8d979f, roughness: 0.8, metalness: 0.05, label: "Tablero fibrocemento" },
+  // ── MAMPOSTERÍA EN MASA: mortero, pañete, estuco, pintura ────────────
+  "Pañete 1:4 e=1.5cm": { hex: 0xcdc8ba, roughness: 0.9, metalness: 0.02, label: "Pañete interior 1:4" },
+  "Pañete exterior 1:3 e=2.0cm": { hex: 0xbfb8a8, roughness: 0.92, metalness: 0.02, label: "Pañete exterior 1:3" },
+  "Estuco interior": { hex: 0xe8e6e0, roughness: 0.3, metalness: 0, label: "Estuco" },
+  "Pintura vinílica interior 2 manos": { hex: 0xf4f4f2, roughness: 0.2, metalness: 0, label: "Pintura vinílica" },
   // ── Instalaciones ────────────────────────────────────────────────────
   [MATERIALS.cobre]: { hex: 0xb87333, roughness: 0.3, metalness: 0.8, label: "Cobre eléctrico" },
   [MATERIALS.griferia]: { hex: 0xd9dee3, roughness: 0.35, metalness: 0.1, label: "PVC hidráulico" },
@@ -89,6 +94,9 @@ const byKeyword: Array<[RegExp, Mat3D]> = [
   [/closet|mostrador|escritorio|tv|mueble|lavadero/i, MAT3D["Mueble de madera"]],
   [/pletina|perno|riostra|perfil i|gusset|anclaje|a325|refuerzo Ø|acero estructural/i, MAT3D[MATERIALS.acero]],
   [/excavaci|tierra removida|desplante/i, MAT3D["Excavación en tierra (Df 1.50)"]],
+  [/pañete|repello|mortero/i, MAT3D["Pañete 1:4 e=1.5cm"]],
+  [/estuco/i, MAT3D["Estuco interior"]],
+  [/pintura/i, MAT3D["Pintura vinílica interior 2 manos"]],
   [/teja|cubierta/i, MAT3D["Teja de barro"]],
 ];
 

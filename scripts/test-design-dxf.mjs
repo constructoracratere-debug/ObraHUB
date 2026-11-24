@@ -364,7 +364,14 @@ check("memoria S-00 declara la COMPOSICIÓN por sistema (E.3 confinamiento RC ·
 })());
 check("IFC vidrio translúcido real (transparencia 0.68 en el estilo)", /IFCSURFACESTYLESHADING\(#[0-9]+,0\.68\)/.test(ifcMam));
 check("IFC cada sólido estilizado (≥40 IFCSTYLEDITEM — archivos con color completo)", ((ifcMam.match(/IFCSTYLEDITEM/g) ?? []).length) >= 40 && ((ifcBah.match(/IFCSTYLEDITEM/g) ?? []).length) >= 40);
-check("IFC capas de muro por sistema (LayerSet E.3: ladrillo H-10 tableado e=0.15 — la 'capa del material')", /IFCMATERIALLAYER\(#[0-9]+,0\.15,\$,'Ladrillo H-10 tableado'/.test(ifcMam));
+check("IFC capas de muro EN MASA (LayerSet E.3: 9 capas desde pintura hasta pintura — mortero de pega, DAL, pañete, estuco)", (() => {
+  const has15 = /IFCMATERIALLAYER\(#[0-9]+,0\.15,\$,'Ladrillo H-10 tableado/.test(ifcMam);
+  const hasMortero = ifcMam.includes("Mortero de pega 1:4 entre cursos");
+  const hasDAL = ifcMam.includes('DAL Ø1/4" N');
+  const hasPanete = ifcMam.includes("Pañete exterior 1:3") || ifcMam.includes("Pañete interior 1:4");
+  const hasPintura = ifcMam.includes("Pintura");
+  return has15 && hasMortero && hasDAL && hasPanete;
+})());
 
 check("símbolos F ≠ poché: SOLID macizo (marca de corte en A-CORTE)", /0\nSOLID\n8\nA-CORTE\n/.test(dxf));
 check("SOLID también lleva 370 de entidad (política única de grosor)", /0\nSOLID\n8\nA-CORTE\n370\n60\n/.test(dxf));

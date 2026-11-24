@@ -582,6 +582,61 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       }
     }
 
+    // ══ MAMPOSTERÍA CONFINADA "EN MASA" — DAL + PAÑETE como piezas IFC ══
+    // NSR-10 E.3.2: refuerzo horizontal (DAL Ø1/4") cada 2 cursos; E.3
+    // exige pañete de mortero en ambas caras como parte del sistema.
+    if (system === "mamposteria_confinada") {
+      const DAL_H = 0.40; // cada 2 cursos de ladrillo (~40 cm)
+      const dalMatName = MATERIALS.acero;
+      // DAL en muros exteriores (eje X y Y del perímetro)
+      const extWallsXY: Array<{ x1: number; y1: number; x2: number; y2: number }> = [
+        { x1: te, y1: te / 2, x2: W - te, y2: te / 2 },
+        { x1: te, y1: D - te / 2, x2: W - te, y2: D - te / 2 },
+        { x1: te / 2, y1: te, x2: te / 2, y2: D - te },
+        { x1: W - te / 2, y1: te, x2: W - te / 2, y2: D - te },
+      ];
+      let dalN = 0;
+      for (const w of extWallsXY) {
+        const horiz = Math.abs(w.y1 - w.y2) < 0.01; // muro corre en X
+        const len = horiz ? w.x2 - w.x1 : w.y2 - w.y1;
+        for (let z = DAL_H; z < fft - 0.15; z += DAL_H) {
+          const cx = horiz ? (w.x1 + w.x2) / 2 : w.x1;
+          const cy = horiz ? w.y1 : (w.y1 + w.y2) / 2;
+          const dal = horiz
+            ? member(profileC(`DAL${dalN}`, 0.0064), cx, cy, z, "x", len, `DALx:${dalN}`)
+            : member(profileC(`DAL${dalN}`, 0.0064), cx, cy, z, "y", len, `DALy:${dalN}`);
+          part(dal, "IFCREINFORCINGBAR", `DAL Ø1/4" N${lvl + 1} @${DAL_H}m — NSR-10 E.3.2`, dalMatName, `$,${f(0.0127)},$,${f(len)},.MAIN.,$`);
+          dalN++;
+        }
+      }
+      // PAÑETE exterior e interior como IfcCovering (mortero de acabado):
+      // láminas delgadas sobre ambas caras de cada muro exterior.
+      const paneteMat = "Pañete 1:4 e=1.5cm";
+      const paneteExtMat = "Pañete exterior 1:3 e=2.0cm";
+      // 4 muros × 2 caras = 8 paneles de pañete (exterior + interior)
+      const panes: Array<{ x: number; y: number; w: number; d: number; ext: boolean }> = [
+        { x: W / 2, y: te / 2 + 0.075, w: W - 2 * te, d: 0.02, ext: true },   // sur-ext
+        { x: W / 2, y: te / 2 - 0.075, w: W - 2 * te, d: 0.015, ext: false }, // sur-int
+        { x: W / 2, y: D - te / 2 - 0.075, w: W - 2 * te, d: 0.02, ext: true },
+        { x: W / 2, y: D - te / 2 + 0.075, w: W - 2 * te, d: 0.015, ext: false },
+        { x: te / 2 - 0.075, y: D / 2, w: 0.02, d: D - 2 * te, ext: true },   // oeste-ext
+        { x: te / 2 + 0.075, y: D / 2, w: 0.015, d: D - 2 * te, ext: false },
+        { x: W - te / 2 + 0.075, y: D / 2, w: 0.02, d: D - 2 * te, ext: true },
+        { x: W - te / 2 - 0.075, y: D / 2, w: 0.015, d: D - 2 * te, ext: false },
+      ];
+      for (let pi = 0; pi < panes.length; pi++) {
+        const p = panes[pi];
+        const solid = solidBox(p.x, p.y, 0, p.w, p.d, fft, p.w > p.d ? "x" : "y");
+        styled(solid, p.ext ? paneteExtMat : paneteMat);
+        const prd = shapeRep(solid, `PAN${pi},${z0}`);
+        const pl = ent(`PANPL:${pi},${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+        const pp = id();
+        lines.push(`#${pp}= IFCCOVERING('${guid(`PAN${pi},${lvl}`)}',#${owner},'${esc(p.ext ? "Pañete exterior 1:3" : "Pañete interior 1:4")} N${lvl + 1} — mampostería en masa',$,$,#${pl},#${prd},$,${p.ext ? ".CLADDING." : ".INSULATION."});`);
+        relAssoc(pp, material(p.ext ? paneteExtMat : paneteMat), `PANM${pi},${lvl}`);
+        products.push(pp);
+      }
+    }
+
     // ══ BAHAREQUE E.4 · DIAFRAGMA de guadua en los MUROS: montantes @0.45,
     // ══ soleras dobles (abajo/arriba) y riostras — la pared ES estructura.
     if (system === "bahareque_encamisado") {
