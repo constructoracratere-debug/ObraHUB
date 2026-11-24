@@ -63,6 +63,8 @@ export const MAT3D: Record<string, Mat3D> = {
   "Pañete exterior 1:3 e=2.0cm": { hex: 0xbfb8a8, roughness: 0.92, metalness: 0.02, label: "Pañete exterior 1:3" },
   "Estuco interior": { hex: 0xe8e6e0, roughness: 0.3, metalness: 0, label: "Estuco" },
   "Pintura vinílica interior 2 manos": { hex: 0xf4f4f2, roughness: 0.2, metalness: 0, label: "Pintura vinílica" },
+  "Mortero de nivelación 1:4 e=3cm": { hex: 0xd4cfc3, roughness: 0.88, metalness: 0.01, label: "Mortero de nivelación" },
+  "Impermeabilización asfáltica e=1.5mm": { hex: 0x2a2a2a, roughness: 0.95, metalness: 0, opacity: 0.85, label: "Impermeabilización asfáltica" },
   // ── Instalaciones ────────────────────────────────────────────────────
   [MATERIALS.cobre]: { hex: 0xb87333, roughness: 0.3, metalness: 0.8, label: "Cobre eléctrico" },
   [MATERIALS.griferia]: { hex: 0xd9dee3, roughness: 0.35, metalness: 0.1, label: "PVC hidráulico" },

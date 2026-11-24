@@ -572,14 +572,133 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
       }
     }
 
-    // ══ REFUERZO REAL (Título C y E.3): 4Ø5/8 + 2Ø3/8 en cada columna de
-    // ══ concreto del retículo (los estribos viajan en los despieces S-05).
-    if (system === "concreto" || system === "mamposteria_confinada") {
+    // ══ PAQUETE COMPLETO DE ACERO — mampostería confinada E.3 "en masa" ══
+    // TODO lo que un ingeniero especifica en los planos S-04/S-05:
+    // columnas (barras + flejes), cadenas (barras + flejes), dinteles,
+    // y malla de zapatas. Cada pieza es una IFCREINFORCINGBAR individual.
+    if (system === "mamposteria_confinada" || system === "concreto") {
+      const colW = 0.30, colD = 0.30; // sección de columna de confinamiento
+      const COVER = 0.04; // recubrimiento NSR-10 C.7
+      const barX = colW / 2 - COVER; // offset de barra al centro
+      const barY = colD / 2 - COVER;
+
       for (const [x, y] of nodes) {
-        for (const [dx, dy] of [[-0.09, -0.09], [0.09, -0.09], [-0.09, 0.09], [0.09, 0.09]] as Array<[number, number]>) {
-          rebar(x + dx, y + dy, 0, "z", fft, `Refuerzo Ø5/8 Columna (${f(x)},${f(y)}) N${lvl + 1}${dx > 0 ? "E" : "O"}${dy > 0 ? "N" : "S"}`, 0.0079);
+        // ── A. COLUMNAS: 4Ø3/8" VERTICALES + FLEJES Ø1/4"@0.15 ──
+        for (const [dx, dy] of [[-barX, -barY], [barX, -barY], [-barX, barY], [barX, barY]] as Array<[number, number]>) {
+          rebar(x + dx, y + dy, 0, "z", fft, `Ø3/8" Vert Col (${f(x)},${f(y)}) N${lvl + 1}${dx > 0 ? "E" : "O"}${dy > 0 ? "N" : "S"}`, 0.0048);
+        }
+        // FLEJES individuales (estribos): cajas rectangulares delgadas
+        // Ø1/4" @ 0.15m en zona central, @ 0.10m en extremos (NSR-10 E.3.3)
+        let flejeN = 0;
+        for (let z = 0.07; z < fft - 0.05; ) {
+          const spacing = z < 0.60 || z > fft - 0.60 ? 0.10 : 0.15;
+          const fw = colW - 2 * COVER + 0.006; // ancho del fleje (perímetro ext)
+          const fd = colD - 2 * COVER + 0.006;
+          // 4 lados del fleje como barras delgadas
+          rebar(x, y - fd / 2, z, "x", fw, `Fleje Ø1/4" N Col (${f(x)},${f(y)}) N${lvl + 1} z=${f(z)}S`, 0.0032);
+          rebar(x, y + fd / 2, z, "x", fw, `Fleje Ø1/4" N Col (${f(x)},${f(y)}) N${lvl + 1} z=${f(z)}N`, 0.0032);
+          rebar(x - fw / 2, y, z, "y", fd, `Fleje Ø1/4" N Col (${f(x)},${f(y)}) N${lvl + 1} z=${f(z)}O`, 0.0032);
+          rebar(x + fw / 2, y, z, "y", fd, `Fleje Ø1/4" N Col (${f(x)},${f(y)}) N${lvl + 1} z=${f(z)}E`, 0.0032);
+          z += spacing;
+          flejeN++;
+        }
+        // Gancho de 135° en barra longitudinal a la cadena (amarre NSR-10)
+        rebar(x + barX, y + barY, fft - 0.30, "z", 0.30, `Gancho 135° Ø3/8" Col (${f(x)},${f(y)}) N${lvl + 1}`, 0.0048);
+      }
+
+      // ── B. CADENA DE AMARRE (viga superior): 4Ø3/8" LONG + FLEJES ──
+      // La cadena corre en TODO el perímetro a nivel de techo (fft - 0.25)
+      const cadZ = fft - 0.25; // altura de la cadena
+      const cadW = 0.30, cadD = 0.25; // sección de la cadena
+      const cX = cadW / 2 - COVER;
+      const cY = cadD / 2 - COVER;
+      const perim: Array<{ x1: number; y1: number; x2: number; y2: number; horiz: boolean }> = [
+        { x1: te, y1: te / 2, x2: W - te, y2: te / 2, horiz: true },
+        { x1: te, y1: D - te / 2, x2: W - te, y2: D - te / 2, horiz: true },
+        { x1: te / 2, y1: te, x2: te / 2, y2: D - te, horiz: false },
+        { x1: W - te / 2, y1: te, x2: W - te / 2, y2: D - te, horiz: false },
+      ];
+      for (let pi = 0; pi < perim.length; pi++) {
+        const p = perim[pi];
+        const len = p.horiz ? p.x2 - p.x1 : p.y2 - p.y1;
+        const cx = p.horiz ? (p.x1 + p.x2) / 2 : p.x1;
+        const cy = p.horiz ? p.y1 : (p.y1 + p.y2) / 2;
+        // 4 barras longitudinales de la cadena
+        for (const [dx, dy] of [[-cX, -cY], [cX, -cY], [-cX, cY], [cX, cY]] as Array<[number, number]>) {
+          if (p.horiz) {
+            rebar(cx + dx, cy + dy, cadZ, "x", len, `Ø3/8" Cadena ${pi === 0 ? "Sur" : pi === 1 ? "Norte" : pi === 2 ? "Oeste" : "Este"} N${lvl + 1}${dx > 0 ? "E" : "O"}${dy > 0 ? "N" : "S"}`, 0.0048);
+          } else {
+            rebar(cx + dx, cy + dy, cadZ, "y", len, `Ø3/8" Cadena ${pi === 2 ? "Oeste" : "Este"} N${lvl + 1}${dx > 0 ? "E" : "O"}${dy > 0 ? "N" : "S"}`, 0.0048);
+          }
+        }
+        // Flejes de la cadena @ 0.20m
+        for (let d = 0.15; d < len - 0.10; d += 0.20) {
+          const fx = p.horiz ? p.x1 + d : cx;
+          const fy = p.horiz ? cy : p.y1 + d;
+          const fw2 = p.horiz ? cadD : cadW;
+          rebar(fx, fy - cY, cadZ, p.horiz ? "y" : "x", fw2 - 2 * COVER, `Fleje Cad ${pi} N${lvl + 1} d=${f(d)}S`, 0.0032);
+          rebar(fx, fy + cY, cadZ, p.horiz ? "y" : "x", fw2 - 2 * COVER, `Fleje Cad ${pi} N${lvl + 1} d=${f(d)}N`, 0.0032);
         }
       }
+
+      // ── C. ZAPATAS: malla Ø3/8" @ 0.20 ambos sentidos (sólo nivel 0) ──
+      if (lvl === 0) {
+        const zapW = CONCRETE.footing.pad; // 1.10
+        const zapT = CONCRETE.footing.thickness; // 0.30
+        const meshCover = 0.05;
+        for (const [x, y] of nodes) {
+          // Barras en X (dirección del ancho)
+          for (let off = -zapW / 2 + meshCover; off <= zapW / 2 - meshCover + 0.01; off += 0.20) {
+            rebar(x, y + off, -1.50 + meshCover, "x", zapW - 2 * meshCover, `Malla Zap Ø3/8" X (${f(x)},${f(y)}) y=${f(off)}`, 0.0048);
+          }
+          // Barras en Y (dirección del fondo)
+          for (let off = -zapW / 2 + meshCover; off <= zapW / 2 - meshCover + 0.01; off += 0.20) {
+            rebar(x + off, y, -1.50 + meshCover + 0.05, "y", zapW - 2 * meshCover, `Malla Zap Ø3/8" Y (${f(x)},${f(y)}) x=${f(off)}`, 0.0048);
+          }
+          // 4Ø1/2" del pedestal que sube a NPT
+          for (const [dx, dy] of [[-0.08, -0.08], [0.08, -0.08], [-0.08, 0.08], [0.08, 0.08]] as Array<[number, number]>) {
+            rebar(x + dx, y + dy, -1.50 + zapT, "z", 1.50 - zapT, `Ø1/2" Pedestal (${f(x)},${f(y)})${dx > 0 ? "E" : "O"}${dy > 0 ? "N" : "S"}`, 0.0064);
+          }
+        }
+      }
+
+      // ── D. DINTELES sobre vanos: 2Ø3/8" abajo + 2Ø3/8" arriba ──
+      // Los dinteles ya existen como segmentos de muro (wallWithOpenings);
+      // aquí agregamos el ACERO dentro de ellos.
+      for (const d of doorsN.filter((x) => x.level === lvl)) {
+        const alongD = d.axis === "y";
+        const dl = d.width + 0.30; // longitud del dintel (vano + 15cm a cada lado)
+        const dcx = alongD ? d.x : d.x;
+        const dcy = alongD ? d.y : d.y;
+        rebar(dcx, dcy - 0.06, 2.10 - 0.25, alongD ? "x" : "y", dl, `Ø3/8" Dintel inf (${f(dcx)},${f(dcy)})`, 0.0048);
+        rebar(dcx, dcy + 0.06, 2.10 - 0.25, alongD ? "x" : "y", dl, `Ø3/8" Dintl sup (${f(dcx)},${f(dcy)})`, 0.0048);
+      }
+    }
+
+    // ── E. MORTERO DE ASIENTO bajo zapatas + impermeabilización contrapiso ──
+    if (lvl === 0 && system === "mamposteria_confinada") {
+      // Mortero de nivelación e=3cm bajo cada zapata
+      const morteroMat = "Mortero de nivelación 1:4 e=3cm";
+      for (const [x, y] of nodes) {
+        const s = solidBox(x, y, -1.53, CONCRETE.footing.pad + 0.10, CONCRETE.footing.pad + 0.10, 0.03, "x");
+        styled(s, morteroMat);
+        const prd = shapeRep(s, `MAS${x},${y}`);
+        const pl = ent(`MASPL:${x},${y}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+        const pp = id();
+        lines.push(`#${pp}= IFCCOVERING('${guid(`MAS${x},${y}`)}',#${owner},'Mortero de nivelación zapata (${f(x)},${f(y)}) e=3cm',$,$,#${pl},#${prd},$,.FOUNDATION.);`);
+        relAssoc(pp, material(morteroMat), `MASM${x},${y}`);
+        products.push(pp);
+      }
+      // Impermeabilización de la placa de contrapiso (película e=1.5mm)
+      const impermMat = "Impermeabilización asfáltica e=1.5mm";
+      const imp = solidBox(W / 2, D / 2, -0.10, W - 2 * te, D - 2 * te, 0.0015, "x");
+      styled(imp, impermMat);
+      const impPrd = shapeRep(imp, `IMP${z0}`);
+      const impPl = ent(`IMPPL:${z0}`, (n) => `#${n}= IFCLOCALPLACEMENT(#${storeyPlace},#${axisZ});`);
+      const impP = id();
+      lines.push(`#${impP}= IFCCOVERING('${guid(`IMP${lvl}`)}',#${owner},'Impermeabilización contrapiso e=1.5mm',$,$,#${impPl},#${impPrd},$,.MEMBRANE.);`);
+      relAssoc(impP, material(impermMat), `IMPM${lvl}`);
+      products.push(impP);
     }
 
     // ══ MAMPOSTERÍA CONFINADA "EN MASA" — DAL + PAÑETE como piezas IFC ══

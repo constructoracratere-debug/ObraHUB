@@ -281,16 +281,28 @@ const ifcMam = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPl
 const ifcBah = planToIfcFn(sanitizeFloorPlan({ ...rawPlan, structure: { ...rawPlan.structure, system: "bahareque_encamisado" } }));
 check("IFC materiales E.3: mampostería confinada → muros LADRILLO + cubierta TEJA + confinamiento CONCRETO", ifcMam.includes("IFCSURFACESTYLE('Ladrillo cerámico H-10'") && ifcMam.includes("IFCSURFACESTYLE('Teja de barro'") && !/Columna eje[^\n]*Madera/.test(ifcMam) && ifcMam.includes("IFCSURFACESTYLE('Concreto estructural 3000 PSI'"));
 check("IFC materiales E.4: bahareque encementado → diafragma de GUADUA + esterilla + arcilla (sin ladrillo ni madera aserrada)", ifcBah.includes("IFCSURFACESTYLE('Guadua angustifolia tratada'") && ifcBah.includes("Esterilla de guadua") && ifcBah.includes("arcilla") && !ifcBah.includes("IFCSURFACESTYLE('Ladrillo") && !/Columna eje[^\n]*Madera aserrada/.test(ifcBah));
-check("LIBRERÍA ESTRUCTURAL 3D × sistema (nivel Revit): F con perfil I + pletinas + pernos y riostras · C/E.3 con rebar · E.4 con guadua hueca · timber empernado", (() => {
+check("LIBRERÍA ESTRUCTURAL 3D × sistema: F con perfil I + pletinas + pernos y riostras · C/E.3 con rebar COMPLETO (flejes + cadena + malla zapata + dinteles) · E.4 con guadua hueca · timber empernado", (() => {
   const mk = (sys) => planToIfcFn(sanitizeFloorPlan({ ...rawPlan, levels: 1, structure: { ...rawPlan.structure, system: sys } }));
   const ac = mk("acero_estructural");
   const con = mk("concreto");
   const bah = mk("bahareque_encamisado");
   const mad = mk("madera");
-  return ac.includes("IFCISHAPEPROFILEDEF") && /Pletina 260x260 e=8/.test(ac) && /Perno A325 Ø5\/8 pletina/.test(ac) && ac.includes("Riostra L 2x2 A36")
-    && con.includes("IFCREINFORCINGBAR") && /Refuerzo Ø5\/8 Columna/.test(con)
-    && bah.includes("IFCCIRCLEHOLLOWPROFILEDEF") && /Montante guadua Ø10/.test(bah) && /Solera (inferior|superior) guadua/.test(bah) && /Riostra guadua diafragma/.test(bah)
-    && /Pletina nudo/.test(mad) && /Perno nudo/.test(mad);
+  const mam = mk("mamposteria_confinada");
+  return ac.includes("IFCISHAPEPROFILEDEF") && /Pletina 260x260 e=8/.test(ac) && ac.includes("Riostra L 2x2 A36")
+    && con.includes("IFCREINFORCINGBAR") && /Ø3\/8" Vert Col/.test(con)
+    && bah.includes("IFCCIRCLEHOLLOWPROFILEDEF") && /Montante guadua Ø10/.test(bah) && /Solera (inferior|superior) guadua/.test(bah)
+    && /Pletina nudo/.test(mad)
+    // MAMPOSTERÍA CONFINADA: paquete COMPLETO de acero
+    && /Ø3\/8" Vert Col/.test(mam)              // columnas: 4 barras vert
+    && /Fleje Ø1\/4" N Col/.test(mam)            // columnas: flejes individuales
+    && /Ø3\/8" Cadena/.test(mam)                 // cadenas: 4 barras long
+    && /Fleje Cad/.test(mam)                     // cadenas: flejes @0.20
+    && /Malla Zap Ø3\/8"/.test(mam)              // zapatas: malla ambos sentidos
+    && /Ø1\/2" Pedestal/.test(mam)               // zapatas: 4Ø1/2" pedestal
+    && /Ø3\/8" Dintel/.test(mam)                 // dinteles: 2Ø3/8" sobre vanos
+    && /Gancho 135°/.test(mam)                   // amarres 135° NSR-10
+    && /Mortero de nivelación/.test(mam)         // mortero bajo zapatas
+    && /Impermeabilización/.test(mam);           // impermeab. contrapiso
 })());
 check("anti-alucinación gama alta: 'acero estructural título F' → acero_estructural · 'timberframe' → madera", (() => {
   const norm = req(path.join(tmp, "design", "schema.js")).normalizeSystem;
