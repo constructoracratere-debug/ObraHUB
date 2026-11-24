@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { IfcAPI, IFCCOLUMN, IFCBEAM, IFCSLAB, IFCFOOTING, IFCWALLSTANDARDCASE, IFCWINDOW, IFCFURNISHINGELEMENT, IFCPLATE, IFCMEMBER } from "web-ifc";
+import { IfcAPI, IFCCOLUMN, IFCBEAM, IFCSLAB, IFCFOOTING, IFCWALLSTANDARDCASE, IFCWINDOW, IFCFURNISHINGELEMENT, IFCPLATE, IFCMEMBER, IFCDISCRETEACCESSORY, IFCBUILDINGELEMENTPART, IFCMECHANICALFASTENER, IFCREINFORCINGBAR, IFCCOVERING, IFCFLOWTERMINAL, IFCFLOWSEGMENT, IFCDISTRIBUTIONELEMENT } from "web-ifc";
 import type { FloorPlan } from "@/lib/design/schema";
 import { planToIfc } from "@/lib/design/ifc";
 import { mat3d, wallMatOf, roofMatOf, furnitureMatOf, type Mat3D } from "@/lib/design/materials3d";
@@ -17,12 +17,21 @@ type ViewMode = "realista" | "xray" | "estructura" | "instalaciones" | "ladrillo
 /** Clasifica una pieza por nombre/tipo — nuestros nombres son deterministas,
  *  así la categoría es exacta para TODOS los sistemas (E·C·F·madera). */
 const catOf = (tId: number, name: string): ParteCat => {
-  // Por TIPO de entidad IFC (más fiable que nombre):
-  // Columnas, vigas, zapatas, placas (pletinas), miembros (riostras) =
-  // ESTRUCTURA siempre.
-  if (tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING || tId === IFCPLATE || tId === IFCMEMBER) return "estructura";
-  // Muros = arquitectura (a menos que sean de contención — por nombre)
+  // Por TIPO de entidad IFC — TODO lo estructural, incluyendo los tipos que
+  // Revit/CivilCAD exportan masivamente (DiscreteAccessory = guaduas,
+  // BuildingElementPart = capas, Plate = pletinas, Member = riostras,
+  // MechanicalFastener = pernos, ReinforcingBar = acero de refuerzo):
+  if (tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING ||
+      tId === IFCPLATE || tId === IFCMEMBER ||
+      tId === IFCDISCRETEACCESSORY || tId === IFCBUILDINGELEMENTPART ||
+      tId === IFCMECHANICALFASTENER || tId === IFCREINFORCINGBAR) return "estructura";
+  // MEP: tuberías, aparatos, tableros
+  if (tId === IFCFLOWTERMINAL || tId === IFCFLOWSEGMENT || tId === IFCDISTRIBUTIONELEMENT) return "mep";
+  // Acabados / recubrimientos
+  if (tId === IFCCOVERING) return "arquitectura";
+  // Muros = arquitectura
   if (tId === IFCWALLSTANDARDCASE) return "arquitectura";
+  // Fallback por nombre (nuestros propios IFC tienen nombres deterministas)
   const n = name.toLowerCase();
   if (/pletina|perno|anclaje|refuerzo|riostra|cumbrera|cercha|zapata|pedestal|excavaci/.test(n)) return "estructura";
   if (/columna|poste|montante|viga|solera|pedrestal/.test(n)) return "estructura";
@@ -58,21 +67,30 @@ export function IfcLive({ plan, mode = "all" }: { plan: FloorPlan; mode?: "all" 
   const viewRef = useRef<ViewMode>(view);
   viewRef.current = view;
 
-  // Material 3D de una malla: tipo + nombre del elemento + sistema Título E
-  // del plan (mampostería E.3 → muros ladrillo + esqueleto CONCRETO;
-  // bahareque E.4 → guadua/encementado).
+  // Material 3D de una malla: tipo + nombre + sistema. Los tipos de
+  // Revit/CivilCAD (DiscreteAccessory, BuildingElementPart, etc.) se pintan
+  // por NOMBRE (contienen 'Guadua', 'Acero', 'Esterilla', etc.).
   const lookOf = (tId: number, name: string): Mat3D => {
     const levels = Math.max(1, plan.levels ?? 1);
     const system = plan.structure?.system ?? "concreto";
     // Muros = mampostería o bahareque según sistema
     if (tId === IFCWALLSTANDARDCASE) return mat3d(wallMatOf(system, /interior|divisi/i.test(name) ? "int" : "ext"));
-    // Columnas/vigas de CONFINAMIENTO (E.3) o pórtico = CONCRETO siempre
+    // Columnas/vigas/zapatas de CONFINAMIENTO o pórtico = CONCRETO
     if (tId === IFCCOLUMN || tId === IFCBEAM || tId === IFCFOOTING) return mat3d(MATERIALS.concreto);
-    // Acero estructural (Título F): perfil I, pletinas, pernos, riostras
-    if (tId === IFCPLATE || tId === IFCMEMBER) return mat3d(MATERIALS.acero);
+    // Acero estructural: pletinas, riostras, pernos, refuerzo
+    if (tId === IFCPLATE || tId === IFCMEMBER || tId === IFCMECHANICALFASTENER || tId === IFCREINFORCINGBAR) return mat3d(MATERIALS.acero);
+    // Ventanas = vidrio
     if (tId === IFCWINDOW) return mat3d(MATERIALS.vidrio);
+    // Mobiliario
     if (tId === IFCFURNISHINGELEMENT) return mat3d(furnitureMatOf(name));
-    if (tId === IFCSLAB && new RegExp(`Losa N${levels} `).test(name)) return mat3d(roofMatOf(system)); // cubierta
+    // Cubierta
+    if (tId === IFCSLAB && new RegExp(`Losa N${levels} `).test(name)) return mat3d(roofMatOf(system));
+    // DiscreteAccessory / BuildingElementPart / FlowTerminal / Covering:
+    // pintar por NOMBRE (Revit asigna materiales descriptivos como
+    // 'Guadua angustifolia', 'Acero', 'Esterilla', 'Grout', etc.)
+    if (tId === IFCDISCRETEACCESSORY || tId === IFCBUILDINGELEMENTPART || tId === IFCFLOWTERMINAL || tId === IFCCOVERING || tId === IFCFLOWSEGMENT || tId === IFCDISTRIBUTIONELEMENT) {
+      return mat3d(name); // mat3d busca keywords: guadua→guadua, acero→acero, esterilla→tierra...
+    }
     // Aparatos MEP a la vista: porcelana y metal antes que el color de red.
     if (/Inodoro|Lavamanos|Ducha|Lavaplatos/.test(name)) return mat3d("Porcelana sanitaria");
     if (/Calentador|Lavadero/.test(name)) return mat3d("Metal electrodoméstico");

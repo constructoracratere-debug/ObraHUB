@@ -73,6 +73,21 @@ import {
   IFCSPACE,
   IFCCURTAINWALL,
   IFCBUILDINGELEMENTPROXY,
+  // ── Elementos que los visores de Revit/CivilCAD usan MASIVAMENTE y que
+  //    nuestro visor NO rastreaba (277 de 307 elementos perdidos en el IFC
+  //    de Umbral Tibabuyes — guadua, conectores, pletinas, pernos):
+  IFCDISCRETEACCESSORY,     // 126 en el IFC de Revit — guaduas, conectores
+  IFCBUILDINGELEMENTPART,   // 48 — capas de muro, esterilla, grout
+  IFCPLATE,                 // 27 — pletinas, placas de unión
+  IFCMECHANICALFASTENER,    // 63 — pernos, tornillos, anclajes
+  IFCMEMBER,                // 9 — riostras, viguetas, correas
+  IFCREINFORCINGBAR,        // barras de refuerzo (si Revit las exporta)
+  IFCCHIMNEY,               // ductos de ventilación
+  IFCCOVERING,              // acabados, recubrimientos
+  IFCFLOWTERMINAL,          // aparatos sanitarios, grifería
+  IFCFLOWSEGMENT,           // tuberías
+  IFCDISTRIBUTIONELEMENT,   // tableros, cajas eléctricas
+  IFCFURNISHINGELEMENT,     // mobiliario
   IFCQUANTITYAREA,
   IFCQUANTITYVOLUME,
   IFCQUANTITYLENGTH,
@@ -94,6 +109,18 @@ const ELEMENT_TYPE_MAP: Record<string, number[]> = {
   IfcSpace: [IFCSPACE],
   IfcCurtainWall: [IFCCURTAINWALL],
   IfcBuildingElementProxy: [IFCBUILDINGELEMENTPROXY],
+  // ── NUEVOS: los elementos que Revit/CivilCAD exportan masivamente ──
+  IfcDiscreteAccessory: [IFCDISCRETEACCESSORY],
+  IfcBuildingElementPart: [IFCBUILDINGELEMENTPART],
+  IfcPlate: [IFCPLATE],
+  IfcMechanicalFastener: [IFCMECHANICALFASTENER],
+  IfcMember: [IFCMEMBER],
+  IfcReinforcingBar: [typeof IFCREINFORCINGBAR !== "undefined" ? IFCREINFORCINGBAR : 0].filter(Boolean),
+  IfcCovering: [typeof IFCCOVERING !== "undefined" ? IFCCOVERING : 0].filter(Boolean),
+  IfcFlowTerminal: [typeof IFCFLOWTERMINAL !== "undefined" ? IFCFLOWTERMINAL : 0].filter(Boolean),
+  IfcFlowSegment: [typeof IFCFLOWSEGMENT !== "undefined" ? IFCFLOWSEGMENT : 0].filter(Boolean),
+  IfcDistributionElement: [typeof IFCDISTRIBUTIONELEMENT !== "undefined" ? IFCDISTRIBUTIONELEMENT : 0].filter(Boolean),
+  IfcFurnishingElement: [typeof IFCFURNISHINGELEMENT !== "undefined" ? IFCFURNISHINGELEMENT : 0].filter(Boolean),
 };
 
 /** Reverse lookup: numeric type ID → friendly class name. */
