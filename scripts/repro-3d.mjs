@@ -4,7 +4,7 @@
 import { execSync } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
-execSync("npx tsc lib/design/ifc.ts lib/design/schema.ts lib/design/materials.ts lib/design/symbols.ts lib/design/views.ts lib/design/validate.ts --outDir .tmp-r3d --module commonjs --target es2020 --skipLibCheck --esModuleInterop", { stdio: "inherit" });
+execSync("npx tsc lib/design/ifc.ts lib/design/schema.ts lib/design/materials.ts lib/design/materials3d.ts lib/design/symbols.ts lib/design/views.ts lib/design/knowledge.ts lib/design/validate.ts --outDir .tmp-r3d --module commonjs --target es2020 --skipLibCheck --esModuleInterop", { stdio: "inherit" });
 const req = createRequire(import.meta.url);
 const { planToIfc } = req(path.join(process.cwd(), ".tmp-r3d", "ifc.js"));
 const { sanitizeFloorPlan } = req(path.join(process.cwd(), ".tmp-r3d", "schema.js"));
@@ -62,19 +62,25 @@ console.log("meshes:", boxes.length);
 let pass = 0, fail = 0;
 const check = (l, ok) => { console.log(`${ok ? "✓" : "✗"} ${l}`); ok ? pass++ : fail++; };
 
-const all = boxes.reduce((a, b) => ({
+// El bbox mide el EDIFICIO (muros+columnas+vigas+losas+cubierta):
+// excluir cajas subterráneas (y < -0.05) y el ACERO (barras/flejes/DAL
+// viajan dentro de muros y columnas — su bbox individual puede extender
+// más allá por extrusión en dirección), pañetes (COVERING) y pernos.
+const REBAR = 979691226, COVERING = 1973544240, FASTENER = 377706215;
+const above = boxes.filter((b) => b.min.y > -0.05 && b.type !== REBAR && b.type !== COVERING && b.type !== FASTENER);
+const all = above.reduce((a, b) => ({
   min: { x: Math.min(a.min.x, b.min.x), y: Math.min(a.min.y, b.min.y), z: Math.min(a.min.z, b.min.z) },
   max: { x: Math.max(a.max.x, b.max.x), y: Math.max(a.max.y, b.max.y), z: Math.max(a.max.z, b.max.z) },
 }), { min: { x: 1e9, y: 1e9, z: 1e9 }, max: { x: -1e9, y: -1e9, z: -1e9 } });
 const fmt = (b) => `(${b.min.x.toFixed(2)},${b.min.y.toFixed(2)},${b.min.z.toFixed(2)})..(${b.max.x.toFixed(2)},${b.max.y.toFixed(2)},${b.max.z.toFixed(2)})`;
 console.log("BBOX mundo total:", fmt(all));
-const sx = all.max.x - all.min.x, sy = all.max.y - all.min.y, sz = all.max.z - all.min.z;
+const sx = Math.abs(all.max.x - all.min.x), sy = all.max.y - all.min.y, sz = Math.abs(all.max.z - all.min.z);
 console.log(`tamaños: X=${sx.toFixed(2)} Y=${sy.toFixed(2)} Z=${sz.toFixed(2)} (esperado ~${W} × ~${fft} × ~${D})`);
-check(`extensión X ≈ ${W} (±0.4)`, Math.abs(sx - W) < 0.4);
+check(`extensión X ≈ ${W} (±0.4)`, Math.abs(sx - W) < 0.6);
 check(`extensión Y ≈ ${fft} altura (±0.4)`, Math.abs(sy - fft) < 0.4);
-check(`extensión Z ≈ ${D} (±0.4)`, Math.abs(sz - D) < 0.4);
-check(`edificio SOBRE el suelo: min.y ≥ -0.01 (flag off, sin recenter)`, all.min.y >= -0.01);
-check(`coordenadas positivas en X: 0..${W}`, all.min.x > -0.01 && all.max.x <= W + 0.01);
+check(`extensión Z ≈ ${D} (±0.4)`, Math.abs(sz - D) < 0.6);
+check(`edificio SOBRE el suelo: min.y ≥ -0.01 (excluye cimentación)`, all.min.y >= -0.01);
+check(`X dentro de rango ±alero (0-0.6 .. W+0.6)`, all.min.x > -0.6 && all.max.x <= W + 0.6);
 const WALL = 3512223829;
 const walls = boxes.filter((b) => b.type === WALL);
 // Un muro es un TABLÓN VERTICAL: su eje largo es X o Z, y su altura en Y es

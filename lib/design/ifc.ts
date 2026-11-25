@@ -641,8 +641,9 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
         }
       }
 
-      // ── C. ZAPATAS: malla Ø3/8" @ 0.20 ambos sentidos (sólo nivel 0) ──
-      if (lvl === 0) {
+      // ── C. ZAPATAS: malla Ø3/8" @ 0.20 ambos sentidos (sólo nivel 0 Y
+      //    con fundaciones — includeFoundations: false las excluye) ──
+      if (lvl === 0 && FOUND) {
         const zapW = CONCRETE.footing.pad; // 1.10
         const zapT = CONCRETE.footing.thickness; // 0.30
         const meshCover = 0.05;
@@ -676,7 +677,7 @@ export function planToIfc(plan: FloorPlan, opts: { includeFoundations?: boolean 
     }
 
     // ── E. MORTERO DE ASIENTO bajo zapatas + impermeabilización contrapiso ──
-    if (lvl === 0 && system === "mamposteria_confinada") {
+    if (lvl === 0 && system === "mamposteria_confinada" && FOUND) {
       // Mortero de nivelación e=3cm bajo cada zapata
       const morteroMat = "Mortero de nivelación 1:4 e=3cm";
       for (const [x, y] of nodes) {
