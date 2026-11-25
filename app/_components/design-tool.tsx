@@ -89,10 +89,18 @@ const STAGES: Array<{ n: Stage; title: string; agent: string; icon: string }> = 
   { n: 7, title: "Revisión Final", agent: "Mesa — verificación y BORRADOR OFICIAL", icon: "📋" },
 ];
 
-const EXAMPLES = [
-  "Apartamento 2 alcobas de 58 m² en Bogotá, 1 baño y balcón",
-  "Casa unifamiliar 1 piso, 3 habitaciones (1 principal), 2 baños, 92 m² en Medellín",
-  "Vivienda guadua 2 pisos en el Eje Cafetero, 3 alcobas, 80 m²",
+/** Ejemplos de encargo — 100% mampostería confinada NSR-10 Título E
+ *  (Skill 1): sólo 1 o 2 pisos, con programas ricos y realistas para que
+ *  el arquitecto arranque con el MÁXIMO detalle desde el primer clic. */
+const EXAMPLES_SKILL1 = [
+  // ── 1 PISO ──
+  "Casa rural 1 piso en mampostería confinada: sala-comedor 4×3.5 con ventana de piso a techo al norte, cocina abierta 3×2.5 con barra, 3 alcobas (principal 3.5×3 con baño privado), baño social, patio de ropas, lote 12×15",
+  "Vivienda VIS 1 piso 60 m² en mampostería confinada: sala-comedor integrado con cocina, 2 alcobas, 1 baño, ventilación cruzada en sala, lote 8×10, teja de barro",
+  "Casa de campo 1 piso en mampostería confinada con porchada: sala 4×4 con doble altura, comedor separado, cocina con despensa, 2 alcobas amplias, baño, terraza cubierta al oriente, lote 15×18",
+  // ── 2 PISOS ──
+  "Casa familiar 2 pisos en mampostería confinada: N1 sala-comedor 4×3.5 con ventanal norte, cocina abierta, baño social y garaje; N2 3 alcobas (principal con baño y walk-in), baño compartido, escalera recta de 14 gradas, lote 10×12",
+  "Vivienda 2 pisos en mampostería confinada para zona cafetera: N1 sala con chimenea, cocina-comedor abierto con patio de aire central, baño; N2 3 alcobas, baño principal con ducha, balcon hacia occidente, lote 12×14",
+  "Casa 2 pisos en mampostería confinada con locales comerciales: N1 local 4×6 con baño + acceso independiente + escalera interna; N2 apartamento 2 alcobas con cocina y baño, lote 8×12 esquina",
 ];
 
 // SHA del build (inyectado en build-time). Visible en el stepper: con una
@@ -1261,17 +1269,21 @@ function StagePanel(props: {
             value={props.prompt}
             onChange={(e) => props.setPrompt(e.target.value)}
             rows={4}
-            placeholder="Describe el proyecto: m², habitaciones, pisos, estilo…"
+            placeholder="Describe tu casa en mampostería confinada (NSR-10 Título E): 1 o 2 pisos, alcobas, baños, espacios sociales…"
             className="mt-1 w-full resize-none rounded-lg border border-white/10 bg-[#0a1120] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-blue-500/50 focus:outline-none"
           />
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {EXAMPLES.map((ex) => (
+            {EXAMPLES_SKILL1.map((ex) => (
               <button key={ex} type="button" onClick={() => props.setPrompt(ex)}
-                className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[10px] text-slate-400 transition hover:bg-white/[0.1] hover:text-slate-200">
-                {ex.slice(0, 38)}…
+                title={ex}
+                className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[10px] text-slate-400 transition hover:bg-emerald-500/15 hover:text-emerald-200">
+                {ex.length > 48 ? ex.slice(0, 48) + "…" : ex}
               </button>
             ))}
           </div>
+          <p className="mt-1.5 text-[9px] text-slate-600">
+            Todos los ejemplos son mampostería confinada NSR-10 Título E (1 o 2 pisos) — cambia la distribución de espacios a tu gusto.
+          </p>
           <RunButton onClick={onRun} running={running} label="Investigar sitio (POT, clima, materiales)" />
         </>
       )}
